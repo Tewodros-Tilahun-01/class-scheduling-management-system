@@ -1,3 +1,4 @@
+import { DataTableDemo } from "@/components/BasicUi/DataTableDemo";
 import StateCard from "@/components/BasicUi/StateCard";
 import { Users, BookOpen, GraduationCap, User } from "lucide-react";
 
@@ -24,6 +25,12 @@ function Main({ className }) {
       value: 32,
     },
   ];
+  const data = [
+    { id: 1, name: "John Doe", email: "john.doe@example.com" },
+    { id: 2, name: "Jane Smith", email: "jane.smith@example.com" },
+    { id: 3, name: "Alice Johnson", email: "alice.johnson@example.com" },
+    { id: 4, name: "Bob Williams", email: "bob.williams@example.com" },
+  ];
 
   return (
     <div className={`${className}`}>
@@ -36,6 +43,7 @@ function Main({ className }) {
           );
         })}
       </ul>
+      <DataTableDemo />
     </div>
   );
 }
