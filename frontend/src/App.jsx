@@ -1,5 +1,3 @@
-import React from "react";
-
 import DashBoard from "./components/pages/DashBoard/DashBoard";
 import { MenuProvider } from "./components/hooks/MenuProvider";
 
