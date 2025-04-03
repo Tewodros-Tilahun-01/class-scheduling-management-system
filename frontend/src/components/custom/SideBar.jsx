@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import SideBarList from "../../BasicUi/SideBarCard";
+import SideBarCard from "./SideBarCard";
 import {
   Bolt,
   Home,
@@ -10,13 +10,13 @@ import {
   LogOut,
 } from "lucide-react";
 import clsx from "clsx";
-import { MenuContext } from "@/components/hooks/MenuProvider";
+import { MenuContext } from "@/hooks/MenuProvider";
 
 function SideBar({ className }) {
   const { toggleMenu, isOpen } = useContext(MenuContext);
   const menus = [
     {
-      link: "/dashboard",
+      link: "/",
       text: "DashBoard",
       icon: <Home size={24} />,
     },
@@ -61,7 +61,7 @@ function SideBar({ className }) {
         {menus.map((menu) => {
           return (
             <li key={menu.text}>
-              <SideBarList menu={menu} />
+              <SideBarCard menu={menu} />
             </li>
           );
         })}

@@ -1,10 +1,17 @@
-import DashBoard from "./components/pages/DashBoard/DashBoard";
-import { MenuProvider } from "./components/hooks/MenuProvider";
+import DashBoard from "./pages/DashBoard";
+import { MenuProvider } from "./hooks/MenuProvider";
 
+import { createBrowserRouter, RouterProvider } from "react-router";
+let router = createBrowserRouter([
+  {
+    path: "/",
+    Component: DashBoard,
+  },
+]);
 function App() {
   return (
     <MenuProvider>
-      <DashBoard />
+      <RouterProvider router={router} />
     </MenuProvider>
   );
 }

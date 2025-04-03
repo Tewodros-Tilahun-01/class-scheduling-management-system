@@ -1,12 +1,10 @@
-
-import { DataTableDemo } from "@/components/BasicUi/DataTableDemo";
-import StateCard from "@/components/BasicUi/StateCard";
+import { DataTableDemo } from "@/components/custom/DataTableDemo";
+import StateCard from "@/components/custom/StateCard";
 import { Users, BookOpen, GraduationCap, User } from "lucide-react";
-import Header from "./Header";
+import Header from "../components/custom/Header";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
-function Main(props) {
-  const { className } = props;
-
+function DashBoard() {
   const stats = [
     {
       icon: <User className="text-green-500" size={30} />,
@@ -36,11 +34,10 @@ function Main(props) {
     { id: 3, name: "Alice Johnson", email: "alice.johnson@example.com" },
     { id: 4, name: "Bob Williams", email: "bob.williams@example.com" },
   ];
-
   return (
-    <div>
-      <Header className="bg-gray-100 px-14 py-8" />
-      <div className={className}>
+    <DashboardLayout>
+      <div className="bg-gray-100 px-14">
+        <Header className="bg-gray-100 px-14 py-8" />
         <ul className="w-full bg-white flex gap-6 px-4 py-6 rounded-md shadow-sm">
           {stats.map((state) => (
             <li key={state.label} className="flex-1">
@@ -50,8 +47,8 @@ function Main(props) {
         </ul>
         <DataTableDemo />
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 
-export default Main;
+export default DashBoard;
