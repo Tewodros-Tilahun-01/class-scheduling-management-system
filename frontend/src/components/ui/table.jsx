@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +18,21 @@ const TableHeader = React.forwardRef(({ className, ...props }, ref) => (
 TableHeader.displayName = "TableHeader";
 
 const TableBody = React.forwardRef(({ className, ...props }, ref) => (
-  <tbody ref={ref} className={cn("border-b last:border-0", className)} {...props} />
+  <tbody
+    ref={ref}
+    className={cn("border-b last:border-0", className)}
+    {...props}
+  />
 ));
 TableBody.displayName = "TableBody";
 
 const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
-    className={cn("border-t bg-muted/50 font-medium last:border-b-0", className)}
+    className={cn(
+      "border-t bg-muted/50 font-medium last:border-b-0",
+      className
+    )}
     {...props}
   />
 ));
@@ -57,11 +63,7 @@ const TableHead = React.forwardRef(({ className, ...props }, ref) => (
 TableHead.displayName = "TableHead";
 
 const TableCell = React.forwardRef(({ className, ...props }, ref) => (
-  <td
-    ref={ref}
-    className={cn("p-4 align-middle", className)}
-    {...props}
-  />
+  <td ref={ref} className={cn("p-4 align-middle", className)} {...props} />
 ));
 TableCell.displayName = "TableCell";
 
