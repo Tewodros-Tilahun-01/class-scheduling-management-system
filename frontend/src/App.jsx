@@ -3,6 +3,7 @@ import { MenuProvider } from "./hooks/MenuProvider";
 
 import { createBrowserRouter, RouterProvider } from "react-router";
 import Lectures from "./pages/Lectures";
+import course from "./pages/Course";
 let router = createBrowserRouter([
   {
     path: "/",
@@ -11,6 +12,10 @@ let router = createBrowserRouter([
   {
     path: "lectures",
     Component: Lectures,
+  },
+  {
+    path: "course",
+    Component: course,
   },
 ]);
 function App() {

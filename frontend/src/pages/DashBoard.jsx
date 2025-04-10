@@ -1,7 +1,5 @@
-import { DataTableDemo } from "@/components/custom/DataTableDemo";
 import StateCard from "@/components/custom/StateCard";
 import { Users, BookOpen, GraduationCap, User } from "lucide-react";
-import Header from "../components/custom/Header";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 function DashBoard() {
@@ -28,16 +26,9 @@ function DashBoard() {
     },
   ];
 
-  const data = [
-    { id: 1, name: "John Doe", email: "john.doe@example.com" },
-    { id: 2, name: "Jane Smith", email: "jane.smith@example.com" },
-    { id: 3, name: "Alice Johnson", email: "alice.johnson@example.com" },
-    { id: 4, name: "Bob Williams", email: "bob.williams@example.com" },
-  ];
   return (
     <DashboardLayout>
-      <div className="bg-gray-100 px-14">
-        <Header className="bg-gray-100 px-14 py-8" />
+      <div className="px-14">
         <ul className="w-full bg-white flex gap-6 px-4 py-6 rounded-md shadow-sm">
           {stats.map((state) => (
             <li key={state.label} className="flex-1">
@@ -45,7 +36,6 @@ function DashBoard() {
             </li>
           ))}
         </ul>
-        <DataTableDemo />
       </div>
     </DashboardLayout>
   );

@@ -4,7 +4,7 @@ import React from "react";
 function Lectures() {
   return (
     <DashboardLayout>
-      <div>Lectures</div>;
+      <div>Lectures</div>
     </DashboardLayout>
   );
 }
