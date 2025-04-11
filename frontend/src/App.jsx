@@ -4,6 +4,7 @@ import { MenuProvider } from "./hooks/MenuProvider";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import Lectures from "./pages/Lectures";
 import course from "./pages/Course";
+import Activity from "./pages/Activity";
 let router = createBrowserRouter([
   {
     path: "/",
@@ -16,6 +17,10 @@ let router = createBrowserRouter([
   {
     path: "course",
     Component: course,
+  },
+  {
+    path: "activity",
+    Component: Activity,
   },
 ]);
 function App() {
