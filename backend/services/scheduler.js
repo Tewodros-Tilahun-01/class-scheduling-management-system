@@ -2,9 +2,12 @@ const Activity = require("../models/Activity");
 const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
+const Course = require("../models/Course");
+const Instructor = require("../models/Instructor");
 
 async function generateSchedule(semester) {
   const activities = await Activity.find().populate("course instructor");
+
   const rooms = await Room.find();
   const timeslots = await Timeslot.find().sort({ preferenceScore: -1 });
 

@@ -1,6 +1,7 @@
 import StateCard from "@/components/custom/StateCard";
 import { Users, BookOpen, GraduationCap, User } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import ScheduleTable from "@/components/custom/ScheduleTable";
 
 function DashBoard() {
   const stats = [
@@ -37,6 +38,7 @@ function DashBoard() {
           ))}
         </ul>
       </div>
+      <ScheduleTable />
     </DashboardLayout>
   );
 }

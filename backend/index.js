@@ -1,9 +1,9 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
+
 const connectDB = require("./config/db");
 // const courseRoutes = require("./routes/course");
-// const scheduleRoutes = require("./routes/schedule");
+const scheduleRoutes = require("./routes/schedule");
 // const activityRoutes = require("./routes/activity");
 // const instructorRoutes = require("./routes/instructor");
 
@@ -13,11 +13,11 @@ const app = express();
 connectDB();
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// // Routes
+// Routes
 // app.use("/api/courses", courseRoutes);
-// app.use("/api/schedule", scheduleRoutes);
+app.use("/api/schedule", scheduleRoutes);
 // app.use("/api/activities", activityRoutes);
 // app.use("/api/instructors", instructorRoutes);
 

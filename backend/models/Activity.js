@@ -5,10 +5,7 @@ const ActivitySchema = new mongoose.Schema({
   instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor" },
   duration: Number,
   studentGroup: String,
-  roomRequirement: {
-    type: String,
-    required: false,
-  },
+  roomRequirement: { type: String },
 });
 
 module.exports = mongoose.model("Activity", ActivitySchema);
