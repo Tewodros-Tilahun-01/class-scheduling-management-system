@@ -5,9 +5,11 @@ const Schedule = require("../models/Schedule");
 
 router.post("/generate", async (req, res) => {
   try {
-    console.log(req.body);
-    const schedule = await generateSchedule(req.body.semester);
-    console.log(schedule);
+    const { semester } = req.body;
+    if (!semester) {
+      return res.status(400).json({ error: "Semester is required" });
+    }
+    const schedule = await generateSchedule(semester);
     res.json(schedule);
   } catch (err) {
     res.status(500).json({ error: err.message });

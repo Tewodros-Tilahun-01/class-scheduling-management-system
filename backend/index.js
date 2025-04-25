@@ -2,10 +2,9 @@ const express = require("express");
 const cors = require("cors");
 
 const connectDB = require("./config/db");
-// const courseRoutes = require("./routes/course");
 const scheduleRoutes = require("./routes/schedule");
-// const activityRoutes = require("./routes/activity");
-// const instructorRoutes = require("./routes/instructor");
+const dataRoutes = require("./routes/data");
+const activity = require("./routes/activity");
 
 const app = express();
 
@@ -16,10 +15,9 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-// app.use("/api/courses", courseRoutes);
+app.use("/api/data", dataRoutes);
+app.use("/api/activity", activity);
 app.use("/api/schedule", scheduleRoutes);
-// app.use("/api/activities", activityRoutes);
-// app.use("/api/instructors", instructorRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
