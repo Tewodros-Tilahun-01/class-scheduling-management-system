@@ -1,0 +1,369 @@
+import React, { useState, useEffect } from "react";
+import {
+  fetchCourses,
+  fetchInstructors,
+  fetchRoomTypes,
+  addActivity,
+  fetchActivities,
+  fetchStudentGroups,
+} from "@/services/api";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+const ActivityScheduler = () => {
+  const [courses, setCourses] = useState([]);
+  const [instructors, setInstructors] = useState([]);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [studentGroups, setStudentGroups] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [activityForm, setActivityForm] = useState({
+    courseId: "",
+    instructorId: "",
+    duration: "",
+    studentGroup: "",
+    roomRequirement: "",
+    frequencyPerWeek: "1",
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [
+          coursesData,
+          instructorsData,
+          roomTypesData,
+          activitiesData,
+          studentGroupsData,
+        ] = await Promise.all([
+          fetchCourses(),
+          fetchInstructors(),
+          fetchRoomTypes(),
+          fetchActivities().catch(() => []),
+          fetchStudentGroups().catch(() => []),
+        ]);
+
+        setCourses(Array.isArray(coursesData) ? coursesData : []);
+        setInstructors(Array.isArray(instructorsData) ? instructorsData : []);
+        setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
+        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
+        setStudentGroups(
+          Array.isArray(studentGroupsData) ? studentGroupsData : []
+        );
+        setLoading(false);
+      } catch (err) {
+        setError(
+          err.response?.data?.error ||
+            err.message ||
+            "Failed to fetch data. Ensure backend is running at http://localhost:5000"
+        );
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleActivityChange = (name, value) => {
+    setActivityForm({ ...activityForm, [name]: value });
+  };
+
+  const handleAddActivity = async (e) => {
+    e.preventDefault();
+    if (
+      !activityForm.courseId ||
+      !activityForm.instructorId ||
+      !activityForm.duration ||
+      !activityForm.studentGroup ||
+      !activityForm.frequencyPerWeek
+    ) {
+      alert("Please fill all required fields");
+      return;
+    }
+    try {
+      await addActivity({
+        ...activityForm,
+        duration: Number(activityForm.duration),
+        frequencyPerWeek: Number(activityForm.frequencyPerWeek),
+      });
+      alert("Activity added successfully!");
+      try {
+        const activitiesData = await fetchActivities();
+        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
+      } catch (err) {
+        setActivities([]);
+      }
+      setActivityForm({
+        courseId: "",
+        instructorId: "",
+        duration: "",
+        studentGroup: "",
+        roomRequirement: "",
+        frequencyPerWeek: "1",
+      });
+    } catch (err) {
+      alert(`Error: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
+  const renderActivityRow = (activity, index) => (
+    <TableRow key={index}>
+      <TableCell>
+        {activity.course?.code
+          ? `${activity.course.code} - ${activity.course.name}`
+          : "N/A"}
+      </TableCell>
+      <TableCell>{activity.instructor?.name || "N/A"}</TableCell>
+      <TableCell>{activity.studentGroup || "N/A"}</TableCell>
+      <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
+      <TableCell>{activity.duration || "N/A"}</TableCell>
+      <TableCell>{activity.frequencyPerWeek || "N/A"}</TableCell>
+    </TableRow>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            fetchData();
+          }}
+          className="mt-4"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-8">
+      {/* Activity Creation Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddActivity} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="courseId">Course</Label>
+                <Select
+                  name="courseId"
+                  value={activityForm.courseId}
+                  onValueChange={(value) =>
+                    handleActivityChange("courseId", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(courses) && courses.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No courses available
+                      </SelectItem>
+                    ) : (
+                      courses.map((course) => (
+                        <SelectItem key={course._id} value={course._id}>
+                          {course.code} - {course.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="instructorId">Instructor</Label>
+                <Select
+                  name="instructorId"
+                  value={activityForm.instructorId}
+                  onValueChange={(value) =>
+                    handleActivityChange("instructorId", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Instructor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(instructors) && instructors.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No instructors available
+                      </SelectItem>
+                    ) : (
+                      instructors.map((instructor) => (
+                        <SelectItem key={instructor._id} value={instructor._id}>
+                          {instructor.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (hours)</Label>
+                <Input
+                  type="number"
+                  name="duration"
+                  value={activityForm.duration}
+                  onChange={(e) =>
+                    handleActivityChange("duration", e.target.value)
+                  }
+                  min="1"
+                  step="1"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="studentGroup">Student Group</Label>
+                <Select
+                  name="studentGroup"
+                  value={activityForm.studentGroup}
+                  onValueChange={(value) =>
+                    handleActivityChange("studentGroup", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Student Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(studentGroups) &&
+                    studentGroups.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No student groups available
+                      </SelectItem>
+                    ) : (
+                      studentGroups.map((group) => (
+                        <SelectItem
+                          key={group._id}
+                          value={`${group.department}-${group.year}-${group.section}`}
+                        >
+                          {`${group.department} Year ${group.year} Section ${group.section}`}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="roomRequirement">Room Requirement</Label>
+                <Select
+                  name="roomRequirement"
+                  value={activityForm.roomRequirement}
+                  onValueChange={(value) =>
+                    handleActivityChange("roomRequirement", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Room Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(roomTypes) && roomTypes.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No room types available
+                      </SelectItem>
+                    ) : (
+                      roomTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="frequencyPerWeek">Frequency Per Week</Label>
+                <Input
+                  type="number"
+                  name="frequencyPerWeek"
+                  value={activityForm.frequencyPerWeek}
+                  onChange={(e) =>
+                    handleActivityChange("frequencyPerWeek", e.target.value)
+                  }
+                  min="1"
+                  step="1"
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full md:w-auto">
+              Add Activity
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Display Added Activities */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Added Activities</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activities && activities.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Instructor</TableHead>
+                  <TableHead>Student Group</TableHead>
+                  <TableHead>Room Requirement</TableHead>
+                  <TableHead>Duration (hours)</TableHead>
+                  <TableHead>Frequency Per Week</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activities.map((activity, index) =>
+                  renderActivityRow(activity, index)
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-muted-foreground">No activities added yet.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default ActivityScheduler;

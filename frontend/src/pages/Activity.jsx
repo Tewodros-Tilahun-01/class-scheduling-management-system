@@ -1,11 +1,13 @@
-import ScheduleForm from "@/components/custom/ScheduleForm";
+import ActivityScheduler from "@/components/custom/ActivityScheduler";
+import DashboardLayout from "@/layouts/DashboardLayout";
 import React from "react";
 
 function Activity() {
   return (
     <div>
-      Activity
-      <ScheduleForm />
+      <DashboardLayout>
+        <ActivityScheduler />
+      </DashboardLayout>
     </div>
   );
 }

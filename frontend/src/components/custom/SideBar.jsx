@@ -5,10 +5,10 @@ import {
   Home,
   Book,
   DoorOpen,
-  Users,
   HelpCircle,
   LogOut,
   BookAIcon,
+  SquareChevronDown,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";
@@ -33,10 +33,17 @@ function SideBar({ className }) {
     },
     { link: "/course", text: "course", icon: <BookAIcon size={24} /> },
     {
-      link: "/help",
-      text: "Help",
-      icon: <HelpCircle size={24} />,
+      link: "/activity",
+      text: "activity",
+      icon: <SquareChevronDown size={24} />,
     },
+
+    {
+      link: "/student-group",
+      text: "student group",
+      icon: <SquareChevronDown size={24} />,
+    },
+
     {
       link: "/logout",
       text: "Logout",

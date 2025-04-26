@@ -5,6 +5,7 @@ const connectDB = require("./config/db");
 const scheduleRoutes = require("./routes/schedule");
 const dataRoutes = require("./routes/data");
 const activity = require("./routes/activity");
+const studentGroup = require("./routes/studentGroup");
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use("/api/student-groups", studentGroup);
 app.use("/api/data", dataRoutes);
 app.use("/api/activity", activity);
 app.use("/api/schedule", scheduleRoutes);
