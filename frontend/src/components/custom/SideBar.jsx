@@ -33,14 +33,13 @@ function SideBar({ className }) {
     },
     { link: "/course", text: "course", icon: <BookAIcon size={24} /> },
     {
-      link: "/activity",
-      text: "activity",
-      icon: <SquareChevronDown size={24} />,
-    },
-
-    {
       link: "/student-group",
       text: "student group",
+      icon: <SquareChevronDown size={24} />,
+    },
+    {
+      link: "/activity",
+      text: "activity",
       icon: <SquareChevronDown size={24} />,
     },
 

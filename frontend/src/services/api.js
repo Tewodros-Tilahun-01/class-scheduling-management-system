@@ -26,12 +26,12 @@ export const fetchRoomTypes = async () => {
 };
 
 export const addActivity = async (activityData) => {
-  const response = await api.post("/activities", activityData);
+  const response = await api.post("/activity", activityData);
   return response.data;
 };
 
 export const fetchActivities = async () => {
-  const response = await api.get("/activities");
+  const response = await api.get("/activity");
   return response.data;
 };
 

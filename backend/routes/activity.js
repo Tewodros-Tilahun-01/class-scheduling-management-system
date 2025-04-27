@@ -17,12 +17,10 @@ router.post("/", async (req, res) => {
 
     // Validate required fields
     if (!courseId || !instructorId || !duration || !studentGroup) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "courseId, instructorId, duration, and studentGroup are required",
-        });
+      return res.status(400).json({
+        error:
+          "courseId, instructorId, duration, and studentGroup are required",
+      });
     }
 
     // Validate ObjectIds
@@ -68,6 +66,17 @@ router.post("/", async (req, res) => {
 
     await activity.save();
     res.status(201).json(activity);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/", async (req, res) => {
+  try {
+    const activities = await Activity.find()
+      .populate("course", "code name")
+      .populate("instructor", "name");
+    res.json(activities);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
