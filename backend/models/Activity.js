@@ -4,7 +4,7 @@ const ActivitySchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
   instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor" },
   duration: Number,
-  studentGroup: String,
+  studentGroup: { type: mongoose.Schema.Types.ObjectId, ref: "StudentGroup" },
   roomRequirement: {
     type: String,
     required: false,

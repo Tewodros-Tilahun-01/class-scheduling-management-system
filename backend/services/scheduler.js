@@ -35,14 +35,16 @@ function isValidAssignment(
     return false;
   }
 
-  // Room capacity constraint (assuming course has expected enrollment)
+  // Room capacity constraint
   const course = activity.course;
-  if (room.capacity < (course.expectedEnrollment || 50)) {
+  const defaultEnrollment = 50; // Configurable default
+  if (room.capacity < (course.expectedEnrollment || defaultEnrollment)) {
     return false;
   }
 
   // Instructor load constraint
-  const currentLoad = instructorLoad.get(activity.instructor._id) || 0;
+  const currentLoad =
+    instructorLoad.get(activity.instructor._id.toString()) || 0;
   if (
     activity.instructor.maxLoad &&
     currentLoad + activity.duration > activity.instructor.maxLoad
@@ -67,10 +69,19 @@ function isValidAssignment(
     }
   }
 
-  // Student group conflict (same student group can't have overlapping activities)
+  // Check global usedTimeslots for room conflicts
+  const timeslotRoomKey = `${timeslot._id}-${room._id}`;
+  if (usedTimeslots.has(timeslotRoomKey)) {
+    return false; // Room already used
+  }
+
+  // Student group conflict
   for (const entry of schedule) {
     if (
-      entry.activity.studentGroup === activity.studentGroup &&
+      entry.activity.studentGroup &&
+      activity.studentGroup &&
+      entry.activity.studentGroup.toString() ===
+        activity.studentGroup.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
     ) {
       return false;
@@ -80,7 +91,7 @@ function isValidAssignment(
   return true;
 }
 
-// Heuristic: Sort activities by number of valid assignments (most constrained first)
+// Heuristic: Sort activities by number of valid assignments
 async function sortActivities(activities, rooms, timeslots) {
   const activityConstraints = [];
   for (const activity of activities) {
@@ -98,7 +109,7 @@ async function sortActivities(activities, rooms, timeslots) {
   return activityConstraints.map((ac) => ac.activity);
 }
 
-// Heuristic: Sort rooms by capacity (ascending) to minimize room usage
+// Heuristic: Sort rooms by capacity
 function sortRooms(rooms, activity) {
   return [...rooms].sort((a, b) => {
     if (
@@ -115,7 +126,7 @@ function sortRooms(rooms, activity) {
   });
 }
 
-// Heuristic: Sort timeslots by preference score (descending)
+// Heuristic: Sort timeslots by preference score
 function sortTimeslots(timeslots) {
   return [...timeslots].sort((a, b) => b.preferenceScore - a.preferenceScore);
 }
@@ -155,11 +166,13 @@ async function backtrack(
           activity: activity.originalId,
           timeslot: timeslot._id,
           room: room._id,
+          studentGroup: activity.studentGroup,
         });
         schedule.push(entry);
         instructorLoad.set(
-          activity.instructor._id,
-          (instructorLoad.get(activity.instructor._id) || 0) + activity.duration
+          activity.instructor._id.toString(),
+          (instructorLoad.get(activity.instructor._id.toString()) || 0) +
+            activity.duration
         );
         usedTimeslots.set(`${timeslot._id}-${room._id}`, activity._id);
 
@@ -181,8 +194,9 @@ async function backtrack(
         // Backtrack: undo assignment
         schedule.pop();
         instructorLoad.set(
-          activity.instructor._id,
-          (instructorLoad.get(activity.instructor._id) || 0) - activity.duration
+          activity.instructor._id.toString(),
+          (instructorLoad.get(activity.instructor._id.toString()) || 0) -
+            activity.duration
         );
         usedTimeslots.delete(`${timeslot._id}-${room._id}`);
       }
@@ -199,11 +213,12 @@ function evaluateSchedule(schedule, rooms, timeslots, instructorLoad) {
   const timeslotsUsed = new Set(
     schedule.map((entry) => entry.timeslot.toString())
   ).size;
-  const maxLoad = Math.max(...instructorLoad.values());
-  const minLoad = Math.min(...instructorLoad.values());
+  const maxLoad =
+    instructorLoad.size > 0 ? Math.max(...instructorLoad.values()) : 0;
+  const minLoad =
+    instructorLoad.size > 0 ? Math.min(...instructorLoad.values()) : 0;
   const loadBalance = maxLoad - minLoad;
 
-  // Lower score is better
   return roomsUsed * 1000 + timeslotsUsed * 100 + loadBalance * 10;
 }
 
@@ -211,10 +226,9 @@ function evaluateSchedule(schedule, rooms, timeslots, instructorLoad) {
 async function generateSchedule(semester) {
   // Fetch all activities for the semester
   const activities = await Activity.find({ "course.semester": semester })
-    .populate("course instructor")
+    .populate("course instructor studentGroup")
     .lean();
 
-  // Check if activities exist
   if (activities.length === 0) {
     throw new Error("No activities found for the specified semester");
   }
@@ -225,8 +239,8 @@ async function generateSchedule(semester) {
     for (let i = 0; i < activity.frequencyPerWeek; i++) {
       expandedActivities.push({
         ...activity,
-        _id: `${activity._id}_${i}`, // Unique ID for each instance
-        originalId: activity._id, // Reference to original activity
+        _id: `${activity._id}_${i}`,
+        originalId: activity._id,
       });
     }
   });
@@ -248,6 +262,9 @@ async function generateSchedule(semester) {
   const instructorLoad = new Map();
   const usedTimeslots = new Map();
 
+  // Delete existing schedules for the semester
+  await Schedule.deleteMany({ "activity.course.semester": semester });
+
   // Try to find a valid schedule
   const found = await backtrack(
     sortedActivities,
@@ -261,18 +278,16 @@ async function generateSchedule(semester) {
 
   if (found) {
     // Save schedule to database
-    await Schedule.deleteMany({ "activity.course.semester": semester });
     const savedEntries = await Schedule.insertMany(schedule);
     bestSchedule = savedEntries;
     bestScore = evaluateSchedule(schedule, rooms, timeslots, instructorLoad);
 
-    // Try to optimize by exploring alternative schedules (limited iterations)
+    // Try to optimize by exploring alternative schedules
     const maxIterations = 5;
     for (let i = 0; i < maxIterations; i++) {
       const tempSchedule = [];
       const tempInstructorLoad = new Map();
       const tempUsedTimeslots = new Map();
-      // Randomize room and timeslot order for variety
       const shuffledRooms = [...rooms].sort(() => Math.random() - 0.5);
       const shuffledTimeslots = [...timeslots].sort(() => Math.random() - 0.5);
       if (
@@ -295,7 +310,6 @@ async function generateSchedule(semester) {
         if (score < bestScore) {
           bestScore = score;
           bestSchedule = tempSchedule;
-          // Update database
           await Schedule.deleteMany({ "activity.course.semester": semester });
           bestSchedule = await Schedule.insertMany(tempSchedule);
         }
@@ -305,7 +319,22 @@ async function generateSchedule(semester) {
     throw new Error("Unable to generate a valid schedule for the activities");
   }
 
-  return bestSchedule;
+  // Group schedule by student group for response
+  const schedulesByGroup = bestSchedule.reduce((acc, entry) => {
+    const groupId = entry.studentGroup?.toString() || "unknown";
+    if (!acc[groupId]) {
+      acc[groupId] = {
+        studentGroup:
+          activities.find((a) => a.studentGroup._id.toString() === groupId)
+            ?.studentGroup || {},
+        entries: [],
+      };
+    }
+    acc[groupId].entries.push(entry);
+    return acc;
+  }, {});
+
+  return schedulesByGroup;
 }
 
 module.exports = { generateSchedule };
