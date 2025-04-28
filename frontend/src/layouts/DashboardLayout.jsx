@@ -7,7 +7,7 @@ function DashboardLayout({ children }) {
     <div className="grid grid-cols-[auto_1fr] h-screen  max-h-screen:">
       <SideBar className={"py-8"} />
       <div className="bg-gray-100">
-        <Header className=" px-14 py-8" />
+        <Header className=" px-12 py-8" />
         {children}
       </div>
     </div>

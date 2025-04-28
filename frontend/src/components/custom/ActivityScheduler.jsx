@@ -6,6 +6,7 @@ import {
   addActivity,
   fetchActivities,
   fetchStudentGroups,
+  generateSchedule,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +29,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 const ActivityScheduler = () => {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [instructors, setInstructors] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -43,8 +46,16 @@ const ActivityScheduler = () => {
     roomRequirement: "",
     frequencyPerWeek: "1",
   });
+  const [semester, setSemester] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Predefined list of semesters from 2017 to 2027
+  const semesters = [];
+  for (let year = 2017; year <= 2027; year++) {
+    semesters.push(`${year} semester 1`);
+    semesters.push(`${year} semester 2`);
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -96,14 +107,16 @@ const ActivityScheduler = () => {
       !activityForm.instructorId ||
       !activityForm.duration ||
       !activityForm.studentGroup ||
-      !activityForm.frequencyPerWeek
+      !activityForm.frequencyPerWeek ||
+      !semester
     ) {
-      alert("Please fill all required fields");
+      alert("Please fill all required fields, including semester");
       return;
     }
     try {
       await addActivity({
         ...activityForm,
+        semester,
         duration: Number(activityForm.duration),
         frequencyPerWeek: Number(activityForm.frequencyPerWeek),
       });
@@ -127,18 +140,37 @@ const ActivityScheduler = () => {
     }
   };
 
+  const handleGenerateSchedule = async () => {
+    if (!semester) {
+      alert("Please select a semester to generate the schedule");
+      return;
+    }
+    try {
+      await generateSchedule(semester);
+      alert("Schedule generated successfully!");
+      navigate(`/schedules?semester=${semester}`);
+    } catch (err) {
+      alert(`Error: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
   const renderActivityRow = (activity, index) => (
     <TableRow key={index}>
       <TableCell>
-        {activity.course?.code
-          ? `${activity.course.code} - ${activity.course.name}`
+        {activity.course?.courseCode
+          ? `${activity.course.courseCode} - ${activity.course.name}`
           : "N/A"}
       </TableCell>
       <TableCell>{activity.instructor?.name || "N/A"}</TableCell>
-      <TableCell>{activity.studentGroup || "N/A"}</TableCell>
+      <TableCell>
+        {activity.studentGroup
+          ? `${activity.studentGroup.department} Year ${activity.studentGroup.year} Section ${activity.studentGroup.section}`
+          : "N/A"}
+      </TableCell>
       <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
       <TableCell>{activity.duration || "N/A"}</TableCell>
       <TableCell>{activity.frequencyPerWeek || "N/A"}</TableCell>
+      <TableCell>{activity.semester || "N/A"}</TableCell>
     </TableRow>
   );
 
@@ -174,6 +206,41 @@ const ActivityScheduler = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-8">
+      {/* Semester Dropdown and Generate Button */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Semester</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2 max-w-xs">
+              <Label htmlFor="semester">Semester</Label>
+              <Select
+                value={semester}
+                onValueChange={(value) => setSemester(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {semesters.map((sem) => (
+                    <SelectItem key={sem} value={sem}>
+                      {sem}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleGenerateSchedule}
+              className="bg-green-500 hover:bg-green-600 w-full md:w-auto"
+            >
+              Generate Schedule
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Activity Creation Form */}
       <Card>
         <CardHeader>
@@ -202,7 +269,7 @@ const ActivityScheduler = () => {
                     ) : (
                       courses.map((course) => (
                         <SelectItem key={course._id} value={course._id}>
-                          {course.code} - {course.name}
+                          {course.courseCode} - {course.name}
                         </SelectItem>
                       ))
                     )}
@@ -239,7 +306,7 @@ const ActivityScheduler = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (hours)</Label>
+                <Label htmlFor="duration">Duration (minutes)</Label>
                 <Input
                   type="number"
                   name="duration"
@@ -272,10 +339,7 @@ const ActivityScheduler = () => {
                       </SelectItem>
                     ) : (
                       studentGroups.map((group) => (
-                        <SelectItem
-                          key={group._id}
-                          value={`${group.department}-${group.year}-${group.section}`}
-                        >
+                        <SelectItem key={group._id} value={group._id}>
                           {`${group.department} Year ${group.year} Section ${group.section}`}
                         </SelectItem>
                       ))
@@ -326,9 +390,11 @@ const ActivityScheduler = () => {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full md:w-auto">
-              Add Activity
-            </Button>
+            <div className="flex space-x-4">
+              <Button type="submit" className="w-full md:w-auto">
+                Add Activity
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -347,8 +413,9 @@ const ActivityScheduler = () => {
                   <TableHead>Instructor</TableHead>
                   <TableHead>Student Group</TableHead>
                   <TableHead>Room Requirement</TableHead>
-                  <TableHead>Duration (hours)</TableHead>
+                  <TableHead>Duration (minutes)</TableHead>
                   <TableHead>Frequency Per Week</TableHead>
+                  <TableHead>Semester</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

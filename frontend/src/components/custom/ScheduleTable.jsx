@@ -1,8 +1,6 @@
-import React, { useState } from "react";
-import { generateSchedule, fetchSchedules } from "@/services/api";
+import React, { useState, useEffect } from "react";
+import { fetchSchedules } from "@/services/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -14,9 +12,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ScheduleTable = () => {
-  const [semester, setSemester] = useState(1);
-  const [schedule, setSchedule] = useState(null);
   const [allSchedules, setAllSchedules] = useState(null);
+  const [selectedSemester, setSelectedSemester] = useState(null);
+  const [semesters, setSemesters] = useState([]);
 
   // Define days and time slots
   const days = [
@@ -41,175 +39,166 @@ const ScheduleTable = () => {
     "17:00-18:00",
   ];
 
-  const handleGenerateSchedule = async () => {
+  // Fetch all schedules on mount to extract distinct semesters
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const schedulesData = await fetchSchedules();
+        if (schedulesData && typeof schedulesData === "object") {
+          // Extract distinct semesters from schedules
+          const uniqueSemesters = [
+            ...new Set(
+              Object.values(schedulesData).flatMap((group) =>
+                group.entries.map((entry) => entry.activity.semester)
+              )
+            ),
+          ];
+          setSemesters(uniqueSemesters);
+          setAllSchedules(schedulesData);
+        }
+      } catch (err) {
+        alert(
+          `Error fetching schedules: ${
+            err.response?.data?.error || err.message
+          }`
+        );
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Fetch schedules for a specific semester when a link is clicked
+  const handleFetchSemesterSchedules = async (semester) => {
     try {
-      const scheduleData = await generateSchedule(semester);
-      setSchedule(scheduleData || null); // Ensure null if invalid
-      alert("Schedule generated successfully!");
+      setSelectedSemester(semester);
+      const response = await fetchSchedules(semester);
+      setAllSchedules(response || null);
     } catch (err) {
       alert(`Error: ${err.response?.data?.error || err.message}`);
     }
-  };
-
-  const handleFetchSchedules = async () => {
-    try {
-      const schedulesData = await fetchSchedules();
-      setAllSchedules(Array.isArray(schedulesData) ? schedulesData : null);
-      alert("Schedules fetched successfully!");
-    } catch (err) {
-      alert(`Error: ${err.response?.data?.error || err.message}`);
-    }
-  };
-
-  // Helper function to get unique student groups
-  const getStudentGroups = (schedules) => {
-    const groups = new Set();
-    if (schedules) {
-      (Array.isArray(schedules) ? schedules : [schedules])
-        .filter((sched) => sched && typeof sched === "object") // Filter out null/undefined
-        .forEach((sched) => {
-          (sched.activities || []).forEach((activity) => {
-            if (activity?.studentGroup) {
-              groups.add(activity.studentGroup);
-            }
-          });
-        });
-    }
-    return Array.from(groups);
   };
 
   // Helper function to find activity for a specific time slot and day
-  const findActivity = (activities, timeSlot, day, studentGroup) => {
-    return activities?.find((activity) => {
-      if (!activity || activity.studentGroup !== studentGroup) return false;
-      if (activity.day !== day) return false;
-      // Match time slot (assuming time is in format "HH:MM-HH:MM" or "HH:MM")
-      const activityTime = activity.time?.split("-")[0]; // Get start time
-      return timeSlot.startsWith(activityTime);
+  const findActivity = (entries, timeSlot, day) => {
+    return entries?.find((entry) => {
+      if (!entry || !entry.timeslot) return false;
+      return (
+        entry.timeslot.day === day &&
+        `${entry.timeslot.startTime}-${entry.timeslot.endTime}` === timeSlot
+      );
     });
   };
 
   // Helper function to render timetable for a student group
-  const renderTimetable = (activities, studentGroup) => (
-    <Card key={studentGroup}>
-      <CardHeader>
-        <CardTitle>Timetable for {studentGroup}</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Time</TableHead>
-              {days.map((day) => (
-                <TableHead key={day}>{day}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {timeSlots.map((timeSlot) => (
-              <TableRow key={timeSlot}>
-                <TableCell>{timeSlot}</TableCell>
-                {days.map((day) => {
-                  const activity = findActivity(
-                    activities,
-                    timeSlot,
-                    day,
-                    studentGroup
-                  );
-                  return (
-                    <TableCell key={`${day}-${timeSlot}`}>
-                      {activity ? (
-                        <div>
-                          <div>
-                            {activity.course?.code} - {activity.course?.name}
-                          </div>
-                          <div>
-                            Instructor: {activity.instructor?.name || "N/A"}
-                          </div>
-                          <div>Room: {activity.room || "N/A"}</div>
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                  );
-                })}
+  const renderTimetable = (groupData) => {
+    const studentGroup = groupData.studentGroup;
+    const entries = groupData.entries || [];
+
+    return (
+      <Card key={studentGroup?._id || "unknown"}>
+        <CardHeader>
+          <CardTitle>
+            Timetable for{" "}
+            {studentGroup
+              ? `${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`
+              : "Unknown Group"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                {days.map((day) => (
+                  <TableHead key={day}>{day}</TableHead>
+                ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-
-  // Combine activities from schedule and allSchedules
-  const combinedActivities = [
-    ...(schedule?.activities || []),
-    ...(allSchedules
-      ?.filter((sched) => sched && typeof sched === "object") // Filter out null/undefined
-      .flatMap((sched) => sched.activities || [])
-      .filter(
-        (activity) =>
-          !schedule?.activities?.some(
-            (a) =>
-              a.course?._id === activity.course?._id &&
-              a.day === activity.day &&
-              a.time === activity.time &&
-              a.studentGroup === activity.studentGroup
-          )
-      ) || []),
-  ].filter((activity) => activity && typeof activity === "object"); // Ensure valid activities
-
-  // Get unique student groups
-  const studentGroups = getStudentGroups([schedule, ...(allSchedules || [])]);
+            </TableHeader>
+            <TableBody>
+              {timeSlots.map((timeSlot) => (
+                <TableRow key={timeSlot}>
+                  <TableCell>{timeSlot}</TableCell>
+                  {days.map((day) => {
+                    const entry = findActivity(entries, timeSlot, day);
+                    return (
+                      <TableCell key={`${day}-${timeSlot}`}>
+                        {entry ? (
+                          <div>
+                            <div>
+                              {entry.activity.course?.courseCode} -{" "}
+                              {entry.activity.course?.name}
+                            </div>
+                            <div>
+                              Instructor:{" "}
+                              {entry.activity.instructor?.name || "N/A"}
+                            </div>
+                            <div>Room: {entry.room?.name || "N/A"}</div>
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-8">
-      {/* Schedule Generation */}
+      {/* List of Distinct Semesters */}
       <Card>
         <CardHeader>
-          <CardTitle>Generate Schedule</CardTitle>
+          <CardTitle>Schedules by Semester</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end space-x-4">
-            <div className="space-y-2">
-              <Label htmlFor="semester">Semester</Label>
-              <Input
-                type="number"
-                value={semester}
-                onChange={(e) => setSemester(Number(e.target.value))}
-                min="1"
-                step="1"
-                className="w-32"
-              />
+          {semesters.length > 0 ? (
+            <div className="space-x-4">
+              {semesters.map((semester) => (
+                <Button
+                  key={semester}
+                  variant="link"
+                  onClick={() => handleFetchSemesterSchedules(semester)}
+                >
+                  {semester}
+                </Button>
+              ))}
             </div>
-            <Button onClick={handleGenerateSchedule}>Generate Schedule</Button>
-          </div>
+          ) : (
+            <p className="text-muted-foreground">No schedules available.</p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Fetch All Schedules */}
-      <Card>
-        <CardHeader>
-          <CardTitle>View All Schedules</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={handleFetchSchedules}>Fetch All Schedules</Button>
-        </CardContent>
-      </Card>
-
-      {/* Display Timetables for Each Student Group */}
-      {studentGroups.length > 0 ? (
-        studentGroups.map((group) => renderTimetable(combinedActivities, group))
-      ) : (
+      {/* Display Schedules Grouped by Student Groups */}
+      {allSchedules && selectedSemester ? (
+        Object.values(allSchedules).length > 0 ? (
+          Object.values(allSchedules).map((groupData) =>
+            renderTimetable(groupData)
+          )
+        ) : (
+          <Card>
+            <CardContent>
+              <p className="text-muted-foreground">
+                No schedules found for {selectedSemester}.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      ) : selectedSemester ? (
         <Card>
           <CardContent>
             <p className="text-muted-foreground">
-              No schedules or student groups available.
+              Failed to load schedules for {selectedSemester}.
             </p>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 };

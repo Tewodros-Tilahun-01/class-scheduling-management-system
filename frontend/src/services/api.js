@@ -9,6 +9,10 @@ export const fetchSchedules = async () => {
   const response = await api.get("/schedules");
   return response.data;
 };
+export const generateSchedule = async (semester) => {
+  const response = await api.post("/schedules/generate", { semester });
+  return response.data;
+};
 
 export const fetchCourses = async () => {
   const response = await api.get("/courses");
@@ -26,17 +30,12 @@ export const fetchRoomTypes = async () => {
 };
 
 export const addActivity = async (activityData) => {
-  const response = await api.post("/activity", activityData);
+  const response = await api.post("/activities", activityData);
   return response.data;
 };
 
 export const fetchActivities = async () => {
   const response = await api.get("/activities");
-  return response.data;
-};
-
-export const generateSchedule = async (semester) => {
-  const response = await api.post("/schedule/generate", { semester });
   return response.data;
 };
 

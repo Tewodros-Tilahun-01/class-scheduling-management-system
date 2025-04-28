@@ -2,13 +2,13 @@ const express = require("express");
 const router = express.Router();
 
 // Import route modules
-const activityRoutes = require("./activity");
 const courseRoutes = require("./course");
 const instructorRoutes = require("./instructor");
 const roomRoutes = require("./room");
-const scheduleRoutes = require("./schedule");
 const studentGroupRoutes = require("./studentGroup");
 const timeslotRoutes = require("./timeslot");
+const activityRoutes = require("./activity");
+const scheduleRoutes = require("./schedule");
 
 // Mock authentication middleware (replace with real auth, e.g., JWT)
 const authMiddleware = (req, res, next) => {

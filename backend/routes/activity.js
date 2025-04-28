@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
+const User = require("../models/User");
 const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
 
-// GET /activities - Retrieve all activities, optionally filtered by semester and ownership
+// GET /api/activities - Retrieve all activities, optionally filtered by semester and ownership
 router.get("/", async (req, res) => {
   try {
     const { semester, own } = req.query;
@@ -29,56 +30,89 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /activities - Create a new activity
+// POST /api/activities - Create a new activity
 router.post("/", async (req, res) => {
   try {
     const {
-      course,
-      instructor,
+      courseId,
+      instructorId,
       studentGroup,
       semester,
       roomRequirement,
       duration,
       frequencyPerWeek,
     } = req.body;
+
+    // Validate required fields
     if (
-      !course ||
-      !instructor ||
+      !courseId ||
+      !instructorId ||
       !studentGroup ||
       !semester ||
       !roomRequirement ||
       !duration ||
       !frequencyPerWeek
     ) {
+      console.log(courseId, instructorId, studentGroup);
       return res.status(400).json({ error: "All fields are required" });
     }
+
+    // Validate ObjectIds for courseId, instructorId, and studentGroup
     if (
-      !mongoose.Types.ObjectId.isValid(course) ||
-      !mongoose.Types.ObjectId.isValid(instructor) ||
+      !mongoose.Types.ObjectId.isValid(courseId) ||
+      !mongoose.Types.ObjectId.isValid(instructorId) ||
       !mongoose.Types.ObjectId.isValid(studentGroup)
     ) {
       return res
         .status(400)
         .json({ error: "Invalid course, instructor, or studentGroup ID" });
     }
+
+    // Validate duration and frequencyPerWeek as numbers
+    if (isNaN(duration) || duration <= 0) {
+      return res
+        .status(400)
+        .json({ error: "Duration must be a positive number" });
+    }
+    if (isNaN(frequencyPerWeek) || frequencyPerWeek <= 0) {
+      return res
+        .status(400)
+        .json({ error: "Frequency per week must be a positive number" });
+    }
+
+    // Validate roomRequirement against the enum
+    const validRoomTypes = ["LECTURE", "LAB", "SEMINAR"];
+    if (!validRoomTypes.includes(roomRequirement.toUpperCase())) {
+      return res.status(400).json({
+        error: "Room requirement must be one of: LECTURE, LAB, SEMINAR",
+      });
+    }
+
+    // Create the new activity
     const activity = new Activity({
-      course,
-      instructor,
+      course: courseId,
+      instructor: instructorId,
       studentGroup,
       semester,
-      roomRequirement,
-      duration,
-      frequencyPerWeek,
+      roomRequirement: roomRequirement.toUpperCase(),
+      duration: Number(duration),
+      frequencyPerWeek: Number(frequencyPerWeek),
       createdBy: req.user._id,
     });
+
+    // Save the activity
     await activity.save();
+
+    // Populate referenced fields for the response
+    await activity.populate(["course", "instructor"]);
+
     res.status(201).json(activity);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /activities/instructor/:instructorId - Retrieve schedules for an instructor
+// GET /api/activities/instructor/:instructorId - Retrieve schedules for an instructor
 router.get("/instructor/:instructorId", async (req, res) => {
   try {
     const { instructorId } = req.params;
