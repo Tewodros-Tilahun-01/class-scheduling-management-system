@@ -3,67 +3,74 @@ const router = express.Router();
 const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
 
-// Create a new activity
+// GET /activities - Retrieve all activities, optionally filtered by semester and ownership
+router.get("/", async (req, res) => {
+  try {
+    const { semester, own } = req.query;
+    const query = {};
+    if (semester) {
+      query.semester = semester;
+    }
+    if (own === "true") {
+      query.createdBy = req.user._id;
+    }
+    const activities = await Activity.find(query)
+      .populate(
+        "course",
+        "courseCode name department longName expectedEnrollment"
+      )
+      .populate("instructor", "name")
+      .populate("studentGroup")
+      .populate("createdBy", "username name")
+      .lean();
+    res.json(activities);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /activities - Create a new activity
 router.post("/", async (req, res) => {
   try {
     const {
-      courseId,
-      instructorId,
-      duration,
+      course,
+      instructor,
       studentGroup,
+      semester,
       roomRequirement,
+      duration,
       frequencyPerWeek,
     } = req.body;
-
-    // Validate required fields
-    if (!courseId || !instructorId || !duration || !studentGroup) {
-      return res.status(400).json({
-        error:
-          "courseId, instructorId, duration, and studentGroup are required",
-      });
-    }
-
-    // Validate ObjectIds
     if (
-      !mongoose.Types.ObjectId.isValid(courseId) ||
-      !mongoose.Types.ObjectId.isValid(instructorId)
+      !course ||
+      !instructor ||
+      !studentGroup ||
+      !semester ||
+      !roomRequirement ||
+      !duration ||
+      !frequencyPerWeek
+    ) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+    if (
+      !mongoose.Types.ObjectId.isValid(course) ||
+      !mongoose.Types.ObjectId.isValid(instructor) ||
+      !mongoose.Types.ObjectId.isValid(studentGroup)
     ) {
       return res
         .status(400)
-        .json({ error: "Invalid courseId or instructorId" });
+        .json({ error: "Invalid course, instructor, or studentGroup ID" });
     }
-
-    // Validate duration
-    if (isNaN(duration) || duration <= 0) {
-      return res
-        .status(400)
-        .json({ error: "Duration must be a positive number" });
-    }
-
-    // Validate roomRequirement if provided
-    if (
-      roomRequirement &&
-      !["lecture", "lab", "seminar", "other"].includes(roomRequirement)
-    ) {
-      return res.status(400).json({ error: "Invalid roomRequirement" });
-    }
-
-    // Validate frequencyPerWeek
-    if (frequencyPerWeek && (isNaN(frequencyPerWeek) || frequencyPerWeek < 1)) {
-      return res
-        .status(400)
-        .json({ error: "frequencyPerWeek must be a positive integer" });
-    }
-
     const activity = new Activity({
-      course: courseId,
-      instructor: instructorId,
-      duration: Number(duration),
+      course,
+      instructor,
       studentGroup,
-      roomRequirement: roomRequirement || null,
-      frequencyPerWeek: frequencyPerWeek || 1,
+      semester,
+      roomRequirement,
+      duration,
+      frequencyPerWeek,
+      createdBy: req.user._id,
     });
-
     await activity.save();
     res.status(201).json(activity);
   } catch (err) {
@@ -71,12 +78,65 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.get("/", async (req, res) => {
+// GET /activities/instructor/:instructorId - Retrieve schedules for an instructor
+router.get("/instructor/:instructorId", async (req, res) => {
   try {
-    const activities = await Activity.find()
-      .populate("course", "code name")
-      .populate("instructor", "name");
-    res.json(activities);
+    const { instructorId } = req.params;
+    const { semester, own } = req.query;
+    if (!mongoose.Types.ObjectId.isValid(instructorId)) {
+      return res.status(400).json({ error: "Invalid instructorId" });
+    }
+
+    const activityQuery = { instructor: instructorId };
+    if (semester) {
+      activityQuery.semester = semester;
+    }
+    if (own === "true") {
+      activityQuery.createdBy = req.user._id;
+    }
+    const activities = await Activity.find(activityQuery)
+      .populate("studentGroup")
+      .lean();
+
+    const studentGroupIds = [
+      ...new Set(activities.map((a) => a.studentGroup?._id?.toString())),
+    ];
+
+    const scheduleQuery = { studentGroup: { $in: studentGroupIds } };
+    if (semester) {
+      scheduleQuery["activity.semester"] = semester;
+    }
+    if (own === "true") {
+      scheduleQuery.createdBy = req.user._id;
+    }
+    const schedules = await Schedule.find(scheduleQuery)
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course" },
+          { path: "instructor" },
+          { path: "studentGroup" },
+          { path: "createdBy", select: "username name" },
+        ],
+      })
+      .populate("room")
+      .populate("timeslot")
+      .populate({ path: "createdBy", select: "username name" })
+      .lean();
+
+    const groupedSchedules = schedules.reduce((acc, entry) => {
+      const groupId = entry.studentGroup?._id?.toString() || "unknown";
+      if (!acc[groupId]) {
+        acc[groupId] = {
+          studentGroup: entry.studentGroup,
+          entries: [],
+        };
+      }
+      acc[groupId].entries.push(entry);
+      return acc;
+    }, {});
+
+    res.json(groupedSchedules);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

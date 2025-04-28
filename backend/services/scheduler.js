@@ -139,7 +139,8 @@ async function backtrack(
   schedule,
   instructorLoad,
   usedTimeslots,
-  index
+  index,
+  userId
 ) {
   if (index >= activities.length) {
     return true; // Solution found
@@ -167,6 +168,7 @@ async function backtrack(
           timeslot: timeslot._id,
           room: room._id,
           studentGroup: activity.studentGroup,
+          createdBy: userId, // Store user who generated the schedule
         });
         schedule.push(entry);
         instructorLoad.set(
@@ -185,7 +187,8 @@ async function backtrack(
             schedule,
             instructorLoad,
             usedTimeslots,
-            index + 1
+            index + 1,
+            userId
           )
         ) {
           return true;
@@ -223,14 +226,14 @@ function evaluateSchedule(schedule, rooms, timeslots, instructorLoad) {
 }
 
 // Main scheduling function
-async function generateSchedule(semester) {
-  // Fetch all activities for the semester
-  const activities = await Activity.find({ "course.semester": semester })
+async function generateSchedule(semester, userId) {
+  // Fetch all activities for the semester and user
+  const activities = await Activity.find({ semester, createdBy: userId })
     .populate("course instructor studentGroup")
     .lean();
 
   if (activities.length === 0) {
-    throw new Error("No activities found for the specified semester");
+    throw new Error("No activities found for the specified semester and user");
   }
 
   // Replicate activities based on frequencyPerWeek
@@ -262,8 +265,11 @@ async function generateSchedule(semester) {
   const instructorLoad = new Map();
   const usedTimeslots = new Map();
 
-  // Delete existing schedules for the semester
-  await Schedule.deleteMany({ "activity.course.semester": semester });
+  // Delete existing schedules for the semester and user
+  await Schedule.deleteMany({
+    createdBy: userId,
+    "activity.semester": semester,
+  });
 
   // Try to find a valid schedule
   const found = await backtrack(
@@ -273,7 +279,8 @@ async function generateSchedule(semester) {
     schedule,
     instructorLoad,
     usedTimeslots,
-    0
+    0,
+    userId
   );
 
   if (found) {
@@ -298,7 +305,8 @@ async function generateSchedule(semester) {
           tempSchedule,
           tempInstructorLoad,
           tempUsedTimeslots,
-          0
+          0,
+          userId
         )
       ) {
         const score = evaluateSchedule(
@@ -310,7 +318,10 @@ async function generateSchedule(semester) {
         if (score < bestScore) {
           bestScore = score;
           bestSchedule = tempSchedule;
-          await Schedule.deleteMany({ "activity.course.semester": semester });
+          await Schedule.deleteMany({
+            createdBy: userId,
+            "activity.semester": semester,
+          });
           bestSchedule = await Schedule.insertMany(tempSchedule);
         }
       }

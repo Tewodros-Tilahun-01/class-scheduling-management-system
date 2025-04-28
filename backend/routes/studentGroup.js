@@ -5,7 +5,7 @@ const StudentGroup = require("../models/StudentGroup");
 // GET /api/student-groups
 router.get("/", async (req, res) => {
   try {
-    const studentGroups = await StudentGroup.find();
+    const studentGroups = await StudentGroup.find().lean();
     res.json(studentGroups);
   } catch (err) {
     res.status(500).json({ error: err.message });
