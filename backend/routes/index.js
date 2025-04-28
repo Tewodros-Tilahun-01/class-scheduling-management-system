@@ -1,6 +1,15 @@
 const express = require("express");
 const router = express.Router();
 
+// Import route modules
+const activityRoutes = require("./activity");
+const courseRoutes = require("./course");
+const instructorRoutes = require("./instructor");
+const roomRoutes = require("./room");
+const scheduleRoutes = require("./schedule");
+const studentGroupRoutes = require("./studentGroup");
+const timeslotRoutes = require("./timeslot");
+
 // Mock authentication middleware (replace with real auth, e.g., JWT)
 const authMiddleware = (req, res, next) => {
   req.user = {
@@ -10,15 +19,6 @@ const authMiddleware = (req, res, next) => {
   };
   next();
 };
-
-// Import route modules
-const activityRoutes = require("./activity");
-const courseRoutes = require("./course");
-const instructorRoutes = require("./instructor");
-const roomRoutes = require("./room");
-const scheduleRoutes = require("./schedule");
-const studentGroupRoutes = require("./studentGroup");
-const timeslotRoutes = require("./timeslot");
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);

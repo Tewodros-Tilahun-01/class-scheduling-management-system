@@ -6,7 +6,7 @@ const api = axios.create({
 });
 
 export const fetchSchedules = async () => {
-  const response = await api.get("/schedule");
+  const response = await api.get("/schedules");
   return response.data;
 };
 
@@ -21,7 +21,7 @@ export const fetchInstructors = async () => {
 };
 
 export const fetchRoomTypes = async () => {
-  const response = await api.get("/room/room-types");
+  const response = await api.get("/rooms/room-types");
   return response.data;
 };
 
@@ -31,7 +31,7 @@ export const addActivity = async (activityData) => {
 };
 
 export const fetchActivities = async () => {
-  const response = await api.get("/activity");
+  const response = await api.get("/activities");
   return response.data;
 };
 
@@ -41,22 +41,22 @@ export const generateSchedule = async (semester) => {
 };
 
 export const fetchStudentGroups = async () => {
-  const response = await api.get("/student-groups");
+  const response = await api.get("/studentGroups");
   return response.data;
 };
 
 export const addStudentGroup = async (studentGroupData) => {
-  const response = await api.post("/student-groups", studentGroupData);
+  const response = await api.post("/studentGroups", studentGroupData);
   return response.data;
 };
 
 export const updateStudentGroup = async (id, studentGroupData) => {
-  const response = await api.put(`/student-groups/${id}`, studentGroupData);
+  const response = await api.put(`/studentGroups/${id}`, studentGroupData);
   return response.data;
 };
 
 export const deleteStudentGroup = async (id) => {
-  const response = await api.delete(`/student-groups/${id}`);
+  const response = await api.delete(`/studentGroups/${id}`);
   return response.data;
 };
 
