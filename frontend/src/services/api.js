@@ -6,22 +6,22 @@ const api = axios.create({
 });
 
 export const fetchSchedules = async () => {
-  const response = await api.get("/schedule/all");
+  const response = await api.get("/schedule");
   return response.data;
 };
 
 export const fetchCourses = async () => {
-  const response = await api.get("/data/courses");
+  const response = await api.get("/courses");
   return response.data;
 };
 
 export const fetchInstructors = async () => {
-  const response = await api.get("/data/instructors");
+  const response = await api.get("/instructors");
   return response.data;
 };
 
 export const fetchRoomTypes = async () => {
-  const response = await api.get("/data/room-types");
+  const response = await api.get("/room/room-types");
   return response.data;
 };
 
