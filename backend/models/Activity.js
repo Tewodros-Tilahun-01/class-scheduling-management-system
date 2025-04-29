@@ -5,7 +5,7 @@ const ActivitySchema = new mongoose.Schema({
   instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor" },
   studentGroup: { type: mongoose.Schema.Types.ObjectId, ref: "StudentGroup" },
   semester: { type: String, required: true },
-  roomRequirement: { type: String, enum: ["LECTURE", "LAB", "SEMINAR"] },
+  roomRequirement: { type: String, enum: ["lecture", "lab", "seminar"] },
   duration: Number,
   frequencyPerWeek: {
     type: Number,

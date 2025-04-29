@@ -81,10 +81,10 @@ router.post("/", async (req, res) => {
     }
 
     // Validate roomRequirement against the enum
-    const validRoomTypes = ["LECTURE", "LAB", "SEMINAR"];
-    if (!validRoomTypes.includes(roomRequirement.toUpperCase())) {
+    const validRoomTypes = ["lecture", "lab", "seminar"];
+    if (!validRoomTypes.includes(roomRequirement)) {
       return res.status(400).json({
-        error: "Room requirement must be one of: LECTURE, LAB, SEMINAR",
+        error: "Room requirement must be one of: lecture,lab, seminar",
       });
     }
 
@@ -94,7 +94,7 @@ router.post("/", async (req, res) => {
       instructor: instructorId,
       studentGroup,
       semester,
-      roomRequirement: roomRequirement.toUpperCase(),
+      roomRequirement: roomRequirement,
       duration: Number(duration),
       frequencyPerWeek: Number(frequencyPerWeek),
       createdBy: req.user._id,
