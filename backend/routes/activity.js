@@ -34,33 +34,32 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const {
-      courseId,
-      instructorId,
+      course,
+      instructor,
       studentGroup,
       semester,
       roomRequirement,
-      duration,
-      frequencyPerWeek,
+      totalDuration,
+      split,
     } = req.body;
 
     // Validate required fields
     if (
-      !courseId ||
-      !instructorId ||
+      !course ||
+      !instructor ||
       !studentGroup ||
       !semester ||
       !roomRequirement ||
-      !duration ||
-      !frequencyPerWeek
+      !totalDuration ||
+      !split
     ) {
-      console.log(courseId, instructorId, studentGroup);
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Validate ObjectIds for courseId, instructorId, and studentGroup
+    // Validate ObjectIds for course, instructor, and studentGroup
     if (
-      !mongoose.Types.ObjectId.isValid(courseId) ||
-      !mongoose.Types.ObjectId.isValid(instructorId) ||
+      !mongoose.Types.ObjectId.isValid(course) ||
+      !mongoose.Types.ObjectId.isValid(instructor) ||
       !mongoose.Types.ObjectId.isValid(studentGroup)
     ) {
       return res
@@ -68,35 +67,38 @@ router.post("/", async (req, res) => {
         .json({ error: "Invalid course, instructor, or studentGroup ID" });
     }
 
-    // Validate duration and frequencyPerWeek as numbers
-    if (isNaN(duration) || duration <= 0) {
+    // Validate totalDuration and split as numbers
+    if (isNaN(totalDuration) || totalDuration <= 0) {
       return res
         .status(400)
-        .json({ error: "Duration must be a positive number" });
+        .json({ error: "Total duration must be a positive number" });
     }
-    if (isNaN(frequencyPerWeek) || frequencyPerWeek <= 0) {
+    if (isNaN(split) || split <= 0) {
+      return res.status(400).json({ error: "Split must be a positive number" });
+    }
+    if (split > totalDuration) {
       return res
         .status(400)
-        .json({ error: "Frequency per week must be a positive number" });
+        .json({ error: "Split cannot exceed total duration" });
     }
 
     // Validate roomRequirement against the enum
     const validRoomTypes = ["lecture", "lab", "seminar"];
     if (!validRoomTypes.includes(roomRequirement)) {
       return res.status(400).json({
-        error: "Room requirement must be one of: lecture,lab, seminar",
+        error: "Room requirement must be one of: lecture, lab, seminar",
       });
     }
 
     // Create the new activity
     const activity = new Activity({
-      course: courseId,
-      instructor: instructorId,
+      course,
+      instructor,
       studentGroup,
       semester,
-      roomRequirement: roomRequirement,
-      duration: Number(duration),
-      frequencyPerWeek: Number(frequencyPerWeek),
+      roomRequirement,
+      totalDuration: Number(totalDuration),
+      split: Number(split),
       createdBy: req.user._id,
     });
 
@@ -104,7 +106,15 @@ router.post("/", async (req, res) => {
     await activity.save();
 
     // Populate referenced fields for the response
-    await activity.populate(["course", "instructor"]);
+    await activity.populate([
+      {
+        path: "course",
+        select: "courseCode name department longName expectedEnrollment",
+      },
+      { path: "instructor", select: "name" },
+      { path: "studentGroup" },
+      { path: "createdBy", select: "username name" },
+    ]);
 
     res.status(201).json(activity);
   } catch (err) {

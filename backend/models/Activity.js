@@ -1,22 +1,54 @@
 const mongoose = require("mongoose");
 
-const ActivitySchema = new mongoose.Schema({
-  course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
-  instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor" },
-  studentGroup: { type: mongoose.Schema.Types.ObjectId, ref: "StudentGroup" },
-  semester: { type: String, required: true },
-  roomRequirement: { type: String, enum: ["lecture", "lab", "seminar"] },
-  duration: Number,
-  frequencyPerWeek: {
-    type: Number,
-    default: 1,
-    min: 1,
+const activitySchema = new mongoose.Schema(
+  {
+    course: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+      required: true,
+    },
+    instructor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Instructor",
+      required: true,
+    },
+    studentGroup: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StudentGroup",
+      required: true,
+    },
+    semester: {
+      type: String,
+      required: true,
+    },
+    roomRequirement: {
+      type: String,
+      enum: ["lecture", "lab", "seminar"],
+      required: true,
+    },
+    totalDuration: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    split: {
+      type: Number,
+      required: true,
+      min: 1,
+      validate: {
+        validator: function (value) {
+          return this.totalDuration >= value;
+        },
+        message: "Split must not exceed totalDuration",
+      },
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-});
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("Activity", ActivitySchema);
+module.exports = mongoose.model("Activity", activitySchema);

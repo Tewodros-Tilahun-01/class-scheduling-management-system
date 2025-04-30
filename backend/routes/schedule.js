@@ -4,21 +4,36 @@ const { generateSchedule } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
 const mongoose = require("mongoose");
 
-// POST /schedules/generate - Generate a single schedule for the semester
+// POST /api/schedules/generate - Generate a single schedule for the semester
 router.post("/generate", async (req, res) => {
   try {
     const { semester } = req.body;
     if (!semester) {
       return res.status(400).json({ error: "Semester is required" });
     }
-    const schedules = await generateSchedule(semester, req.user._id);
+    if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+      return res.status(401).json({ error: "Valid user ID is required" });
+    }
+
+    const schedules = await generateSchedule(semester, req.user._id.toString());
+    if (!schedules || schedules.length === 0) {
+      return res
+        .status(404)
+        .json({
+          error:
+            "No schedules generated. Ensure activities exist for the semester.",
+        });
+    }
     res.json(schedules);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error generating schedule:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "Failed to generate schedule" });
   }
 });
 
-// GET /schedules - Retrieve all schedules, optionally grouped or filtered by semester and ownership
+// GET /api/schedules - Retrieve all schedules, optionally grouped or filtered by semester and ownership
 router.get("/", async (req, res) => {
   try {
     const { groupByStudentGroup, semester, own } = req.query;
@@ -27,21 +42,26 @@ router.get("/", async (req, res) => {
       query["activity.semester"] = semester;
     }
     if (own === "true") {
+      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+        return res.status(401).json({ error: "Valid user ID is required" });
+      }
       query.createdBy = req.user._id;
     }
+
     const schedules = await Schedule.find(query)
       .populate({
         path: "activity",
         populate: [
-          { path: "course" },
-          { path: "instructor" },
-          { path: "studentGroup" },
+          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "instructor", select: "name maxLoad" },
+          { path: "studentGroup", select: "department year section" },
           { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room")
-      .populate("timeslot")
-      .populate({ path: "createdBy", select: "username name" })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section")
+      .populate("createdBy", "username name")
       .lean();
 
     if (groupByStudentGroup === "true") {
@@ -49,7 +69,11 @@ router.get("/", async (req, res) => {
         const groupId = entry.studentGroup?._id?.toString() || "unknown";
         if (!acc[groupId]) {
           acc[groupId] = {
-            studentGroup: entry.studentGroup,
+            studentGroup: entry.studentGroup || {
+              department: "Unknown",
+              year: 0,
+              section: "N/A",
+            },
             entries: [],
           };
         }
@@ -61,45 +85,55 @@ router.get("/", async (req, res) => {
       res.json(schedules);
     }
   } catch (err) {
+    console.error("Error fetching schedules:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /schedules/:semester - Retrieve schedules for a specific semester
+// GET /api/schedules/:semester - Retrieve schedules for a specific semester
 router.get("/:semester", async (req, res) => {
   try {
     const { semester } = req.params;
     const { own } = req.query;
     const query = { "activity.semester": semester };
     if (own === "true") {
+      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+        return res.status(401).json({ error: "Valid user ID is required" });
+      }
       query.createdBy = req.user._id;
     }
+
     const schedules = await Schedule.find(query)
       .populate({
         path: "activity",
         populate: [
-          { path: "course" },
-          { path: "instructor" },
-          { path: "studentGroup" },
+          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "instructor", select: "name maxLoad" },
+          { path: "studentGroup", select: "department year section" },
           { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room")
-      .populate("timeslot")
-      .populate({ path: "createdBy", select: "username name" })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section")
+      .populate("createdBy", "username name")
       .lean();
 
     if (schedules.length === 0) {
       return res
         .status(404)
-        .json({ error: "No schedules found for this semester" });
+        .json({ error: `No schedules found for semester: ${semester}` });
     }
 
     const groupedSchedules = schedules.reduce((acc, entry) => {
       const groupId = entry.studentGroup?._id?.toString() || "unknown";
       if (!acc[groupId]) {
         acc[groupId] = {
-          studentGroup: entry.studentGroup,
+          studentGroup: entry.studentGroup || {
+            department: "Unknown",
+            year: 0,
+            section: "N/A",
+          },
           entries: [],
         };
       }
@@ -109,11 +143,12 @@ router.get("/:semester", async (req, res) => {
 
     res.json(groupedSchedules);
   } catch (err) {
+    console.error("Error fetching schedules for semester:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /schedules/group/:studentGroupId - Retrieve schedule for a specific student group
+// GET /api/schedules/group/:studentGroupId - Retrieve schedule for a specific student group
 router.get("/group/:studentGroupId", async (req, res) => {
   try {
     const { studentGroupId } = req.params;
@@ -127,6 +162,9 @@ router.get("/group/:studentGroupId", async (req, res) => {
       query["activity.semester"] = semester;
     }
     if (own === "true") {
+      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+        return res.status(401).json({ error: "Valid user ID is required" });
+      }
       query.createdBy = req.user._id;
     }
 
@@ -134,15 +172,16 @@ router.get("/group/:studentGroupId", async (req, res) => {
       .populate({
         path: "activity",
         populate: [
-          { path: "course" },
-          { path: "instructor" },
-          { path: "studentGroup" },
+          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "instructor", select: "name maxLoad" },
+          { path: "studentGroup", select: "department year section" },
           { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room")
-      .populate("timeslot")
-      .populate({ path: "createdBy", select: "username name" })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section")
+      .populate("createdBy", "username name")
       .lean();
 
     if (schedules.length === 0) {
@@ -151,12 +190,17 @@ router.get("/group/:studentGroupId", async (req, res) => {
         .json({ error: "No schedule found for this student group" });
     }
 
-    const studentGroup = schedules[0].studentGroup;
+    const studentGroup = schedules[0].studentGroup || {
+      department: "Unknown",
+      year: 0,
+      section: "N/A",
+    };
     res.json({
       studentGroup,
       entries: schedules,
     });
   } catch (err) {
+    console.error("Error fetching schedule for student group:", err);
     res.status(500).json({ error: err.message });
   }
 });
