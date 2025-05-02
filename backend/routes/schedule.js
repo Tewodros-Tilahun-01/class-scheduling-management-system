@@ -17,12 +17,10 @@ router.post("/generate", async (req, res) => {
 
     const schedules = await generateSchedule(semester, req.user._id.toString());
     if (!schedules || schedules.length === 0) {
-      return res
-        .status(404)
-        .json({
-          error:
-            "No schedules generated. Ensure activities exist for the semester.",
-        });
+      return res.status(404).json({
+        error:
+          "No schedules generated. Ensure activities exist for the semester.",
+      });
     }
     res.json(schedules);
   } catch (err) {
@@ -33,13 +31,28 @@ router.post("/generate", async (req, res) => {
   }
 });
 
+// GET /api/semesters - Retrieve all unique semesters
+router.get("/semesters", async (req, res) => {
+  try {
+    const semesters = await Schedule.distinct("semester");
+    console.log(semesters);
+    if (semesters.length === 0) {
+      return res.json({ error: "No semesters found" });
+    }
+    res.json(semesters);
+  } catch (err) {
+    console.error("Error fetching semesters:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/schedules - Retrieve all schedules, optionally grouped or filtered by semester and ownership
 router.get("/", async (req, res) => {
   try {
     const { groupByStudentGroup, semester, own } = req.query;
     const query = {};
     if (semester) {
-      query["activity.semester"] = semester;
+      query.semester = semester;
     }
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
@@ -95,7 +108,7 @@ router.get("/:semester", async (req, res) => {
   try {
     const { semester } = req.params;
     const { own } = req.query;
-    const query = { "activity.semester": semester };
+    const query = { semester: decodeURIComponent(semester) };
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
@@ -159,7 +172,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
 
     const query = { studentGroup: studentGroupId };
     if (semester) {
-      query["activity.semester"] = semester;
+      query.semester = semester;
     }
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {

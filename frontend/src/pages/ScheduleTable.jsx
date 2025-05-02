@@ -28,51 +28,51 @@ const ScheduleTable = () => {
     "Thursday",
     "Friday",
     "Saturday",
-    "Sunday",
   ];
 
   const timeSlots = [
     "8:00-9:00",
     "9:00-10:00",
     "10:00-11:00",
+    "11:00-12:00",
+    "12:00-1:00",
+    "1:00-2:00",
     "2:00-3:00",
     "3:00-4:00",
-    "4:00-5:00",
-    "5:00-6:00",
-    "6:00-7:00",
-    "7:00-8:00",
   ];
 
-  // Parse time to minutes since midnight, assuming 12-hour format with PM for afternoon
+  // Parse time to minutes since midnight, assuming 24-hour format
   const parseTime = (timeStr) => {
     let [hours, minutes] = timeStr.split(":").map(Number);
-    // Assume times >= 1:00 and <= 5:00 are PM (e.g., "2:00" -> 14:00)
-    if (hours >= 1 && hours <= 5) {
-      hours += 12;
-    }
     return hours * 60 + minutes;
   };
 
   // Find all activities that overlap with the fixed time slot on the given day
   const findActivities = (entries, timeSlot, day) => {
     if (!entries || !Array.isArray(entries)) return [];
-    const [slotStart, slotEnd] = timeSlot
-      .split("-")
-      .map((t) => parseTime(t.replace(/^(\d+):(\d+)$/, "$1:$2")));
-    return entries.filter((entry) => {
+    const [slotStart, slotEnd] = timeSlot.split("-").map(parseTime);
+    const activities = entries.filter((entry) => {
       if (
         !entry ||
         !entry.timeslot ||
         !entry.timeslot.startTime ||
         !entry.timeslot.endTime
       ) {
+        console.warn("Invalid entry:", entry);
         return false;
       }
       if (entry.timeslot.day !== day) return false;
       const scheduleStart = parseTime(entry.timeslot.startTime);
       const scheduleEnd = parseTime(entry.timeslot.endTime);
-      return scheduleStart < slotEnd && scheduleEnd > slotStart;
+      const overlaps = scheduleStart < slotEnd && scheduleEnd > slotStart;
+      if (!overlaps) {
+        console.debug(
+          `Entry ${entry._id} does not overlap: ${entry.timeslot.startTime}-${entry.timeslot.endTime} vs ${timeSlot} on ${day}`
+        );
+      }
+      return overlaps;
     });
+    return activities;
   };
 
   useEffect(() => {
@@ -89,8 +89,10 @@ const ScheduleTable = () => {
           Object.keys(schedulesData).length > 0
         ) {
           setAllSchedules(schedulesData);
+          console.log("Fetched schedules:", schedulesData);
         } else {
           setAllSchedules(null);
+          console.warn("No schedules returned for semester:", decodedSemester);
         }
       } catch (err) {
         setError(
@@ -98,6 +100,7 @@ const ScheduleTable = () => {
             err.response?.data?.error || err.message
           }`
         );
+        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }

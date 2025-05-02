@@ -1,4 +1,3 @@
-// Scheduling Logic
 const Activity = require("../models/Activity");
 const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
@@ -14,8 +13,62 @@ function timeslotsOverlap(ts1, ts2) {
 }
 
 function parseTime(timeStr) {
-  const [hours, minutes] = timeStr.split(":").map(Number);
+  let [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function sortTimeslots(timeslots, schedule) {
+  const daysOrder = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  // Count usage of each day to prefer less constrained days
+  const dayUsage = daysOrder.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
+  schedule.forEach((entry) => {
+    if (entry.timeslot && entry.timeslot.day) {
+      dayUsage[entry.timeslot.day] = (dayUsage[entry.timeslot.day] || 0) + 1;
+    }
+  });
+  return [...timeslots].sort((a, b) => {
+    const dayA = daysOrder.indexOf(a.day);
+    const dayB = daysOrder.indexOf(b.day);
+    // Prefer days with fewer assignments
+    const usageA = dayUsage[a.day] || 0;
+    const usageB = dayUsage[b.day] || 0;
+    if (usageA !== usageB) return usageA - usageB;
+    if (dayA !== dayB) return dayA - dayB;
+    return parseTime(a.startTime) - parseTime(b.startTime);
+  });
+}
+
+function sortRooms(rooms, activity, schedule) {
+  // Count room usage to prefer less used rooms
+  const roomUsage = rooms.reduce(
+    (acc, room) => ({ ...acc, [room._id]: 0 }),
+    {}
+  );
+  schedule.forEach((entry) => {
+    if (entry.room) {
+      roomUsage[entry.room.toString()] =
+        (roomUsage[entry.room.toString()] || 0) + 1;
+    }
+  });
+  return [...rooms]
+    .filter(
+      (room) =>
+        !activity.roomRequirement || room.type === activity.roomRequirement
+    )
+    .sort((a, b) => {
+      const usageA = roomUsage[a._id.toString()] || 0;
+      const usageB = roomUsage[b._id.toString()] || 0;
+      if (usageA !== usageB) return usageA - usageB;
+      if (a.capacity !== b.capacity) return a.capacity - b.capacity;
+      return a._id.toString().localeCompare(b._id.toString());
+    });
 }
 
 function isValidAssignmentSingleTimeslot(
@@ -52,8 +105,8 @@ function isValidAssignmentSingleTimeslot(
       return false;
     }
     if (
-      entry.activityData.studentGroup?._id &&
       activity.studentGroup?._id &&
+      entry.activityData.studentGroup?._id &&
       entry.activityData.studentGroup._id.toString() ===
         activity.studentGroup._id.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
@@ -61,9 +114,7 @@ function isValidAssignmentSingleTimeslot(
       return false;
     }
   }
-  const timeslotRoomKey = `${timeslot._id}-${room._id}-${
-    activity.originalId || activity._id
-  }`;
+  const timeslotRoomKey = `${timeslot._id}-${room._id}`;
   if (usedTimeslots.has(timeslotRoomKey)) {
     return false;
   }
@@ -86,6 +137,8 @@ function isValidAssignment(
   const startIndex = allTimeslots.findIndex(
     (ts) => ts._id.toString() === startTimeslot._id.toString()
   );
+  if (startIndex === -1) return false;
+
   const requiredTimeslots = [];
   let currentTime = parseTime(startTimeslot.startTime);
   const endTime = currentTime + sessionMinutes;
@@ -177,43 +230,6 @@ async function sortActivities(activities, rooms, timeslots) {
   return activityConstraints.map((ac) => ac.activity);
 }
 
-function sortRooms(rooms, activity) {
-  return [...rooms].sort((a, b) => {
-    if (
-      a.type === activity.roomRequirement &&
-      b.type !== activity.roomRequirement
-    )
-      return -1;
-    if (
-      b.type === activity.roomRequirement &&
-      a.type !== activity.roomRequirement
-    )
-      return 1;
-    return a.capacity - b.capacity;
-  });
-}
-
-function sortTimeslots(timeslots) {
-  const daysOrder = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-  return [...timeslots].sort((a, b) => {
-    const dayA = daysOrder.indexOf(a.day);
-    const dayB = daysOrder.indexOf(b.day);
-    if (dayA !== dayB) return dayA - dayB;
-    if (a.preferenceScore !== b.preferenceScore) {
-      return b.preferenceScore - a.preferenceScore;
-    }
-    return parseTime(a.startTime) - parseTime(b.startTime);
-  });
-}
-
 async function backtrack(
   activities,
   rooms,
@@ -221,6 +237,7 @@ async function backtrack(
   schedule,
   instructorLoad,
   usedTimeslots,
+  scheduledSessions,
   index,
   userId
 ) {
@@ -228,8 +245,27 @@ async function backtrack(
     return true;
   }
   const activity = activities[index];
-  const sortedRooms = sortRooms(rooms, activity);
-  const sortedTimeslots = sortTimeslots(timeslots);
+  const sessionKey = `${activity.originalId || activity._id}`;
+  const currentSessions = scheduledSessions.get(sessionKey) || 0;
+  const maxSessions = activity.originalActivity
+    ? activity.originalActivity.split
+    : 1;
+  if (currentSessions >= maxSessions) {
+    return await backtrack(
+      activities,
+      rooms,
+      timeslots,
+      schedule,
+      instructorLoad,
+      usedTimeslots,
+      scheduledSessions,
+      index + 1,
+      userId
+    );
+  }
+
+  const sortedTimeslots = sortTimeslots(timeslots, schedule);
+  const sortedRooms = sortRooms(rooms, activity, schedule);
 
   for (const timeslot of sortedTimeslots) {
     for (const room of sortedRooms) {
@@ -243,26 +279,26 @@ async function backtrack(
         timeslots
       );
       if (validTimeslots) {
-        const entry = {
-          activityData: activity,
-          activityId: activity.originalId,
-          timeslot: validTimeslots[0]._id,
-          room: room._id,
-          studentGroup: activity.studentGroup,
-          createdBy: userId,
-        };
-        schedule.push(entry);
-        usedTimeslots.set(
-          `${entry.timeslot}-${room._id}-${
-            activity.originalId || activity._id
-          }`,
-          activity._id
-        );
+        const newEntries = [];
+        for (const validTimeslot of validTimeslots) {
+          const entry = {
+            activityData: activity,
+            activityId: activity.originalId || activity._id,
+            timeslot: validTimeslot._id,
+            room: room._id,
+            studentGroup: activity.studentGroup,
+            createdBy: userId,
+          };
+          schedule.push(entry);
+          newEntries.push(entry);
+          usedTimeslots.set(`${validTimeslot._id}-${room._id}`, activity._id);
+        }
         instructorLoad.set(
           activity.instructor._id.toString(),
           (instructorLoad.get(activity.instructor._id.toString()) || 0) +
             activity.sessionDuration
         );
+        scheduledSessions.set(sessionKey, currentSessions + 1);
 
         if (
           await backtrack(
@@ -272,6 +308,7 @@ async function backtrack(
             schedule,
             instructorLoad,
             usedTimeslots,
+            scheduledSessions,
             index + 1,
             userId
           )
@@ -279,34 +316,23 @@ async function backtrack(
           return true;
         }
 
-        schedule.pop();
-        usedTimeslots.delete(
-          `${entry.timeslot}-${room._id}-${activity.originalId || activity._id}`
-        );
+        for (let i = 0; i < newEntries.length; i++) {
+          schedule.pop();
+        }
+        for (const validTimeslot of validTimeslots) {
+          usedTimeslots.delete(`${validTimeslot._id}-${room._id}`);
+        }
         instructorLoad.set(
           activity.instructor._id.toString(),
           (instructorLoad.get(activity.instructor._id.toString()) || 0) -
             activity.sessionDuration
         );
+        scheduledSessions.set(sessionKey, currentSessions);
       }
     }
   }
-  return false;
-}
 
-function evaluateSchedule(schedule, rooms, timeslots, instructorLoad) {
-  const roomsUsed = new Set(
-    schedule.map((entry) => entry.room?.toString() || "")
-  ).size;
-  const timeslotsUsed = new Set(
-    schedule.map((entry) => entry.timeslot?.toString() || "")
-  ).size;
-  const maxLoad =
-    instructorLoad.size > 0 ? Math.max(...instructorLoad.values()) : 0;
-  const minLoad =
-    instructorLoad.size > 0 ? Math.min(...instructorLoad.values()) : 0;
-  const loadBalance = maxLoad - minLoad;
-  return roomsUsed * 1000 + timeslotsUsed * 100 + loadBalance * 10;
+  return false;
 }
 
 async function generateSchedule(semester, userId) {
@@ -361,6 +387,7 @@ async function generateSchedule(semester, userId) {
           ...activity,
           _id: `${activity._id}_${i}`,
           originalId: activity._id,
+          originalActivity: activity,
           sessionDuration,
         });
       }
@@ -389,14 +416,16 @@ async function generateSchedule(semester, userId) {
     timeslots
   );
 
-  let bestSchedule = [];
-  let bestScore = Infinity;
+  timeslots.forEach((ts, index) => {
+    if (!ts._id) {
+      throw new Error(`Timeslot ${ts.day} ${ts.startTime} missing _id`);
+    }
+  });
+
   const schedule = [];
   const instructorLoad = new Map();
   const usedTimeslots = new Map();
-
-  console.log(semester);
-  await Schedule.deleteMany({ semester });
+  const scheduledSessions = new Map();
 
   const found = await backtrack(
     sortedActivities,
@@ -405,75 +434,33 @@ async function generateSchedule(semester, userId) {
     schedule,
     instructorLoad,
     usedTimeslots,
+    scheduledSessions,
     0,
     userId
   );
 
-  if (found) {
-    const scheduleToSave = schedule.map((entry) => ({
-      activity: entry.activityId,
-      timeslot: entry.timeslot,
-      room: entry.room,
-      studentGroup: entry.studentGroup?._id,
-      createdBy: userId,
-      semester, // Added semester field
-    }));
-    const savedEntries = await Schedule.insertMany(scheduleToSave, {
-      ordered: false,
-    });
-    bestSchedule = savedEntries;
-    bestScore = evaluateSchedule(schedule, rooms, timeslots, instructorLoad);
-
-    const maxIterations = 5;
-    for (let i = 0; i < maxIterations; i++) {
-      const tempSchedule = [];
-      const tempInstructorLoad = new Map();
-      const tempUsedTimeslots = new Map();
-      const shuffledRooms = [...rooms].sort(() => Math.random() - 0.5);
-      const shuffledTimeslots = sortTimeslots([...timeslots]).sort(
-        () => Math.random() - 0.5
-      );
-      if (
-        await backtrack(
-          sortedActivities,
-          shuffledRooms,
-          shuffledTimeslots,
-          tempSchedule,
-          tempInstructorLoad,
-          tempUsedTimeslots,
-          0,
-          userId
-        )
-      ) {
-        const score = evaluateSchedule(
-          tempSchedule,
-          rooms,
-          timeslots,
-          tempInstructorLoad
-        );
-        if (score < bestScore) {
-          bestScore = score;
-          bestSchedule = tempSchedule.map((entry) => ({
-            activity: entry.activityId,
-            timeslot: entry.timeslot,
-            room: entry.room,
-            studentGroup: entry.studentGroup?._id,
-            createdBy: userId,
-            semester, // Added semester field
-          }));
-        }
-      }
-    }
-  }
-
-  if (bestSchedule.length === 0) {
+  if (!found) {
     throw new Error("Failed to generate a valid schedule");
   }
 
-  await Schedule.deleteMany({ semester });
-  const finalSchedules = await Schedule.insertMany(bestSchedule, {
-    ordered: false,
-  });
+  const schedulesToSave = schedule.map((entry) => ({
+    activity: entry.activityId,
+    timeslot: entry.timeslot,
+    room: entry.room,
+    studentGroup: entry.studentGroup?._id,
+    createdBy: userId,
+    semester,
+  }));
+
+  try {
+    await Schedule.deleteMany({ semester });
+    const savedSchedules = await Schedule.insertMany(schedulesToSave, {
+      ordered: false,
+    });
+  } catch (error) {
+    console.error("Error saving schedules:", error);
+    throw new Error(`Failed to save schedules: ${error.message}`);
+  }
 
   const schedules = await Schedule.find({ semester })
     .populate({
@@ -507,7 +494,7 @@ async function generateSchedule(semester, userId) {
       ...entry,
       activity: {
         ...entry.activity,
-        semester: entry.semester || "Unknown", // Use direct semester field
+        semester: entry.semester || "Unknown",
       },
     });
     return acc;
