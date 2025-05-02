@@ -1,14 +1,23 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api", // Backend URL
+  baseURL: "http://localhost:5000/api",
   headers: { "Content-Type": "application/json" },
 });
 
-export const fetchSchedules = async () => {
-  const response = await api.get("/schedules");
+export const fetchSchedules = async ({ semester } = {}) => {
+  const url = semester
+    ? `/schedules/${encodeURIComponent(semester)}`
+    : "/schedules?groupByStudentGroup=true";
+  const response = await api.get(url);
   return response.data;
 };
+
+export const fetchSemesters = async () => {
+  const response = await api.get("/schedules/semesters");
+  return response.data;
+};
+
 export const generateSchedule = async (semester) => {
   const response = await api.post("/schedules/generate", { semester });
   return response.data;

@@ -7,6 +7,7 @@ import course from "./pages/Course";
 import Activity from "./pages/Activity";
 import Room from "./pages/Room";
 import { StudentGroup } from "./pages/StudentGroup";
+import ScheduleTable from "./pages/ScheduleTable";
 let router = createBrowserRouter([
   {
     path: "/",
@@ -31,6 +32,10 @@ let router = createBrowserRouter([
   {
     path: "student-group",
     Component: StudentGroup,
+  },
+  {
+    path: "schedules/:semester",
+    Component: ScheduleTable,
   },
 ]);
 function App() {

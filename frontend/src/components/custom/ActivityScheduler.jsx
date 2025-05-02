@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
@@ -41,10 +41,10 @@ const ActivityScheduler = () => {
   const [activityForm, setActivityForm] = useState({
     courseId: "",
     instructorId: "",
-    duration: "",
+    totalDuration: "",
+    split: "",
     studentGroup: "",
     roomRequirement: "",
-    frequencyPerWeek: "1",
   });
   const [semester, setSemester] = useState("");
   const [loading, setLoading] = useState(true);
@@ -102,38 +102,62 @@ const ActivityScheduler = () => {
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
+    const {
+      courseId,
+      instructorId,
+      totalDuration,
+      split,
+      studentGroup,
+      roomRequirement,
+    } = activityForm;
+
+    // Validation
     if (
-      !activityForm.courseId ||
-      !activityForm.instructorId ||
-      !activityForm.duration ||
-      !activityForm.studentGroup ||
-      !activityForm.frequencyPerWeek ||
+      !courseId ||
+      !instructorId ||
+      !totalDuration ||
+      !split ||
+      !studentGroup ||
       !semester
     ) {
       alert("Please fill all required fields, including semester");
       return;
     }
+    const totalDurationNum = Number(totalDuration);
+    const splitNum = Number(split);
+    if (isNaN(totalDurationNum) || totalDurationNum < 1) {
+      alert("Total Duration must be a positive number");
+      return;
+    }
+    if (isNaN(splitNum) || splitNum < 1) {
+      alert("Split must be a positive number");
+      return;
+    }
+    if (splitNum > totalDurationNum) {
+      alert("Split cannot exceed Total Duration");
+      return;
+    }
+
     try {
       await addActivity({
-        ...activityForm,
+        course: courseId,
+        instructor: instructorId,
+        totalDuration: totalDurationNum,
+        split: splitNum,
+        studentGroup,
+        roomRequirement,
         semester,
-        duration: Number(activityForm.duration),
-        frequencyPerWeek: Number(activityForm.frequencyPerWeek),
       });
       alert("Activity added successfully!");
-      try {
-        const activitiesData = await fetchActivities();
-        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
-      } catch (err) {
-        setActivities([]);
-      }
+      const activitiesData = await fetchActivities();
+      setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       setActivityForm({
         courseId: "",
         instructorId: "",
-        duration: "",
+        totalDuration: "",
+        split: "",
         studentGroup: "",
         roomRequirement: "",
-        frequencyPerWeek: "1",
       });
     } catch (err) {
       alert(`Error: ${err.response?.data?.error || err.message}`);
@@ -148,7 +172,7 @@ const ActivityScheduler = () => {
     try {
       await generateSchedule(semester);
       alert("Schedule generated successfully!");
-      navigate(`/schedules?semester=${semester}`);
+      navigate(`/schedules/${semester}`);
     } catch (err) {
       alert(`Error: ${err.response?.data?.error || err.message}`);
     }
@@ -168,8 +192,8 @@ const ActivityScheduler = () => {
           : "N/A"}
       </TableCell>
       <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
-      <TableCell>{activity.duration || "N/A"}</TableCell>
-      <TableCell>{activity.frequencyPerWeek || "N/A"}</TableCell>
+      <TableCell>{activity.totalDuration || "N/A"} hours</TableCell>
+      <TableCell>{activity.split || "N/A"} split</TableCell>
       <TableCell>{activity.semester || "N/A"}</TableCell>
     </TableRow>
   );
@@ -306,13 +330,29 @@ const ActivityScheduler = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Label htmlFor="totalDuration">
+                  Total Duration (hours/week)
+                </Label>
                 <Input
                   type="number"
-                  name="duration"
-                  value={activityForm.duration}
+                  name="totalDuration"
+                  value={activityForm.totalDuration}
                   onChange={(e) =>
-                    handleActivityChange("duration", e.target.value)
+                    handleActivityChange("totalDuration", e.target.value)
+                  }
+                  min="1"
+                  step="1"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="split">Number of Splits</Label>
+                <Input
+                  type="number"
+                  name="split"
+                  value={activityForm.split}
+                  onChange={(e) =>
+                    handleActivityChange("split", e.target.value)
                   }
                   min="1"
                   step="1"
@@ -375,20 +415,6 @@ const ActivityScheduler = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="frequencyPerWeek">Frequency Per Week</Label>
-                <Input
-                  type="number"
-                  name="frequencyPerWeek"
-                  value={activityForm.frequencyPerWeek}
-                  onChange={(e) =>
-                    handleActivityChange("frequencyPerWeek", e.target.value)
-                  }
-                  min="1"
-                  step="1"
-                />
-              </div>
             </div>
             <div className="flex space-x-4">
               <Button type="submit" className="w-full md:w-auto">
@@ -413,8 +439,8 @@ const ActivityScheduler = () => {
                   <TableHead>Instructor</TableHead>
                   <TableHead>Student Group</TableHead>
                   <TableHead>Room Requirement</TableHead>
-                  <TableHead>Duration (minutes)</TableHead>
-                  <TableHead>Frequency Per Week</TableHead>
+                  <TableHead>Total Duration</TableHead>
+                  <TableHead>split</TableHead>
                   <TableHead>Semester</TableHead>
                 </TableRow>
               </TableHeader>
