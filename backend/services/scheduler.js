@@ -3,6 +3,15 @@ const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
 
+// Utility function to shuffle an array (Fisher-Yates shuffle)
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 function timeslotsOverlap(ts1, ts2) {
   if (ts1.day !== ts2.day) return false;
   const start1 = parseTime(ts1.startTime);
@@ -26,27 +35,26 @@ function sortTimeslots(timeslots, schedule) {
     "Friday",
     "Saturday",
   ];
-  // Count usage of each day to prefer less constrained days
   const dayUsage = daysOrder.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
   schedule.forEach((entry) => {
     if (entry.timeslot && entry.timeslot.day) {
       dayUsage[entry.timeslot.day] = (dayUsage[entry.timeslot.day] || 0) + 1;
     }
   });
-  return [...timeslots].sort((a, b) => {
+  const sorted = [...timeslots].sort((a, b) => {
     const dayA = daysOrder.indexOf(a.day);
     const dayB = daysOrder.indexOf(b.day);
-    // Prefer days with fewer assignments
     const usageA = dayUsage[a.day] || 0;
     const usageB = dayUsage[b.day] || 0;
     if (usageA !== usageB) return usageA - usageB;
     if (dayA !== dayB) return dayA - dayB;
     return parseTime(a.startTime) - parseTime(b.startTime);
   });
+  // Introduce randomness: shuffle with 50% probability
+  return Math.random() < 0.5 ? shuffleArray([...sorted]) : sorted;
 }
 
 function sortRooms(rooms, activity, schedule) {
-  // Count room usage to prefer less used rooms
   const roomUsage = rooms.reduce(
     (acc, room) => ({ ...acc, [room._id]: 0 }),
     {}
@@ -57,18 +65,19 @@ function sortRooms(rooms, activity, schedule) {
         (roomUsage[entry.room.toString()] || 0) + 1;
     }
   });
-  return [...rooms]
-    .filter(
-      (room) =>
-        !activity.roomRequirement || room.type === activity.roomRequirement
-    )
-    .sort((a, b) => {
-      const usageA = roomUsage[a._id.toString()] || 0;
-      const usageB = roomUsage[b._id.toString()] || 0;
-      if (usageA !== usageB) return usageA - usageB;
-      if (a.capacity !== b.capacity) return a.capacity - b.capacity;
-      return a._id.toString().localeCompare(b._id.toString());
-    });
+  const filteredRooms = [...rooms].filter(
+    (room) =>
+      !activity.roomRequirement || room.type === activity.roomRequirement
+  );
+  const sorted = filteredRooms.sort((a, b) => {
+    const usageA = roomUsage[a._id.toString()] || 0;
+    const usageB = roomUsage[b._id.toString()] || 0;
+    if (usageA !== usageB) return usageA - usageB;
+    if (a.capacity !== b.capacity) return a.capacity - b.capacity;
+    return a._id.toString().localeCompare(b._id.toString());
+  });
+  // Introduce randomness: shuffle with 50% probability
+  return Math.random() < 0.5 ? shuffleArray([...sorted]) : sorted;
 }
 
 function isValidAssignmentSingleTimeslot(
@@ -224,7 +233,12 @@ async function sortActivities(activities, rooms, timeslots) {
         validOptions++;
       }
     }
-    activityConstraints.push({ activity, validOptions });
+    // Add random factor to validOptions for sorting
+    const randomFactor = Math.random() * 10; // Small random weight
+    activityConstraints.push({
+      activity,
+      validOptions: validOptions + randomFactor,
+    });
   }
   activityConstraints.sort((a, b) => a.validOptions - b.validOptions);
   return activityConstraints.map((ac) => ac.activity);
@@ -267,6 +281,8 @@ async function backtrack(
   const sortedTimeslots = sortTimeslots(timeslots, schedule);
   const sortedRooms = sortRooms(rooms, activity, schedule);
 
+  // Collect all valid assignments
+  const validAssignments = [];
   for (const timeslot of sortedTimeslots) {
     for (const room of sortedRooms) {
       const validTimeslots = isValidAssignment(
@@ -279,57 +295,64 @@ async function backtrack(
         timeslots
       );
       if (validTimeslots) {
-        const newEntries = [];
-        for (const validTimeslot of validTimeslots) {
-          const entry = {
-            activityData: activity,
-            activityId: activity.originalId || activity._id,
-            timeslot: validTimeslot._id,
-            room: room._id,
-            studentGroup: activity.studentGroup,
-            createdBy: userId,
-          };
-          schedule.push(entry);
-          newEntries.push(entry);
-          usedTimeslots.set(`${validTimeslot._id}-${room._id}`, activity._id);
-        }
-        instructorLoad.set(
-          activity.instructor._id.toString(),
-          (instructorLoad.get(activity.instructor._id.toString()) || 0) +
-            activity.sessionDuration
-        );
-        scheduledSessions.set(sessionKey, currentSessions + 1);
-
-        if (
-          await backtrack(
-            activities,
-            rooms,
-            timeslots,
-            schedule,
-            instructorLoad,
-            usedTimeslots,
-            scheduledSessions,
-            index + 1,
-            userId
-          )
-        ) {
-          return true;
-        }
-
-        for (let i = 0; i < newEntries.length; i++) {
-          schedule.pop();
-        }
-        for (const validTimeslot of validTimeslots) {
-          usedTimeslots.delete(`${validTimeslot._id}-${room._id}`);
-        }
-        instructorLoad.set(
-          activity.instructor._id.toString(),
-          (instructorLoad.get(activity.instructor._id.toString()) || 0) -
-            activity.sessionDuration
-        );
-        scheduledSessions.set(sessionKey, currentSessions);
+        validAssignments.push({ timeslot, room, validTimeslots });
       }
     }
+  }
+
+  // Shuffle valid assignments to introduce randomness
+  shuffleArray(validAssignments);
+
+  for (const { timeslot, room, validTimeslots } of validAssignments) {
+    const newEntries = [];
+    for (const validTimeslot of validTimeslots) {
+      const entry = {
+        activityData: activity,
+        activityId: activity.originalId || activity._id,
+        timeslot: validTimeslot._id,
+        room: room._id,
+        studentGroup: activity.studentGroup,
+        createdBy: userId,
+      };
+      schedule.push(entry);
+      newEntries.push(entry);
+      usedTimeslots.set(`${validTimeslot._id}-${room._id}`, activity._id);
+    }
+    instructorLoad.set(
+      activity.instructor._id.toString(),
+      (instructorLoad.get(activity.instructor._id.toString()) || 0) +
+        activity.sessionDuration
+    );
+    scheduledSessions.set(sessionKey, currentSessions + 1);
+
+    if (
+      await backtrack(
+        activities,
+        rooms,
+        timeslots,
+        schedule,
+        instructorLoad,
+        usedTimeslots,
+        scheduledSessions,
+        index + 1,
+        userId
+      )
+    ) {
+      return true;
+    }
+
+    for (let i = 0; i < newEntries.length; i++) {
+      schedule.pop();
+    }
+    for (const validTimeslot of validTimeslots) {
+      usedTimeslots.delete(`${validTimeslot._id}-${room._id}`);
+    }
+    instructorLoad.set(
+      activity.instructor._id.toString(),
+      (instructorLoad.get(activity.instructor._id.toString()) || 0) -
+        activity.sessionDuration
+    );
+    scheduledSessions.set(sessionKey, currentSessions);
   }
 
   return false;
