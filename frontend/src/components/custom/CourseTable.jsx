@@ -31,158 +31,101 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const initialData = [
-  {
-    id: "m5gr84i9",
-    course: "Software Engineering",
-    longname: "Introduction to Programming",
-    coursecode: "SE101",
-  },
-  {
-    id: "a1b2c3d4",
-    course: "Computer Science",
-    longname: "Data Structures and Algorithms",
-    coursecode: "CS201",
-  },
-  {
-    id: "x9y8z7w6",
-    course: "Information Systems",
-    longname: "Database Management Systems",
-    coursecode: "IS202",
-  },
-  {
-    id: "t5u4v3s2",
-    course: "Software Engineering",
-    longname: "Software Project Management",
-    coursecode: "SE305",
-  },
-  {
-    id: "l3k2j1h0",
-    course: "Computer Science",
-    longname: "Operating Systems",
-    coursecode: "CS301",
-  },
-  {
-    id: "q8w7e6r5",
-    course: "Information Systems",
-    longname: "System Analysis and Design",
-    coursecode: "IS204",
-  },
-  {
-    id: "z1x2c3v4",
-    course: "Computer Science",
-    longname: "Computer Networks",
-    coursecode: "CS303",
-  },
-  {
-    id: "b6n5m4l3",
-    course: "Software Engineering",
-    longname: "Software Quality Assurance",
-    coursecode: "SE402",
-  },
-  {
-    id: "j2k3l4m5",
-    course: "Information Systems",
-    longname: "Enterprise Architecture",
-    coursecode: "IS305",
-  },
-  {
-    id: "n7m8b9v0",
-    course: "Computer Science",
-    longname: "Artificial Intelligence",
-    coursecode: "CS404",
-  },
-  {
-    id: "c1d2e3f4",
-    course: "Software Engineering",
-    longname: "Agile Development",
-    coursecode: "SE303",
-  },
-  {
-    id: "r5t6y7u8",
-    course: "Information Systems",
-    longname: "Information Security",
-    coursecode: "IS306",
-  },
-  {
-    id: "v4b3n2m1",
-    course: "Computer Science",
-    longname: "Machine Learning",
-    coursecode: "CS405",
-  },
-  {
-    id: "g6h7j8k9",
-    course: "Software Engineering",
-    longname: "Software Architecture",
-    coursecode: "SE401",
-  },
-  {
-    id: "y6u5i4o3",
-    course: "Computer Science",
-    longname: "Theory of Computation",
-    coursecode: "CS307",
-  },
-  {
-    id: "p9o8i7u6",
-    course: "Information Systems",
-    longname: "Business Intelligence",
-    coursecode: "IS401",
-  },
-  {
-    id: "w1e2r3t4",
-    course: "Software Engineering",
-    longname: "Human-Computer Interaction",
-    coursecode: "SE202",
-  },
-  {
-    id: "a3s4d5f6",
-    course: "Computer Science",
-    longname: "Compiler Design",
-    coursecode: "CS402",
-  },
-  {
-    id: "z9x8c7v6",
-    course: "Information Systems",
-    longname: "IT Project Management",
-    coursecode: "IS307",
-  },
-  {
-    id: "u7i8o9p0",
-    course: "Software Engineering",
-    longname: "Requirements Engineering",
-    coursecode: "SE201",
-  },
-];
+import {
+  fetchCourses,
+  addCourse,
+  updateCourse,
+  deleteCourse,
+} from "@/services/api";
 
 export function CourseTable() {
-  const [tableData, setTableData] = React.useState(initialData);
+  const [tableData, setTableData] = React.useState([]);
   const [sorting, setSorting] = React.useState([]);
   const [columnFilters, setColumnFilters] = React.useState([]);
   const [columnVisibility, setColumnVisibility] = React.useState({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
+  const [deleteRowId, setDeleteRowId] = React.useState(null);
   const [editRowId, setEditRowId] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [newRow, setNewRow] = React.useState({
-    course: "",
-    longname: "",
-    coursecode: "",
+    name: "",
+    longName: "",
+    courseCode: "",
   });
+  const [error, setError] = React.useState(null);
+  const [formErrors, setFormErrors] = React.useState({});
 
-  const handleDeleteRow = (id) => {
-    setTableData((prev) => prev.filter((row) => row.id !== id));
+  // Fetch courses on mount
+  React.useEffect(() => {
+    const loadCourses = async () => {
+      setIsLoading(true);
+      try {
+        const courses = await fetchCourses();
+        setTableData(courses);
+      } catch (err) {
+        setError("Failed to load courses");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCourses();
+  }, []);
+
+  const validateForm = () => {
+    const errors = {};
+    if (!newRow.name.trim()) errors.name = "Course name is required";
+    if (!newRow.longName.trim()) errors.longName = "Long name is required";
+    if (!newRow.courseCode.trim()) {
+      errors.courseCode = "Course code is required";
+    } else if (!/^[A-Z]{2,4}\d{3}$/.test(newRow.courseCode)) {
+      errors.courseCode = "Course code must be like CS101 or MATH201";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleBulkDelete = () => {
+  const handleDeleteRow = async (id) => {
+    setDeleteRowId(id);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setIsLoading(true);
+    try {
+      await deleteCourse(deleteRowId);
+      setTableData((prev) => prev.filter((row) => row._id !== deleteRowId));
+      setIsDeleteConfirmOpen(false);
+      setDeleteRowId(null);
+    } catch (err) {
+      setError("Failed to delete course");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setIsLoading(true);
     const selectedIds = table
       .getFilteredSelectedRowModel()
-      .rows.map((row) => row.original.id);
-    setTableData((prev) => prev.filter((row) => !selectedIds.includes(row.id)));
-    setRowSelection({});
+      .rows.map((row) => row.original._id);
+    try {
+      await Promise.all(selectedIds.map((id) => deleteCourse(id)));
+      setTableData((prev) =>
+        prev.filter((row) => !selectedIds.includes(row._id))
+      );
+      setRowSelection({});
+    } catch (err) {
+      setError("Failed to delete selected courses");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddRow = () => {
-    setNewRow({ course: "", longname: "", coursecode: "" });
+    setNewRow({ name: "", longName: "", courseCode: "" });
     setEditRowId(null);
     setIsModalOpen(true);
   };
@@ -190,21 +133,37 @@ export function CourseTable() {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditRowId(null);
-    setNewRow({ course: "", longname: "", coursecode: "" });
+    setNewRow({ name: "", longName: "", courseCode: "" });
+    setError(null);
+    setFormErrors({});
   };
 
-  const handleModalSave = () => {
-    if (editRowId) {
-      setTableData((prev) =>
-        prev.map((row) =>
-          row.id === editRowId ? { ...row, ...newRow, id: editRowId } : row
-        )
-      );
-    } else {
-      const newRowWithId = { ...newRow, id: crypto.randomUUID() };
-      setTableData((prev) => [newRowWithId, ...prev]);
+  const handleDeleteModalClose = () => {
+    setIsDeleteConfirmOpen(false);
+    setDeleteRowId(null);
+  };
+
+  const handleModalSave = async () => {
+    if (!validateForm()) return;
+    setIsSubmitting(true);
+    try {
+      if (editRowId) {
+        const updatedCourse = await updateCourse(editRowId, newRow);
+        setTableData((prev) =>
+          prev.map((row) =>
+            row._id === editRowId ? { ...row, ...updatedCourse } : row
+          )
+        );
+      } else {
+        const newCourse = await addCourse(newRow);
+        setTableData((prev) => [newCourse, ...prev]);
+      }
+      handleModalClose();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to save course");
+    } finally {
+      setIsSubmitting(false);
     }
-    handleModalClose();
   };
 
   const columns = [
@@ -218,6 +177,7 @@ export function CourseTable() {
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
+          disabled={isLoading}
         />
       ),
       cell: ({ row }) => (
@@ -225,37 +185,39 @@ export function CourseTable() {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
+          disabled={isLoading}
         />
       ),
       enableSorting: false,
       enableHiding: false,
     },
     {
-      accessorKey: "course",
+      accessorKey: "name",
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          disabled={isLoading}
         >
-          Course
+          Course Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="p-1">{row.original.course}</div>,
-      sortingFn: "alphanumeric", // This ensures sorting is handled correctly for strings
+      cell: ({ row }) => <div className="p-1">{row.original.name}</div>,
+      sortingFn: "alphanumeric",
     },
     {
-      accessorKey: "longname",
+      accessorKey: "longName",
       header: "Long Name",
-      cell: ({ row }) => <div className="p-1">{row.original.longname}</div>,
+      cell: ({ row }) => <div className="p-1">{row.original.longName}</div>,
     },
     {
-      accessorKey: "coursecode",
+      accessorKey: "courseCode",
       header: "Course Code",
       cell: ({ row }) => (
-        <div className="p-1 uppercase">{row.original.coursecode}</div>
+        <div className="p-1 uppercase">{row.original.courseCode}</div>
       ),
-      enableSorting: false, // Disable sorting for coursecode column
+      enableSorting: false,
     },
     {
       id: "actions",
@@ -265,22 +227,22 @@ export function CourseTable() {
 
         const handleEdit = () => {
           setNewRow({
-            course: rowData.course,
-            longname: rowData.longname,
-            coursecode: rowData.coursecode,
+            name: rowData.name,
+            longName: rowData.longName,
+            courseCode: rowData.courseCode,
           });
-          setEditRowId(rowData.id);
+          setEditRowId(rowData._id);
           setIsModalOpen(true);
-        };
-
-        const handleDelete = () => {
-          handleDeleteRow(rowData.id);
         };
 
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                disabled={isLoading}
+              >
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -289,7 +251,9 @@ export function CourseTable() {
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDelete}>Remove</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDeleteRow(rowData._id)}>
+                Remove
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -318,7 +282,14 @@ export function CourseTable() {
 
   return (
     <div className="w-full">
-      {/* Modal */}
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onClose={handleModalClose}>
         <div className="fixed inset-0 bg-black/30" />
         <div className="fixed inset-0 flex items-center justify-center">
@@ -328,50 +299,147 @@ export function CourseTable() {
             </h3>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label htmlFor="course" className="text-sm font-medium">
-                  Course
+                <label htmlFor="name" className="text-sm font-medium">
+                  Course Name
                 </label>
                 <Input
-                  id="course"
-                  value={newRow.course}
+                  id="name"
+                  value={newRow.name}
                   onChange={(e) =>
-                    setNewRow({ ...newRow, course: e.target.value })
+                    setNewRow({ ...newRow, name: e.target.value })
                   }
                   placeholder="Course Name"
+                  className={formErrors.name ? "border-red-500" : ""}
+                  disabled={isSubmitting}
                 />
+                {formErrors.name && (
+                  <p className="text-red-500 text-sm">{formErrors.name}</p>
+                )}
               </div>
               <div className="space-y-1">
-                <label htmlFor="longname" className="text-sm font-medium">
+                <label htmlFor="longName" className="text-sm font-medium">
                   Long Name
                 </label>
                 <Input
-                  id="longname"
-                  value={newRow.longname}
+                  id="longName"
+                  value={newRow.longName}
                   onChange={(e) =>
-                    setNewRow({ ...newRow, longname: e.target.value })
+                    setNewRow({ ...newRow, longName: e.target.value })
                   }
                   placeholder="Long Course Name"
+                  className={formErrors.longName ? "border-red-500" : ""}
+                  disabled={isSubmitting}
                 />
+                {formErrors.longName && (
+                  <p className="text-red-500 text-sm">{formErrors.longName}</p>
+                )}
               </div>
               <div className="space-y-1">
-                <label htmlFor="coursecode" className="text-sm font-medium">
+                <label htmlFor="courseCode" className="text-sm font-medium">
                   Course Code
                 </label>
                 <Input
-                  id="coursecode"
-                  value={newRow.coursecode}
+                  id="courseCode"
+                  value={newRow.courseCode}
                   onChange={(e) =>
-                    setNewRow({ ...newRow, coursecode: e.target.value })
+                    setNewRow({ ...newRow, courseCode: e.target.value })
                   }
-                  placeholder="Course Code"
+                  placeholder="e.g., CS101"
+                  className={formErrors.courseCode ? "border-red-500" : ""}
+                  disabled={isSubmitting}
                 />
+                {formErrors.courseCode && (
+                  <p className="text-red-500 text-sm">
+                    {formErrors.courseCode}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={handleModalClose}>
+              <Button
+                variant="outline"
+                onClick={handleModalClose}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleModalSave}>Save</Button>
+              <Button onClick={handleModalSave} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+                      />
+                    </svg>
+                    Saving...
+                  </span>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={isDeleteConfirmOpen} onClose={handleDeleteModalClose}>
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg w-full max-w-md space-y-6 shadow-lg">
+            <h3 className="text-lg font-medium">Confirm Delete</h3>
+            <p className="text-sm text-gray-500">
+              Are you sure you want to delete this course? This action cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleDeleteModalClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+                      />
+                    </svg>
+                    Deleting...
+                  </span>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -381,27 +449,30 @@ export function CourseTable() {
       <div className="flex items-center py-4 gap-2">
         <Input
           placeholder="Filter by Course name..."
-          value={table.getColumn("course")?.getFilterValue() ?? ""}
+          value={table.getColumn("name")?.getFilterValue() ?? ""}
           onChange={(event) =>
-            table.getColumn("course")?.setFilterValue(event.target.value)
+            table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
+          disabled={isLoading}
         />
-        <Button variant="outline" onClick={handleAddRow}>
+        <Button variant="outline" onClick={handleAddRow} disabled={isLoading}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Row
+          Add Course
         </Button>
         <Button
           variant="destructive"
           onClick={handleBulkDelete}
-          disabled={table.getFilteredSelectedRowModel().rows.length === 0}
+          disabled={
+            isLoading || table.getFilteredSelectedRowModel().rows.length === 0
+          }
         >
           <Trash2 className="h-4 w-4 mr-2" />
           Delete Selected
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
+            <Button variant="outline" className="ml-auto" disabled={isLoading}>
               Columns <MoreHorizontal className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -423,68 +494,91 @@ export function CourseTable() {
         </DropdownMenu>
       </div>
 
-      {/* Table */}
+      {/* Table or Loading Spinner */}
       <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-24">
+            <svg
+              className="animate-spin h-8 w-8 text-gray-500"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+              />
+            </svg>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No courses found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {table.getFilteredRowModel().rows.length} course(s) selected.
         </div>
         <div className="space-x-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            disabled={isLoading || !table.getCanPreviousPage()}
           >
             Previous
           </Button>
@@ -492,7 +586,7 @@ export function CourseTable() {
             variant="outline"
             size="sm"
             onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            disabled={isLoading || !table.getCanNextPage()}
           >
             Next
           </Button>
