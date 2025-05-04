@@ -1,13 +1,26 @@
 const mongoose = require("mongoose");
 
 const RoomSchema = new mongoose.Schema({
-  name: String,
-  capacity: Number,
-  department: String,
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  capacity: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
   type: {
     type: String,
     enum: ["lecture", "lab", "seminar", "other"],
     default: "lecture",
+    required: true,
+  },
+  building: {
+    type: String,
+    required: true,
+    trim: true,
   },
 });
 

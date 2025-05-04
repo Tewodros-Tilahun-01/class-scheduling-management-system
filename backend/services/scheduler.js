@@ -506,7 +506,7 @@ async function generateSchedule(semester, userId) {
         { path: "createdBy", select: "username name" },
       ],
     })
-    .populate("room", "name capacity type department")
+    .populate("room", "name capacity type building")
     .populate("timeslot", "day startTime endTime preferenceScore")
     .populate("studentGroup", "department year section expectedEnrollment")
     .populate("createdBy", "username name")

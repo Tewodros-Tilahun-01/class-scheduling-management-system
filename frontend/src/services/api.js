@@ -48,8 +48,43 @@ export const fetchInstructors = async () => {
   return response.data;
 };
 
+export const addInstructor = async (instructorData) => {
+  const response = await api.post("/instructors", instructorData);
+  return response.data;
+};
+
+export const updateInstructor = async (id, instructorData) => {
+  const response = await api.put(`/instructors/${id}`, instructorData);
+  return response.data;
+};
+
+export const deleteInstructor = async (id) => {
+  const response = await api.delete(`/instructors/${id}`);
+  return response.data;
+};
+
+export const fetchRooms = async () => {
+  const response = await api.get("/rooms");
+  return response.data;
+};
+
 export const fetchRoomTypes = async () => {
   const response = await api.get("/rooms/room-types");
+  return response.data;
+};
+
+export const addRoom = async (roomData) => {
+  const response = await api.post("/rooms", roomData);
+  return response.data;
+};
+
+export const updateRoom = async (id, roomData) => {
+  const response = await api.put(`/rooms/${id}`, roomData);
+  return response.data;
+};
+
+export const deleteRoom = async (id) => {
+  const response = await api.delete(`/rooms/${id}`);
   return response.data;
 };
 
