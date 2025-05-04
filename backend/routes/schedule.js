@@ -16,7 +16,7 @@ router.post("/generate", async (req, res) => {
     }
 
     const schedules = await generateSchedule(semester, req.user._id.toString());
-    if (!schedules || schedules.length === 0) {
+    if (!schedules || Object.keys(schedules).length === 0) {
       return res.status(404).json({
         error:
           "No schedules generated. Ensure activities exist for the semester.",
@@ -35,7 +35,6 @@ router.post("/generate", async (req, res) => {
 router.get("/semesters", async (req, res) => {
   try {
     const semesters = await Schedule.distinct("semester");
-    console.log(semesters);
     if (semesters.length === 0) {
       return res.json({ error: "No semesters found" });
     }
@@ -65,15 +64,18 @@ router.get("/", async (req, res) => {
       .populate({
         path: "activity",
         populate: [
-          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "course", select: "courseCode name" },
           { path: "instructor", select: "name maxLoad" },
-          { path: "studentGroup", select: "department year section" },
+          {
+            path: "studentGroup",
+            select: "department year section expectedEnrollment",
+          },
           { path: "createdBy", select: "username name" },
         ],
       })
       .populate("room", "name capacity type department")
       .populate("timeslot", "day startTime endTime preferenceScore")
-      .populate("studentGroup", "department year section")
+      .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
 
@@ -86,6 +88,7 @@ router.get("/", async (req, res) => {
               department: "Unknown",
               year: 0,
               section: "N/A",
+              expectedEnrollment: 0,
             },
             entries: [],
           };
@@ -120,15 +123,18 @@ router.get("/:semester", async (req, res) => {
       .populate({
         path: "activity",
         populate: [
-          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "course", select: "courseCode name" },
           { path: "instructor", select: "name maxLoad" },
-          { path: "studentGroup", select: "department year section" },
+          {
+            path: "studentGroup",
+            select: "department year section expectedEnrollment",
+          },
           { path: "createdBy", select: "username name" },
         ],
       })
       .populate("room", "name capacity type department")
       .populate("timeslot", "day startTime endTime preferenceScore")
-      .populate("studentGroup", "department year section")
+      .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
 
@@ -146,6 +152,7 @@ router.get("/:semester", async (req, res) => {
             department: "Unknown",
             year: 0,
             section: "N/A",
+            expectedEnrollment: 0,
           },
           entries: [],
         };
@@ -185,15 +192,18 @@ router.get("/group/:studentGroupId", async (req, res) => {
       .populate({
         path: "activity",
         populate: [
-          { path: "course", select: "courseCode name expectedEnrollment" },
+          { path: "course", select: "courseCode name" },
           { path: "instructor", select: "name maxLoad" },
-          { path: "studentGroup", select: "department year section" },
+          {
+            path: "studentGroup",
+            select: "department year section expectedEnrollment",
+          },
           { path: "createdBy", select: "username name" },
         ],
       })
       .populate("room", "name capacity type department")
       .populate("timeslot", "day startTime endTime preferenceScore")
-      .populate("studentGroup", "department year section")
+      .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
 
@@ -207,6 +217,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
       department: "Unknown",
       year: 0,
       section: "N/A",
+      expectedEnrollment: 0,
     };
     res.json({
       studentGroup,

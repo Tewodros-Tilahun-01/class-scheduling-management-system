@@ -5,7 +5,6 @@ const CourseSchema = new mongoose.Schema({
   name: String,
   department: String,
   longName: String,
-  expectedEnrollment: Number,
 });
 
 module.exports = mongoose.model("Course", CourseSchema);

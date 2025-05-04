@@ -16,12 +16,9 @@ router.get("/", async (req, res) => {
       query.createdBy = req.user._id;
     }
     const activities = await Activity.find(query)
-      .populate(
-        "course",
-        "courseCode name department longName expectedEnrollment"
-      )
+      .populate("course", "courseCode name department longName")
       .populate("instructor", "name")
-      .populate("studentGroup")
+      .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
     res.json(activities);
@@ -109,10 +106,13 @@ router.post("/", async (req, res) => {
     await activity.populate([
       {
         path: "course",
-        select: "courseCode name department longName expectedEnrollment",
+        select: "courseCode name department longName",
       },
       { path: "instructor", select: "name" },
-      { path: "studentGroup" },
+      {
+        path: "studentGroup",
+        select: "department year section expectedEnrollment",
+      },
       { path: "createdBy", select: "username name" },
     ]);
 
@@ -139,7 +139,7 @@ router.get("/instructor/:instructorId", async (req, res) => {
       activityQuery.createdBy = req.user._id;
     }
     const activities = await Activity.find(activityQuery)
-      .populate("studentGroup")
+      .populate("studentGroup", "department year section expectedEnrollment")
       .lean();
 
     const studentGroupIds = [
@@ -157,15 +157,18 @@ router.get("/instructor/:instructorId", async (req, res) => {
       .populate({
         path: "activity",
         populate: [
-          { path: "course" },
-          { path: "instructor" },
-          { path: "studentGroup" },
+          { path: "course", select: "courseCode name" },
+          { path: "instructor", select: "name" },
+          {
+            path: "studentGroup",
+            select: "department year section expectedEnrollment",
+          },
           { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room")
-      .populate("timeslot")
-      .populate({ path: "createdBy", select: "username name" })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("createdBy", "username name")
       .lean();
 
     const groupedSchedules = schedules.reduce((acc, entry) => {

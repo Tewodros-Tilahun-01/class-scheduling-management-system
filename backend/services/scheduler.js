@@ -90,9 +90,9 @@ function isValidAssignmentSingleTimeslot(
   if (activity.roomRequirement && room.type !== activity.roomRequirement) {
     return false;
   }
-  const course = activity.course || {};
+  const studentGroup = activity.studentGroup || {};
   const defaultEnrollment = 50;
-  if (room.capacity < (course.expectedEnrollment || defaultEnrollment)) {
+  if (room.capacity < (studentGroup.expectedEnrollment || defaultEnrollment)) {
     return false;
   }
   for (const entry of schedule) {
@@ -381,6 +381,14 @@ async function generateSchedule(semester, userId) {
         `Activity ${activity._id} (index ${index}) has no studentGroup`
       );
     }
+    if (
+      !activity.studentGroup.expectedEnrollment ||
+      activity.studentGroup.expectedEnrollment <= 0
+    ) {
+      throw new Error(
+        `Activity ${activity._id} (index ${index}) has invalid or missing studentGroup.expectedEnrollment`
+      );
+    }
     if (!activity.totalDuration || activity.totalDuration < 1) {
       throw new Error(
         `Activity ${activity._id} (index ${index}) has invalid totalDuration: ${activity.totalDuration}`
@@ -477,7 +485,7 @@ async function generateSchedule(semester, userId) {
 
   try {
     await Schedule.deleteMany({ semester });
-    const savedSchedules = await Schedule.insertMany(schedulesToSave, {
+    await Schedule.insertMany(schedulesToSave, {
       ordered: false,
     });
   } catch (error) {
@@ -489,15 +497,18 @@ async function generateSchedule(semester, userId) {
     .populate({
       path: "activity",
       populate: [
-        { path: "course", select: "courseCode name expectedEnrollment" },
+        { path: "course", select: "courseCode name" },
         { path: "instructor", select: "name maxLoad" },
-        { path: "studentGroup", select: "department year section" },
+        {
+          path: "studentGroup",
+          select: "department year section expectedEnrollment",
+        },
         { path: "createdBy", select: "username name" },
       ],
     })
     .populate("room", "name capacity type department")
     .populate("timeslot", "day startTime endTime preferenceScore")
-    .populate("studentGroup", "department year section")
+    .populate("studentGroup", "department year section expectedEnrollment")
     .populate("createdBy", "username name")
     .lean();
 
@@ -509,6 +520,7 @@ async function generateSchedule(semester, userId) {
           department: "Unknown",
           year: 0,
           section: "N/A",
+          expectedEnrollment: 0,
         },
         entries: [],
       };
