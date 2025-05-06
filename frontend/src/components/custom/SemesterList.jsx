@@ -55,12 +55,7 @@ const SemesterList = () => {
           ) : semesters.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {semesters.map((semester) => (
-                <Button
-                  key={semester}
-                  asChild
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button key={semester} asChild className="w-full">
                   <Link to={`/schedules/${encodeURIComponent(semester)}`}>
                     {semester}
                   </Link>
