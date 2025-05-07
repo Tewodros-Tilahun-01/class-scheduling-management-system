@@ -48,7 +48,9 @@ const ActivityScheduler = () => {
   });
   const [semester, setSemester] = useState("");
   const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [formError, setFormError] = useState(null);
 
   // Predefined list of semesters from 2017 to 2027
   const semesters = [];
@@ -98,10 +100,14 @@ const ActivityScheduler = () => {
 
   const handleActivityChange = (name, value) => {
     setActivityForm({ ...activityForm, [name]: value });
+    setFormError(null); // Clear form error on input change
   };
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
+    setFormError(null);
+    setFormLoading(true);
+
     const {
       courseId,
       instructorId,
@@ -120,21 +126,25 @@ const ActivityScheduler = () => {
       !studentGroup ||
       !semester
     ) {
-      alert("Please fill all required fields, including semester");
+      setFormError("Please fill all required fields, including semester");
+      setFormLoading(false);
       return;
     }
     const totalDurationNum = Number(totalDuration);
     const splitNum = Number(split);
     if (isNaN(totalDurationNum) || totalDurationNum < 1) {
-      alert("Total Duration must be a positive number");
+      setFormError("Total Duration must be a positive number");
+      setFormLoading(false);
       return;
     }
     if (isNaN(splitNum) || splitNum < 1) {
-      alert("Split must be a positive number");
+      setFormError("Split must be a positive number");
+      setFormLoading(false);
       return;
     }
     if (splitNum > totalDurationNum) {
-      alert("Split cannot exceed Total Duration");
+      setFormError("Split cannot exceed Total Duration");
+      setFormLoading(false);
       return;
     }
 
@@ -148,7 +158,6 @@ const ActivityScheduler = () => {
         roomRequirement,
         semester,
       });
-      alert("Activity added successfully!");
       const activitiesData = await fetchActivities();
       setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       setActivityForm({
@@ -159,22 +168,26 @@ const ActivityScheduler = () => {
         studentGroup: "",
         roomRequirement: "",
       });
+      setFormLoading(false);
     } catch (err) {
-      alert(`Error: ${err.response?.data?.error || err.message}`);
+      setFormError(err.response?.data?.error || err.message);
+      setFormLoading(false);
     }
   };
 
   const handleGenerateSchedule = async () => {
     if (!semester) {
-      alert("Please select a semester to generate the schedule");
+      setFormError("Please select a semester to generate the schedule");
       return;
     }
     try {
+      setFormLoading(true);
       await generateSchedule(semester);
-      alert("Schedule generated successfully!");
+      setFormLoading(false);
       navigate(`/schedules/${semester}`);
     } catch (err) {
-      alert(`Error: ${err.response?.data?.error || err.message}`);
+      setFormError(err.response?.data?.error || err.message);
+      setFormLoading(false);
     }
   };
 
@@ -258,8 +271,13 @@ const ActivityScheduler = () => {
             <Button
               onClick={handleGenerateSchedule}
               className="bg-green-500 hover:bg-green-600 w-full md:w-auto"
+              disabled={formLoading}
             >
-              Generate Schedule
+              {formLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Generate Schedule"
+              )}
             </Button>
           </div>
         </CardContent>
@@ -271,6 +289,13 @@ const ActivityScheduler = () => {
           <CardTitle>Add New Activity</CardTitle>
         </CardHeader>
         <CardContent>
+          {formError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleAddActivity} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -286,8 +311,8 @@ const ActivityScheduler = () => {
                     <SelectValue placeholder="Select Course" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.isArray(courses) && courses.length === 0 ? (
-                      <SelectItem value="" disabled>
+                    {courses.length === 0 ? (
+                      <SelectItem value="none" disabled>
                         No courses available
                       </SelectItem>
                     ) : (
@@ -314,8 +339,8 @@ const ActivityScheduler = () => {
                     <SelectValue placeholder="Select Instructor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.isArray(instructors) && instructors.length === 0 ? (
-                      <SelectItem value="" disabled>
+                    {instructors.length === 0 ? (
+                      <SelectItem value="none" disabled>
                         No instructors available
                       </SelectItem>
                     ) : (
@@ -372,9 +397,8 @@ const ActivityScheduler = () => {
                     <SelectValue placeholder="Select Student Group" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.isArray(studentGroups) &&
-                    studentGroups.length === 0 ? (
-                      <SelectItem value="" disabled>
+                    {studentGroups.length === 0 ? (
+                      <SelectItem value="none" disabled>
                         No student groups available
                       </SelectItem>
                     ) : (
@@ -401,8 +425,8 @@ const ActivityScheduler = () => {
                     <SelectValue placeholder="Select Room Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.isArray(roomTypes) && roomTypes.length === 0 ? (
-                      <SelectItem value="" disabled>
+                    {roomTypes.length === 0 ? (
+                      <SelectItem value="none" disabled>
                         No room types available
                       </SelectItem>
                     ) : (
@@ -417,8 +441,16 @@ const ActivityScheduler = () => {
               </div>
             </div>
             <div className="flex space-x-4">
-              <Button type="submit" className="w-full md:w-auto">
-                Add Activity
+              <Button
+                type="submit"
+                className="w-full md:w-auto"
+                disabled={formLoading}
+              >
+                {formLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Add Activity"
+                )}
               </Button>
             </div>
           </form>
@@ -440,7 +472,7 @@ const ActivityScheduler = () => {
                   <TableHead>Student Group</TableHead>
                   <TableHead>Room Requirement</TableHead>
                   <TableHead>Total Duration</TableHead>
-                  <TableHead>split</TableHead>
+                  <TableHead>Split</TableHead>
                   <TableHead>Semester</TableHead>
                 </TableRow>
               </TableHeader>
