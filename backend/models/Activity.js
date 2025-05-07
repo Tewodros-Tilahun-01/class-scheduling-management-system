@@ -47,6 +47,7 @@ const activitySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    isDeleted: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

@@ -4,10 +4,10 @@ const Room = require("../models/Room");
 const Schedule = require("../models/Schedule");
 const mongoose = require("mongoose");
 
-// GET /api/rooms - Retrieve all rooms
+// GET /api/rooms - Retrieve all active rooms
 router.get("/", async (req, res) => {
   try {
-    const rooms = await Room.find().lean();
+    const rooms = await Room.find({ isDeleted: false }).lean();
     res.json(rooms);
   } catch (err) {
     console.error("Error fetching rooms:", err);
@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
 // GET /api/rooms/room-types - Retrieve distinct room types
 router.get("/room-types", async (req, res) => {
   try {
-    const roomTypes = await Room.distinct("type");
+    const roomTypes = await Room.distinct("type", { isDeleted: false });
     res.json(roomTypes);
   } catch (err) {
     console.error("Error fetching room types:", err);
@@ -41,7 +41,7 @@ router.post("/", async (req, res) => {
     }
 
     // Check for duplicate room name
-    const existingRoom = await Room.findOne({ name });
+    const existingRoom = await Room.findOne({ name, isDeleted: false });
     if (existingRoom) {
       return res.status(400).json({ error: "Room name already exists" });
     }
@@ -79,19 +79,23 @@ router.put("/:id", async (req, res) => {
     }
 
     // Check for duplicate room name (excluding the current room)
-    const existingRoom = await Room.findOne({ name, _id: { $ne: id } });
+    const existingRoom = await Room.findOne({
+      name,
+      _id: { $ne: id },
+      isDeleted: false,
+    });
     if (existingRoom) {
       return res.status(400).json({ error: "Room name already exists" });
     }
 
-    const room = await Room.findByIdAndUpdate(
-      id,
+    const room = await Room.findOneAndUpdate(
+      { _id: id, isDeleted: false },
       { name, capacity, type, building },
       { new: true, runValidators: true }
     );
 
     if (!room) {
-      return res.status(404).json({ error: "Room not found" });
+      return res.status(404).json({ error: "Room not found or deleted" });
     }
 
     res.json(room);
@@ -101,7 +105,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/rooms/:id - Delete a room
+// DELETE /api/rooms/:id - Soft delete a room
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -111,18 +115,24 @@ router.delete("/:id", async (req, res) => {
     }
 
     // Check if room is referenced by any schedules
-    const schedule = await Schedule.findOne({ room: id });
+    const schedule = await Schedule.findOne({ room: id, isDeleted: false });
     if (schedule) {
       return res.status(400).json({ error: "Room is linked to a schedule" });
     }
 
-    const room = await Room.findByIdAndDelete(id);
+    const room = await Room.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!room) {
-      return res.status(404).json({ error: "Room not found" });
+      return res
+        .status(404)
+        .json({ error: "Room not found or already deleted" });
     }
 
-    res.json({ message: "Room deleted successfully" });
+    res.json({ message: "Room soft deleted successfully" });
   } catch (err) {
     console.error("Error deleting room:", err);
     res.status(500).json({ error: err.message || "Failed to delete room" });

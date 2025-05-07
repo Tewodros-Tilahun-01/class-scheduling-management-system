@@ -3,10 +3,10 @@ const router = express.Router();
 const Course = require("../models/Course");
 const mongoose = require("mongoose");
 
-// GET /api/courses - Retrieve all courses
+// GET /api/courses - Retrieve all active courses
 router.get("/", async (req, res) => {
   try {
-    const courses = await Course.find().lean();
+    const courses = await Course.find({ isDeleted: false }).lean();
     res.json(courses);
   } catch (err) {
     console.error("Error fetching courses:", err);
@@ -25,7 +25,10 @@ router.post("/", async (req, res) => {
     }
 
     // Check for duplicate courseCode
-    const existingCourse = await Course.findOne({ courseCode });
+    const existingCourse = await Course.findOne({
+      courseCode,
+      isDeleted: false,
+    });
     if (existingCourse) {
       return res.status(400).json({ error: "Course code already exists" });
     }
@@ -63,19 +66,20 @@ router.put("/:id", async (req, res) => {
     const existingCourse = await Course.findOne({
       courseCode,
       _id: { $ne: id },
+      isDeleted: false,
     });
     if (existingCourse) {
       return res.status(400).json({ error: "Course code already exists" });
     }
 
-    const course = await Course.findByIdAndUpdate(
-      id,
+    const course = await Course.findOneAndUpdate(
+      { _id: id, isDeleted: false },
       { courseCode, name, longName },
       { new: true, runValidators: true }
     );
 
     if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+      return res.status(404).json({ error: "Course not found or deleted" });
     }
 
     res.json(course);
@@ -85,7 +89,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/courses/:id - Delete a course
+// DELETE /api/courses/:id - Soft delete a course
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -94,13 +98,19 @@ router.delete("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid course ID" });
     }
 
-    const course = await Course.findByIdAndDelete(id);
+    const course = await Course.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+      return res
+        .status(404)
+        .json({ error: "Course not found or already deleted" });
     }
 
-    res.json({ message: "Course deleted successfully" });
+    res.json({ message: "Course soft deleted successfully", course });
   } catch (err) {
     console.error("Error deleting course:", err);
     res.status(500).json({ error: err.message || "Failed to delete course" });

@@ -5,7 +5,7 @@ const StudentGroup = require("../models/StudentGroup");
 // GET /api/student-groups
 router.get("/", async (req, res) => {
   try {
-    const studentGroups = await StudentGroup.find().lean();
+    const studentGroups = await StudentGroup.find({ isDeleted: false }).lean();
     res.json(studentGroups);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -26,13 +26,15 @@ router.post("/", async (req, res) => {
 // PUT /api/student-groups/:id
 router.put("/:id", async (req, res) => {
   try {
-    const studentGroup = await StudentGroup.findByIdAndUpdate(
-      req.params.id,
+    const studentGroup = await StudentGroup.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: false },
       req.body,
       { new: true, runValidators: true }
     );
     if (!studentGroup) {
-      return res.status(404).json({ error: "Student group not found" });
+      return res
+        .status(404)
+        .json({ error: "Student group not found or deleted" });
     }
     res.json(studentGroup);
   } catch (err) {
@@ -43,11 +45,17 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/student-groups/:id
 router.delete("/:id", async (req, res) => {
   try {
-    const studentGroup = await StudentGroup.findByIdAndDelete(req.params.id);
+    const studentGroup = await StudentGroup.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: false },
+      { isDeleted: true },
+      { new: true }
+    );
     if (!studentGroup) {
-      return res.status(404).json({ error: "Student group not found" });
+      return res
+        .status(404)
+        .json({ error: "Student group not found or already deleted" });
     }
-    res.json({ message: "Student group deleted" });
+    res.json({ message: "Student group soft deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
