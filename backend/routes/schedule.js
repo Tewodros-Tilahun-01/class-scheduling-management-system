@@ -34,7 +34,7 @@ router.post("/generate", async (req, res) => {
 // GET /api/semesters - Retrieve all unique semesters
 router.get("/semesters", async (req, res) => {
   try {
-    const semesters = await Schedule.distinct("semester", { isDeleted: false });
+    const semesters = await Schedule.distinct("semester");
     if (semesters.length === 0) {
       return res.json({ error: "No semesters found" });
     }
@@ -49,7 +49,7 @@ router.get("/semesters", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const { groupByStudentGroup, semester, own } = req.query;
-    const query = { isDeleted: false };
+    const query = {};
     if (semester) {
       query.semester = semester;
     }
@@ -63,38 +63,20 @@ router.get("/", async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate({
         path: "activity",
-        match: { isDeleted: false },
         populate: [
-          {
-            path: "course",
-            select: "courseCode name",
-            match: { isDeleted: false },
-          },
-          {
-            path: "instructor",
-            select: "name maxLoad",
-            match: { isDeleted: false },
-          },
+          { path: "course", select: "courseCode name" },
+          { path: "instructor", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",
-            match: { isDeleted: false },
           },
-          {
-            path: "createdBy",
-            select: "username name",
-            match: { isDeleted: false },
-          },
+          { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room", "name capacity type department", { isDeleted: false })
-      .populate("timeslot", "day startTime endTime preferenceScore", {
-        isDeleted: false,
-      })
-      .populate("studentGroup", "department year section expectedEnrollment", {
-        isDeleted: false,
-      })
-      .populate("createdBy", "username name", { isDeleted: false })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section expectedEnrollment")
+      .populate("createdBy", "username name")
       .lean();
 
     if (groupByStudentGroup === "true") {
@@ -129,7 +111,7 @@ router.get("/:semester", async (req, res) => {
   try {
     const { semester } = req.params;
     const { own } = req.query;
-    const query = { semester: decodeURIComponent(semester), isDeleted: false };
+    const query = { semester: decodeURIComponent(semester) };
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
@@ -140,38 +122,20 @@ router.get("/:semester", async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate({
         path: "activity",
-        match: { isDeleted: false },
         populate: [
-          {
-            path: "course",
-            select: "courseCode name",
-            match: { isDeleted: false },
-          },
-          {
-            path: "instructor",
-            select: "name maxLoad",
-            match: { isDeleted: false },
-          },
+          { path: "course", select: "courseCode name" },
+          { path: "instructor", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",
-            match: { isDeleted: false },
           },
-          {
-            path: "createdBy",
-            select: "username name",
-            match: { isDeleted: false },
-          },
+          { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room", "name capacity type department", { isDeleted: false })
-      .populate("timeslot", "day startTime endTime preferenceScore", {
-        isDeleted: false,
-      })
-      .populate("studentGroup", "department year section expectedEnrollment", {
-        isDeleted: false,
-      })
-      .populate("createdBy", "username name", { isDeleted: false })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section expectedEnrollment")
+      .populate("createdBy", "username name")
       .lean();
 
     if (schedules.length === 0) {
@@ -213,7 +177,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
       return res.status(400).json({ error: "Invalid studentGroupId" });
     }
 
-    const query = { studentGroup: studentGroupId, isDeleted: false };
+    const query = { studentGroup: studentGroupId };
     if (semester) {
       query.semester = semester;
     }
@@ -227,38 +191,20 @@ router.get("/group/:studentGroupId", async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate({
         path: "activity",
-        match: { isDeleted: false },
         populate: [
-          {
-            path: "course",
-            select: "courseCode name",
-            match: { isDeleted: false },
-          },
-          {
-            path: "instructor",
-            select: "name maxLoad",
-            match: { isDeleted: false },
-          },
+          { path: "course", select: "courseCode name" },
+          { path: "instructor", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",
-            match: { isDeleted: false },
           },
-          {
-            path: "createdBy",
-            select: "username name",
-            match: { isDeleted: false },
-          },
+          { path: "createdBy", select: "username name" },
         ],
       })
-      .populate("room", "name capacity type department", { isDeleted: false })
-      .populate("timeslot", "day startTime endTime preferenceScore", {
-        isDeleted: false,
-      })
-      .populate("studentGroup", "department year section expectedEnrollment", {
-        isDeleted: false,
-      })
-      .populate("createdBy", "username name", { isDeleted: false })
+      .populate("room", "name capacity type department")
+      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("studentGroup", "department year section expectedEnrollment")
+      .populate("createdBy", "username name")
       .lean();
 
     if (schedules.length === 0) {
@@ -283,7 +229,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
   }
 });
 
-// DELETE /api/schedules/:id - Soft delete a schedule
+// DELETE /api/schedules/:id - Hard delete a schedule
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -292,19 +238,13 @@ router.delete("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid schedule ID" });
     }
 
-    const schedule = await Schedule.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      { isDeleted: true },
-      { new: true }
-    );
+    const schedule = await Schedule.findByIdAndDelete(id);
 
     if (!schedule) {
-      return res
-        .status(404)
-        .json({ error: "Schedule not found or already deleted" });
+      return res.status(404).json({ error: "Schedule not found" });
     }
 
-    res.json({ message: "Schedule soft deleted successfully" });
+    res.json({ message: "Schedule deleted successfully" });
   } catch (err) {
     console.error("Error deleting schedule:", err);
     res.status(500).json({ error: err.message || "Failed to delete schedule" });
