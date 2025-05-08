@@ -190,27 +190,32 @@ const ActivityScheduler = () => {
       setFormLoading(false);
     }
   };
+  const renderActivityRow = (activity, index) => {
+    // Find corresponding course, instructor, and student group
+    const course = courses.find((c) => c._id === activity.course);
+    const instructor = instructors.find((i) => i._id === activity.instructor);
+    const studentGroup = studentGroups.find(
+      (g) => g._id === activity.studentGroup
+    );
 
-  const renderActivityRow = (activity, index) => (
-    <TableRow key={index}>
-      <TableCell>
-        {activity.course?.courseCode
-          ? `${activity.course.courseCode} - ${activity.course.name}`
-          : "N/A"}
-      </TableCell>
-      <TableCell>{activity.instructor?.name || "N/A"}</TableCell>
-      <TableCell>
-        {activity.studentGroup
-          ? `${activity.studentGroup.department} Year ${activity.studentGroup.year} Section ${activity.studentGroup.section}`
-          : "N/A"}
-      </TableCell>
-      <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
-      <TableCell>{activity.totalDuration || "N/A"} hours</TableCell>
-      <TableCell>{activity.split || "N/A"} split</TableCell>
-      <TableCell>{activity.semester || "N/A"}</TableCell>
-    </TableRow>
-  );
-
+    return (
+      <TableRow key={index}>
+        <TableCell>
+          {course ? `${course.courseCode} - ${course.name}` : "N/A"}
+        </TableCell>
+        <TableCell>{instructor ? instructor.name : "N/A"}</TableCell>
+        <TableCell>
+          {studentGroup
+            ? `${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`
+            : "N/A"}
+        </TableCell>
+        <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
+        <TableCell>{activity.totalDuration || "N/A"} hours</TableCell>
+        <TableCell>{activity.split || "N/A"} split</TableCell>
+        <TableCell>{activity.semester || "N/A"}</TableCell>
+      </TableRow>
+    );
+  };
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
