@@ -3,10 +3,16 @@ const router = express.Router();
 const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
 
-// GET /api/activities - Retrieve all active activities
+// GET /api/activities - Retrieve activities filtered by semester (optional)
 router.get("/", async (req, res) => {
   try {
-    const activities = await Activity.find({ isDeleted: false }).lean();
+    const { semester } = req.query;
+
+    let query = { isDeleted: false };
+    if (semester) {
+      query.semester = semester;
+    }
+    const activities = await Activity.find(query).lean();
     res.json(activities);
   } catch (err) {
     console.error("Error fetching activities:", err);

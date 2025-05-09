@@ -93,8 +93,14 @@ export const addActivity = async (activityData) => {
   return response.data;
 };
 
-export const fetchActivities = async () => {
-  const response = await api.get("/activities");
+export const fetchActivities = async ({ semester } = {}) => {
+  const params = semester ? { semester } : {};
+  const response = await api.get("/activities", { params });
+  return response.data;
+};
+
+export const deleteActivity = async (id) => {
+  const response = await api.delete(`/activities/${id}`);
   return response.data;
 };
 

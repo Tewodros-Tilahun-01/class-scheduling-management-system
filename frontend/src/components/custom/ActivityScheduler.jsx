@@ -7,6 +7,7 @@ import {
   fetchActivities,
   fetchStudentGroups,
   generateSchedule,
+  deleteActivity,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +28,148 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+// ActivityList Component
+const ActivityList = ({
+  activities,
+  semester,
+  courses,
+  instructors,
+  studentGroups,
+  onDeleteActivity,
+  loading,
+  error,
+}) => {
+  const handleDeleteActivity = async (id) => {
+    try {
+      await onDeleteActivity(id);
+    } catch (err) {
+      // Error handling is managed by the parent component
+    }
+  };
+
+  const renderActivityRow = (activity, index) => {
+    const course = courses.find((c) => c._id === activity.course);
+    const instructor = instructors.find((i) => i._id === activity.instructor);
+    const studentGroup = studentGroups.find(
+      (g) => g._id === activity.studentGroup
+    );
+
+    return (
+      <TableRow key={index}>
+        <TableCell>
+          {course ? `${course.courseCode} - ${course.name}` : "N/A"}
+        </TableCell>
+        <TableCell>{instructor ? instructor.name : "N/A"}</TableCell>
+        <TableCell>
+          {studentGroup
+            ? `${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`
+            : "N/A"}
+        </TableCell>
+        <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
+        <TableCell>{activity.totalDuration || "N/A"} hours</TableCell>
+        <TableCell>{activity.split || "N/A"} split</TableCell>
+        <TableCell>{activity.semester || "N/A"}</TableCell>
+        <TableCell>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={loading}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirm Deletion</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this activity? This action
+                  cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteDialogOpen(false)}
+                  disabled={loading}
+                >
+                  No
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteActivity(activity._id)}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Yes"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return semester && activities && activities.length > 0 ? (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Course</TableHead>
+          <TableHead>Instructor</TableHead>
+          <TableHead>Student Group</TableHead>
+          <TableHead>Room Requirement</TableHead>
+          <TableHead>Total Duration</TableHead>
+          <TableHead>Split</TableHead>
+          <TableHead>Semester</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {activities.map((activity, index) =>
+          renderActivityRow(activity, index)
+        )}
+      </TableBody>
+    </Table>
+  ) : (
+    <p className="text-muted-foreground">
+      {semester
+        ? "No activities added yet for this semester."
+        : "Please select a semester to view activities."}
+    </p>
+  );
+};
 
 const ActivityScheduler = () => {
   const navigate = useNavigate();
@@ -47,7 +187,8 @@ const ActivityScheduler = () => {
     roomRequirement: "",
   });
   const [semester, setSemester] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(true); // Loading state for initial data
+  const [loadingActivities, setLoadingActivities] = useState(false); // Loading state for activities
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
@@ -62,45 +203,62 @@ const ActivityScheduler = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        const [
-          coursesData,
-          instructorsData,
-          roomTypesData,
-          activitiesData,
-          studentGroupsData,
-        ] = await Promise.all([
-          fetchCourses(),
-          fetchInstructors(),
-          fetchRoomTypes(),
-          fetchActivities().catch(() => []),
-          fetchStudentGroups().catch(() => []),
-        ]);
+        setLoadingData(true);
+        const [coursesData, instructorsData, roomTypesData, studentGroupsData] =
+          await Promise.all([
+            fetchCourses(),
+            fetchInstructors(),
+            fetchRoomTypes(),
+            fetchStudentGroups().catch(() => []),
+          ]);
 
         setCourses(Array.isArray(coursesData) ? coursesData : []);
         setInstructors(Array.isArray(instructorsData) ? instructorsData : []);
         setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
-        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
         setStudentGroups(
           Array.isArray(studentGroupsData) ? studentGroupsData : []
         );
-        setLoading(false);
+        setLoadingData(false);
       } catch (err) {
         setError(
           err.response?.data?.error ||
             err.message ||
             "Failed to fetch data. Ensure backend is running at http://localhost:5000"
         );
-        setLoading(false);
+        setLoadingData(false);
       }
     };
 
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const fetchSemesterActivities = async () => {
+      if (semester) {
+        try {
+          setLoadingActivities(true);
+          const activitiesData = await fetchActivities({ semester });
+          setActivities(Array.isArray(activitiesData) ? activitiesData : []);
+        } catch (err) {
+          setError(
+            err.response?.data?.error ||
+              err.message ||
+              "Failed to fetch activities"
+          );
+        } finally {
+          setLoadingActivities(false);
+        }
+      } else {
+        setActivities([]);
+      }
+    };
+
+    fetchSemesterActivities();
+  }, [semester]);
+
   const handleActivityChange = (name, value) => {
     setActivityForm({ ...activityForm, [name]: value });
-    setFormError(null); // Clear form error on input change
+    setFormError(null);
   };
 
   const handleAddActivity = async (e) => {
@@ -117,7 +275,6 @@ const ActivityScheduler = () => {
       roomRequirement,
     } = activityForm;
 
-    // Validation
     if (
       !courseId ||
       !instructorId ||
@@ -158,7 +315,7 @@ const ActivityScheduler = () => {
         roomRequirement,
         semester,
       });
-      const activitiesData = await fetchActivities();
+      const activitiesData = await fetchActivities({ semester });
       setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       setActivityForm({
         courseId: "",
@@ -172,6 +329,21 @@ const ActivityScheduler = () => {
     } catch (err) {
       setFormError(err.response?.data?.error || err.message);
       setFormLoading(false);
+    }
+  };
+
+  const handleDeleteActivity = async (id) => {
+    try {
+      setLoadingActivities(true);
+      await deleteActivity(id);
+      const activitiesData = await fetchActivities({ semester });
+      setActivities(Array.isArray(activitiesData) ? activitiesData : []);
+      setLoadingActivities(false);
+    } catch (err) {
+      setError(
+        err.response?.data?.error || err.message || "Failed to delete activity"
+      );
+      setLoadingActivities(false);
     }
   };
 
@@ -190,33 +362,8 @@ const ActivityScheduler = () => {
       setFormLoading(false);
     }
   };
-  const renderActivityRow = (activity, index) => {
-    // Find corresponding course, instructor, and student group
-    const course = courses.find((c) => c._id === activity.course);
-    const instructor = instructors.find((i) => i._id === activity.instructor);
-    const studentGroup = studentGroups.find(
-      (g) => g._id === activity.studentGroup
-    );
 
-    return (
-      <TableRow key={index}>
-        <TableCell>
-          {course ? `${course.courseCode} - ${course.name}` : "N/A"}
-        </TableCell>
-        <TableCell>{instructor ? instructor.name : "N/A"}</TableCell>
-        <TableCell>
-          {studentGroup
-            ? `${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`
-            : "N/A"}
-        </TableCell>
-        <TableCell>{activity.roomRequirement || "N/A"}</TableCell>
-        <TableCell>{activity.totalDuration || "N/A"} hours</TableCell>
-        <TableCell>{activity.split || "N/A"} split</TableCell>
-        <TableCell>{activity.semester || "N/A"}</TableCell>
-      </TableRow>
-    );
-  };
-  if (loading) {
+  if (loadingData) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -224,7 +371,7 @@ const ActivityScheduler = () => {
     );
   }
 
-  if (error) {
+  if (error && !loadingData) {
     return (
       <div className="max-w-2xl mx-auto p-4">
         <Alert variant="destructive">
@@ -235,7 +382,7 @@ const ActivityScheduler = () => {
         <Button
           onClick={() => {
             setError(null);
-            setLoading(true);
+            setLoadingData(true);
             fetchData();
           }}
           className="mt-4"
@@ -462,34 +609,22 @@ const ActivityScheduler = () => {
         </CardContent>
       </Card>
 
-      {/* Display Added Activities */}
+      {/* Activity List */}
       <Card>
         <CardHeader>
           <CardTitle>Added Activities</CardTitle>
         </CardHeader>
         <CardContent>
-          {activities && activities.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Course</TableHead>
-                  <TableHead>Instructor</TableHead>
-                  <TableHead>Student Group</TableHead>
-                  <TableHead>Room Requirement</TableHead>
-                  <TableHead>Total Duration</TableHead>
-                  <TableHead>Split</TableHead>
-                  <TableHead>Semester</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activities.map((activity, index) =>
-                  renderActivityRow(activity, index)
-                )}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-muted-foreground">No activities added yet.</p>
-          )}
+          <ActivityList
+            activities={activities}
+            semester={semester}
+            courses={courses}
+            instructors={instructors}
+            studentGroups={studentGroups}
+            onDeleteActivity={handleDeleteActivity}
+            loading={loadingActivities}
+            error={error}
+          />
         </CardContent>
       </Card>
     </div>
