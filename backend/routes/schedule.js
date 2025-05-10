@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { generateSchedule } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
-require("../models/User");
 const mongoose = require("mongoose");
+require("../models/User");
 
 // POST /api/schedules/generate - Generate a single schedule for the semester
 router.post("/generate", async (req, res) => {
