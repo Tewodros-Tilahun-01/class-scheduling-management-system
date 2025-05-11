@@ -37,6 +37,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/sonner";
 import {
   fetchStudentGroups,
   addStudentGroup,
@@ -71,6 +72,9 @@ export function StudentGroup() {
         setLoading(false);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
+        toast.error(err.response?.data?.error || err.message, {
+          description: "Failed to load student groups",
+        });
         setLoading(false);
       }
     };
@@ -81,12 +85,11 @@ export function StudentGroup() {
     try {
       await deleteStudentGroup(id);
       setTableData((prev) => prev.filter((row) => row._id !== id));
+      toast.success("Student group deleted successfully");
     } catch (err) {
-      alert(
-        `Error deleting student group: ${
-          err.response?.data?.error || err.message
-        }`
-      );
+      toast.error(err.response?.data?.error || err.message, {
+        description: "Failed to delete student group",
+      });
     }
   };
 
@@ -100,12 +103,11 @@ export function StudentGroup() {
         prev.filter((row) => !selectedIds.includes(row._id))
       );
       setRowSelection({});
+      toast.success("Selected student groups deleted successfully");
     } catch (err) {
-      alert(
-        `Error deleting student groups: ${
-          err.response?.data?.error || err.message
-        }`
-      );
+      toast.error(err.response?.data?.error || err.message, {
+        description: "Failed to delete selected student groups",
+      });
     }
   };
 
@@ -123,7 +125,9 @@ export function StudentGroup() {
 
   const handleModalSave = async () => {
     if (!newRow.department || !newRow.year || !newRow.section) {
-      alert("Please fill all fields");
+      toast.error("Please fill all fields", {
+        description: "All fields are required",
+      });
       return;
     }
     try {
@@ -138,6 +142,7 @@ export function StudentGroup() {
             row._id === editRowId ? { ...row, ...updatedGroup } : row
           )
         );
+        toast.success("Student group updated successfully");
       } else {
         const newGroup = await addStudentGroup({
           department: newRow.department,
@@ -145,14 +150,13 @@ export function StudentGroup() {
           section: newRow.section,
         });
         setTableData((prev) => [newGroup, ...prev]);
+        toast.success("Student group added successfully");
       }
       handleModalClose();
     } catch (err) {
-      alert(
-        `Error saving student group: ${
-          err.response?.data?.error || err.message
-        }`
-      );
+      toast.error(err.response?.data?.error || err.message, {
+        description: "Failed to save student group",
+      });
     }
   };
 
@@ -293,7 +297,12 @@ export function StudentGroup() {
             setLoading(true);
             fetchStudentGroups()
               .then(setTableData)
-              .catch(setError)
+              .catch((err) => {
+                setError(err.response?.data?.error || err.message);
+                toast.error(err.response?.data?.error || err.message, {
+                  description: "Failed to load student groups",
+                });
+              })
               .finally(() => setLoading(false));
           }}
           className="mt-4"

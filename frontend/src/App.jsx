@@ -8,6 +8,7 @@ import Activity from "./pages/Activity";
 import Room from "./pages/Room";
 import { StudentGroup } from "./pages/StudentGroup";
 import ScheduleTable from "./pages/ScheduleTable";
+import ThemeLayout from "./layouts/ThemeLayout";
 let router = createBrowserRouter([
   {
     path: "/",
@@ -40,9 +41,11 @@ let router = createBrowserRouter([
 ]);
 function App() {
   return (
-    <MenuProvider>
-      <RouterProvider router={router} />
-    </MenuProvider>
+    <ThemeLayout>
+      <MenuProvider>
+        <RouterProvider router={router} />
+      </MenuProvider>
+    </ThemeLayout>
   );
 }
 
