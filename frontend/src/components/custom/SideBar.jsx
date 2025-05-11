@@ -51,7 +51,7 @@ function SideBar({ className }) {
   ];
 
   return (
-    <div className={clsx(className, isOpen ? "flex px-6" : "flex px-6")}>
+    <div className={clsx(className, isOpen ? "flex   px-6" : " px-6")}>
       <div className="sticky top-10 ">
         <h2 className="flex flex-row items-center justify-between gap-3 text-3xl  px-2 py-2">
           <Bolt size={30} onClick={() => toggleMenu(!isOpen)} />
