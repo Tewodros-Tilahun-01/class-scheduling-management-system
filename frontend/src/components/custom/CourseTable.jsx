@@ -80,8 +80,6 @@ export function CourseTable() {
     if (!newRow.longName.trim()) errors.longName = "Long name is required";
     if (!newRow.courseCode.trim()) {
       errors.courseCode = "Course code is required";
-    } else if (!/^[A-Z]{2,4}\d{3}$/.test(newRow.courseCode)) {
-      errors.courseCode = "Course code must be like CS101 or MATH201";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
