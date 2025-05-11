@@ -18,7 +18,10 @@ router.get("/", async (req, res) => {
 // GET /api/rooms/room-types - Retrieve distinct room types
 router.get("/room-types", async (req, res) => {
   try {
-    const roomTypes = await Room.distinct("type", { isDeleted: false });
+    const roomTypes = await Room.distinct("type", {
+      isDeleted: false,
+      active: true,
+    });
     res.json(roomTypes);
   } catch (err) {
     console.error("Error fetching room types:", err);
@@ -31,7 +34,7 @@ router.get("/room-types", async (req, res) => {
 // POST /api/rooms - Create a new room
 router.post("/", async (req, res) => {
   try {
-    const { name, capacity, type, building } = req.body;
+    const { name, capacity, type, building, active } = req.body;
 
     // Validate required fields
     if (!name || !capacity || !type || !building) {
@@ -51,6 +54,7 @@ router.post("/", async (req, res) => {
       capacity,
       type,
       building,
+      active: active !== undefined ? active : true, // Default to true if not provided
     });
 
     await room.save();
@@ -65,7 +69,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, capacity, type, building } = req.body;
+    const { name, capacity, type, building, active } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid room ID" });
@@ -90,7 +94,13 @@ router.put("/:id", async (req, res) => {
 
     const room = await Room.findOneAndUpdate(
       { _id: id, isDeleted: false },
-      { name, capacity, type, building },
+      {
+        name,
+        capacity,
+        type,
+        building,
+        active: active !== undefined ? active : true,
+      },
       { new: true, runValidators: true }
     );
 

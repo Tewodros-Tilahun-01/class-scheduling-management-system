@@ -66,6 +66,7 @@ export default function Room() {
     capacity: "",
     type: "",
     building: "",
+    active: true,
   });
   const [formErrors, setFormErrors] = React.useState({});
 
@@ -161,7 +162,7 @@ export default function Room() {
   };
 
   const handleAddRow = () => {
-    setNewRow({ name: "", capacity: "", type: "", building: "" });
+    setNewRow({ name: "", capacity: "", type: "", building: "", active: true });
     setEditRowId(null);
     setIsModalOpen(true);
   };
@@ -169,7 +170,7 @@ export default function Room() {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditRowId(null);
-    setNewRow({ name: "", capacity: "", type: "", building: "" });
+    setNewRow({ name: "", capacity: "", type: "", building: "", active: true });
     setFormErrors({});
   };
 
@@ -299,6 +300,33 @@ export default function Room() {
       sortingFn: "alphanumeric",
     },
     {
+      accessorKey: "active",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          disabled={isLoading}
+        >
+          Active
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div className="p-1">
+          <span
+            className={
+              row.original.active
+                ? "text-green-600 font-medium"
+                : "text-red-600 font-medium"
+            }
+          >
+            {row.original.active ? "Yes" : "No"}
+          </span>
+        </div>
+      ),
+      sortingFn: "basic",
+    },
+    {
       id: "actions",
       enableHiding: false,
       enableSorting: false,
@@ -311,6 +339,7 @@ export default function Room() {
             capacity: String(rowData.capacity),
             type: rowData.type,
             building: rowData.building,
+            active: rowData.active,
           });
           setEditRowId(rowData._id);
           setIsModalOpen(true);
@@ -459,6 +488,22 @@ export default function Room() {
                       {formErrors.building}
                     </p>
                   )}
+                </div>
+                <div className="space-y-1 flex align-baseline">
+                  <label
+                    htmlFor="active"
+                    className="text-sm font-medium mr-3 ml-1"
+                  >
+                    Active
+                  </label>
+                  <Checkbox
+                    id="active"
+                    checked={newRow.active}
+                    onCheckedChange={(checked) =>
+                      setNewRow({ ...newRow, active: checked })
+                    }
+                    disabled={isSubmitting}
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2">

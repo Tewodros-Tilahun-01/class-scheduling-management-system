@@ -439,7 +439,7 @@ async function generateSchedule(semester, userId) {
     }
   });
 
-  const rooms = await Room.find().lean();
+  const rooms = await Room.find({ active: true }).lean(); // Only fetch active rooms
   const timeslots = await Timeslot.find().lean();
   const sortedActivities = await sortActivities(
     expandedActivities,

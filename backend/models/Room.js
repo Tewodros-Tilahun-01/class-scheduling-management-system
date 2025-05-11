@@ -23,6 +23,7 @@ const RoomSchema = new mongoose.Schema({
     trim: true,
   },
   isDeleted: { type: Boolean, default: false, index: true },
+  active: { type: Boolean, default: true, index: true }, // New active field
 });
 
 module.exports = mongoose.model("Room", RoomSchema);
