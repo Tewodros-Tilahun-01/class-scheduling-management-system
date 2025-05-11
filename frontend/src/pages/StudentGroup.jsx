@@ -203,6 +203,7 @@ export function StudentGroup() {
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="pl-0"
         >
           Year
           <ArrowUpDown className="ml-2 h-4 w-4" />

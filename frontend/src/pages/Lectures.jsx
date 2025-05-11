@@ -229,7 +229,7 @@ export default function Lectures() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
-          className="text-left"
+          className="text-left pl-0"
         >
           Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -245,7 +245,7 @@ export default function Lectures() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
-          className="text-left"
+          className="pl-0 "
         >
           Max Load
           <ArrowUpDown className="ml-2 h-4 w-4" />

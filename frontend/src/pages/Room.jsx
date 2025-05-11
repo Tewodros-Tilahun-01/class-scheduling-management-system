@@ -244,6 +244,7 @@ export default function Room() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Room Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -259,6 +260,7 @@ export default function Room() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Capacity
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -274,6 +276,7 @@ export default function Room() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Type
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -291,6 +294,7 @@ export default function Room() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Building
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -306,6 +310,7 @@ export default function Room() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Active
           <ArrowUpDown className="ml-2 h-4 w-4" />

@@ -215,6 +215,7 @@ export function CourseTable() {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           disabled={isLoading}
+          className="pl-0"
         >
           Course Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
