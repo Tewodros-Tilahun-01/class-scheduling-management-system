@@ -107,8 +107,8 @@ function isValidAssignmentSingleTimeslot(
       return false;
     }
     if (
-      entry.activityData.instructor._id.toString() ===
-        activity.instructor._id.toString() &&
+      entry.activityData.lecture._id.toString() ===
+        activity.lecture._id.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
     ) {
       return false;
@@ -135,7 +135,7 @@ function isValidAssignment(
   startTimeslot,
   room,
   schedule,
-  instructorLoad,
+  lectureLoad,
   usedTimeslots,
   allTimeslots
 ) {
@@ -171,15 +171,15 @@ function isValidAssignment(
     return false;
   }
 
-  const instructorId = activity.instructor?._id;
-  if (!instructorId) {
-    console.error("Instructor ID is undefined for activity:", activity);
+  const lectureId = activity.lecture?._id;
+  if (!lectureId) {
+    console.error("lecture ID is undefined for activity:", activity);
     return false;
   }
-  const currentLoad = instructorLoad.get(instructorId.toString()) || 0;
+  const currentLoad = lectureLoad.get(lectureId.toString()) || 0;
   if (
-    activity.instructor.maxLoad &&
-    currentLoad + sessionDurationHours > activity.instructor.maxLoad
+    activity.lecture.maxLoad &&
+    currentLoad + sessionDurationHours > activity.lecture.maxLoad
   ) {
     return false;
   }
@@ -249,7 +249,7 @@ async function backtrack(
   rooms,
   timeslots,
   schedule,
-  instructorLoad,
+  lectureLoad,
   usedTimeslots,
   scheduledSessions,
   index,
@@ -270,7 +270,7 @@ async function backtrack(
       rooms,
       timeslots,
       schedule,
-      instructorLoad,
+      lectureLoad,
       usedTimeslots,
       scheduledSessions,
       index + 1,
@@ -290,7 +290,7 @@ async function backtrack(
         timeslot,
         room,
         schedule,
-        instructorLoad,
+        lectureLoad,
         usedTimeslots,
         timeslots
       );
@@ -318,9 +318,9 @@ async function backtrack(
       newEntries.push(entry);
       usedTimeslots.set(`${validTimeslot._id}-${room._id}`, activity._id);
     }
-    instructorLoad.set(
-      activity.instructor._id.toString(),
-      (instructorLoad.get(activity.instructor._id.toString()) || 0) +
+    lectureLoad.set(
+      activity.lecture._id.toString(),
+      (lectureLoad.get(activity.lecture._id.toString()) || 0) +
         activity.sessionDuration
     );
     scheduledSessions.set(sessionKey, currentSessions + 1);
@@ -331,7 +331,7 @@ async function backtrack(
         rooms,
         timeslots,
         schedule,
-        instructorLoad,
+        lectureLoad,
         usedTimeslots,
         scheduledSessions,
         index + 1,
@@ -347,9 +347,9 @@ async function backtrack(
     for (const validTimeslot of validTimeslots) {
       usedTimeslots.delete(`${validTimeslot._id}-${room._id}`);
     }
-    instructorLoad.set(
-      activity.instructor._id.toString(),
-      (instructorLoad.get(activity.instructor._id.toString()) || 0) -
+    lectureLoad.set(
+      activity.lecture._id.toString(),
+      (lectureLoad.get(activity.lecture._id.toString()) || 0) -
         activity.sessionDuration
     );
     scheduledSessions.set(sessionKey, currentSessions);
@@ -364,16 +364,16 @@ async function generateSchedule(semester, userId) {
   }
 
   const activities = await Activity.find({ semester, createdBy: userId })
-    .populate("course instructor studentGroup")
+    .populate("course lecture studentGroup")
     .lean();
   if (activities.length === 0) {
     throw new Error("No activities found for the specified semester and user");
   }
 
   activities.forEach((activity, index) => {
-    if (!activity.instructor) {
+    if (!activity.lecture) {
       throw new Error(
-        `Activity ${activity._id} (index ${index}) has no instructor`
+        `Activity ${activity._id} (index ${index}) has no lecture`
       );
     }
     if (!activity.studentGroup) {
@@ -454,7 +454,7 @@ async function generateSchedule(semester, userId) {
   });
 
   const schedule = [];
-  const instructorLoad = new Map();
+  const lectureLoad = new Map();
   const usedTimeslots = new Map();
   const scheduledSessions = new Map();
 
@@ -463,7 +463,7 @@ async function generateSchedule(semester, userId) {
     rooms,
     timeslots,
     schedule,
-    instructorLoad,
+    lectureLoad,
     usedTimeslots,
     scheduledSessions,
     0,
@@ -498,7 +498,7 @@ async function generateSchedule(semester, userId) {
       path: "activity",
       populate: [
         { path: "course", select: "courseCode name" },
-        { path: "instructor", select: "name maxLoad" },
+        { path: "lecture", select: "name maxLoad" },
         {
           path: "studentGroup",
           select: "department year section expectedEnrollment",

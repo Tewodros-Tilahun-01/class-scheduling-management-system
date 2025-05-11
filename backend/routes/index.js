@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Import route modules
 const courseRoutes = require("./course");
-const instructorRoutes = require("./instructor");
+const lectureRoutes = require("./lecture");
 const roomRoutes = require("./room");
 const studentGroupRoutes = require("./studentGroup");
 const timeslotRoutes = require("./timeslot");
@@ -26,7 +26,7 @@ router.use(authMiddleware);
 // Mount routes
 router.use("/activities", activityRoutes);
 router.use("/courses", courseRoutes);
-router.use("/instructors", instructorRoutes);
+router.use("/lectures", lectureRoutes);
 router.use("/rooms", roomRoutes);
 router.use("/schedules", scheduleRoutes);
 router.use("/studentGroups", studentGroupRoutes);

@@ -27,7 +27,7 @@ router.post("/", async (req, res) => {
   try {
     const {
       course,
-      instructor,
+      lecture,
       studentGroup,
       semester,
       roomRequirement,
@@ -37,7 +37,7 @@ router.post("/", async (req, res) => {
 
     if (
       !course ||
-      !instructor ||
+      !lecture ||
       !studentGroup ||
       !semester ||
       !roomRequirement ||
@@ -49,7 +49,7 @@ router.post("/", async (req, res) => {
 
     const activity = new Activity({
       course,
-      instructor,
+      lecture,
       studentGroup,
       semester,
       roomRequirement,
@@ -72,7 +72,7 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const {
       course,
-      instructor,
+      lecture,
       studentGroup,
       semester,
       roomRequirement,
@@ -86,7 +86,7 @@ router.put("/:id", async (req, res) => {
 
     if (
       !course ||
-      !instructor ||
+      !lecture ||
       !studentGroup ||
       !semester ||
       !roomRequirement ||
@@ -100,7 +100,7 @@ router.put("/:id", async (req, res) => {
       { _id: id, isDeleted: false },
       {
         course,
-        instructor,
+        lecture,
         studentGroup,
         semester,
         roomRequirement,

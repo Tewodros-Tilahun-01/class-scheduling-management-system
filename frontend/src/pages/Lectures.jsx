@@ -33,13 +33,13 @@ import {
 } from "@/components/ui/table";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import {
-  fetchInstructors,
-  addInstructor,
-  updateInstructor,
-  deleteInstructor,
+  fetchLectures,
+  addLecture,
+  updateLecture,
+  deleteLecture,
 } from "@/services/api";
 
-export default function Instructors() {
+export default function Lectures() {
   const [tableData, setTableData] = React.useState([]);
   const [sorting, setSorting] = React.useState([]);
   const [columnFilters, setColumnFilters] = React.useState([]);
@@ -58,15 +58,15 @@ export default function Instructors() {
   const [error, setError] = React.useState(null);
   const [formErrors, setFormErrors] = React.useState({});
 
-  // Fetch instructors on mount
+  // Fetch lectures on mount
   React.useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const instructors = await fetchInstructors();
-        setTableData(instructors);
+        const lectures = await fetchLectures();
+        setTableData(lectures);
       } catch (err) {
-        setError("Failed to load instructors");
+        setError("Failed to load lectures");
       } finally {
         setIsLoading(false);
       }
@@ -76,7 +76,7 @@ export default function Instructors() {
 
   const validateForm = () => {
     const errors = {};
-    if (!newRow.name.trim()) errors.name = "Instructor name is required";
+    if (!newRow.name.trim()) errors.name = "Lecture name is required";
     if (!newRow.maxLoad) {
       errors.maxLoad = "Max load is required";
     } else if (isNaN(newRow.maxLoad) || newRow.maxLoad < 1) {
@@ -94,12 +94,12 @@ export default function Instructors() {
   const confirmDelete = async () => {
     setIsLoading(true);
     try {
-      await deleteInstructor(deleteRowId);
+      await deleteLecture(deleteRowId);
       setTableData((prev) => prev.filter((row) => row._id !== deleteRowId));
       setIsDeleteConfirmOpen(false);
       setDeleteRowId(null);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete instructor");
+      setError(err.response?.data?.error || "Failed to delete lecture");
     } finally {
       setIsLoading(false);
     }
@@ -111,14 +111,14 @@ export default function Instructors() {
       .getFilteredSelectedRowModel()
       .rows.map((row) => row.original._id);
     try {
-      await Promise.all(selectedIds.map((id) => deleteInstructor(id)));
+      await Promise.all(selectedIds.map((id) => deleteLecture(id)));
       setTableData((prev) =>
         prev.filter((row) => !selectedIds.includes(row._id))
       );
       setRowSelection({});
     } catch (err) {
       setError(
-        err.response?.data?.error || "Failed to delete selected instructors"
+        err.response?.data?.error || "Failed to delete selected lectures"
       );
     } finally {
       setIsLoading(false);
@@ -149,27 +149,25 @@ export default function Instructors() {
     setIsSubmitting(true);
     try {
       if (editRowId) {
-        const updatedInstructor = await updateInstructor(editRowId, {
+        const updatedLecture = await updateLecture(editRowId, {
           name: newRow.name,
-          department: "",
           maxLoad: Number(newRow.maxLoad),
         });
         setTableData((prev) =>
           prev.map((row) =>
-            row._id === editRowId ? { ...row, ...updatedInstructor } : row
+            row._id === editRowId ? { ...row, ...updatedLecture } : row
           )
         );
       } else {
-        const newInstructor = await addInstructor({
+        const newLecture = await addLecture({
           name: newRow.name,
-          department: "",
           maxLoad: Number(newRow.maxLoad),
         });
-        setTableData((prev) => [newInstructor, ...prev]);
+        setTableData((prev) => [newLecture, ...prev]);
       }
       handleModalClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to save instructor");
+      setError(err.response?.data?.error || "Failed to save lecture");
     } finally {
       setIsSubmitting(false);
     }
@@ -318,7 +316,7 @@ export default function Instructors() {
           <div className="fixed inset-0 flex items-center justify-center">
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg w-full max-w-md space-y-6 shadow-lg">
               <h3 className="text-lg font-medium">
-                {editRowId ? "Edit Instructor" : "Add New Instructor"}
+                {editRowId ? "Edit Lecture" : "Add New Lecture"}
               </h3>
               <div className="space-y-4">
                 <div className="space-y-1">
@@ -331,7 +329,7 @@ export default function Instructors() {
                     onChange={(e) =>
                       setNewRow({ ...newRow, name: e.target.value })
                     }
-                    placeholder="Instructor Name"
+                    placeholder="Lecture Name"
                     className={formErrors.name ? "border-red-500" : ""}
                     disabled={isSubmitting}
                   />
@@ -406,8 +404,8 @@ export default function Instructors() {
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg w-full max-w-md space-y-6 shadow-lg">
               <h3 className="text-lg font-medium">Confirm Delete</h3>
               <p className="text-sm text-gray-500">
-                Are you sure you want to delete this instructor? This action
-                cannot be undone.
+                Are you sure you want to delete this lecture? This action cannot
+                be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <Button
@@ -466,7 +464,7 @@ export default function Instructors() {
           />
           <Button variant="outline" onClick={handleAddRow} disabled={isLoading}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Instructor
+            Add Lecture
           </Button>
           <Button
             variant="destructive"
@@ -582,7 +580,7 @@ export default function Instructors() {
                       colSpan={columns.length}
                       className="h-24 text-center"
                     >
-                      No instructors found.
+                      No lectures found.
                     </TableCell>
                   </TableRow>
                 )}
@@ -595,7 +593,7 @@ export default function Instructors() {
         <div className="flex items-center justify-end space-x-2 py-4">
           <div className="flex-1 text-sm text-muted-foreground">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} instructor(s) selected.
+            {table.getFilteredRowModel().rows.length} lecture(s) selected.
           </div>
           <div className="space-x-2">
             <Button

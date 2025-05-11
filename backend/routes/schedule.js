@@ -66,7 +66,7 @@ router.get("/", async (req, res) => {
         path: "activity",
         populate: [
           { path: "course", select: "courseCode name" },
-          { path: "instructor", select: "name maxLoad" },
+          { path: "lecture", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",
@@ -125,7 +125,7 @@ router.get("/:semester", async (req, res) => {
         path: "activity",
         populate: [
           { path: "course", select: "courseCode name" },
-          { path: "instructor", select: "name maxLoad" },
+          { path: "lecture", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",
@@ -194,7 +194,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
         path: "activity",
         populate: [
           { path: "course", select: "courseCode name" },
-          { path: "instructor", select: "name maxLoad" },
+          { path: "lecture", select: "name maxLoad" },
           {
             path: "studentGroup",
             select: "department year section expectedEnrollment",

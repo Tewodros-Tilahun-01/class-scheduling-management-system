@@ -150,8 +150,8 @@ const ScheduleTable = () => {
                                     : "Course N/A"}
                                 </div>
                                 <div>
-                                  Instructor:{" "}
-                                  {entry.activity?.instructor?.name || "N/A"}
+                                  lecture:{" "}
+                                  {entry.activity?.lecture?.name || "N/A"}
                                 </div>
                                 <div>Room: {entry.room?.name || "N/A"}</div>
                               </div>

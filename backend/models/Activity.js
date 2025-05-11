@@ -7,9 +7,9 @@ const activitySchema = new mongoose.Schema(
       ref: "Course",
       required: true,
     },
-    instructor: {
+    lecture: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Instructor",
+      ref: "lecture",
       required: true,
     },
     studentGroup: {

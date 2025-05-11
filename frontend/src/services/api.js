@@ -43,23 +43,23 @@ export const deleteCourse = async (id) => {
   return response.data;
 };
 
-export const fetchInstructors = async () => {
-  const response = await api.get("/instructors");
+export const fetchLectures = async () => {
+  const response = await api.get("/lectures");
   return response.data;
 };
 
-export const addInstructor = async (instructorData) => {
-  const response = await api.post("/instructors", instructorData);
+export const addLecture = async (lectureData) => {
+  const response = await api.post("/lectures", lectureData);
   return response.data;
 };
 
-export const updateInstructor = async (id, instructorData) => {
-  const response = await api.put(`/instructors/${id}`, instructorData);
+export const updateLecture = async (id, lectureData) => {
+  const response = await api.put(`/lectures/${id}`, lectureData);
   return response.data;
 };
 
-export const deleteInstructor = async (id) => {
-  const response = await api.delete(`/instructors/${id}`);
+export const deleteLecture = async (id) => {
+  const response = await api.delete(`/lectures/${id}`);
   return response.data;
 };
 

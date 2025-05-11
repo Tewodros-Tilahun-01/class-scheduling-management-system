@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   fetchCourses,
-  fetchInstructors,
+  fetchLectures,
   fetchRoomTypes,
   addActivity,
   fetchActivities,
@@ -46,7 +46,7 @@ const ActivityList = ({
   activities,
   semester,
   courses,
-  instructors,
+  lectures,
   studentGroups,
   onDeleteActivity,
   loading,
@@ -62,7 +62,7 @@ const ActivityList = ({
 
   const renderActivityRow = (activity, index) => {
     const course = courses.find((c) => c._id === activity.course);
-    const instructor = instructors.find((i) => i._id === activity.instructor);
+    const lecture = lectures.find((i) => i._id === activity.lecture);
     const studentGroup = studentGroups.find(
       (g) => g._id === activity.studentGroup
     );
@@ -72,7 +72,7 @@ const ActivityList = ({
         <TableCell>
           {course ? `${course.courseCode} - ${course.name}` : "N/A"}
         </TableCell>
-        <TableCell>{instructor ? instructor.name : "N/A"}</TableCell>
+        <TableCell>{lecture ? lecture.name : "N/A"}</TableCell>
         <TableCell>
           {studentGroup
             ? `${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`
@@ -147,7 +147,7 @@ const ActivityList = ({
       <TableHeader>
         <TableRow>
           <TableHead>Course</TableHead>
-          <TableHead>Instructor</TableHead>
+          <TableHead>lecture</TableHead>
           <TableHead>Student Group</TableHead>
           <TableHead>Room Requirement</TableHead>
           <TableHead>Total Duration</TableHead>
@@ -174,13 +174,13 @@ const ActivityList = ({
 const ActivityScheduler = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+  const [lectures, setlectures] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [studentGroups, setStudentGroups] = useState([]);
   const [activities, setActivities] = useState([]);
   const [activityForm, setActivityForm] = useState({
     courseId: "",
-    instructorId: "",
+    lectureId: "",
     totalDuration: "",
     split: "",
     studentGroup: "",
@@ -204,16 +204,16 @@ const ActivityScheduler = () => {
     const fetchData = async () => {
       try {
         setLoadingData(true);
-        const [coursesData, instructorsData, roomTypesData, studentGroupsData] =
+        const [coursesData, lecturesData, roomTypesData, studentGroupsData] =
           await Promise.all([
             fetchCourses(),
-            fetchInstructors(),
+            fetchLectures(),
             fetchRoomTypes(),
             fetchStudentGroups().catch(() => []),
           ]);
 
         setCourses(Array.isArray(coursesData) ? coursesData : []);
-        setInstructors(Array.isArray(instructorsData) ? instructorsData : []);
+        setlectures(Array.isArray(lecturesData) ? lecturesData : []);
         setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
         setStudentGroups(
           Array.isArray(studentGroupsData) ? studentGroupsData : []
@@ -268,7 +268,7 @@ const ActivityScheduler = () => {
 
     const {
       courseId,
-      instructorId,
+      lectureId,
       totalDuration,
       split,
       studentGroup,
@@ -277,7 +277,7 @@ const ActivityScheduler = () => {
 
     if (
       !courseId ||
-      !instructorId ||
+      !lectureId ||
       !totalDuration ||
       !split ||
       !studentGroup ||
@@ -308,7 +308,7 @@ const ActivityScheduler = () => {
     try {
       await addActivity({
         course: courseId,
-        instructor: instructorId,
+        lecture: lectureId,
         totalDuration: totalDurationNum,
         split: splitNum,
         studentGroup,
@@ -319,7 +319,7 @@ const ActivityScheduler = () => {
       setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       setActivityForm({
         courseId: "",
-        instructorId: "",
+        lectureId: "",
         totalDuration: "",
         split: "",
         studentGroup: "",
@@ -479,26 +479,26 @@ const ActivityScheduler = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="instructorId">Instructor</Label>
+                <Label htmlFor="lectureId">lecture</Label>
                 <Select
-                  name="instructorId"
-                  value={activityForm.instructorId}
+                  name="lectureId"
+                  value={activityForm.lectureId}
                   onValueChange={(value) =>
-                    handleActivityChange("instructorId", value)
+                    handleActivityChange("lectureId", value)
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Instructor" />
+                    <SelectValue placeholder="Select lecture" />
                   </SelectTrigger>
                   <SelectContent>
-                    {instructors.length === 0 ? (
+                    {lectures.length === 0 ? (
                       <SelectItem value="none" disabled>
-                        No instructors available
+                        No lectures available
                       </SelectItem>
                     ) : (
-                      instructors.map((instructor) => (
-                        <SelectItem key={instructor._id} value={instructor._id}>
-                          {instructor.name}
+                      lectures.map((lecture) => (
+                        <SelectItem key={lecture._id} value={lecture._id}>
+                          {lecture.name}
                         </SelectItem>
                       ))
                     )}
@@ -619,7 +619,7 @@ const ActivityScheduler = () => {
             activities={activities}
             semester={semester}
             courses={courses}
-            instructors={instructors}
+            lectures={lectures}
             studentGroups={studentGroups}
             onDeleteActivity={handleDeleteActivity}
             loading={loadingActivities}
