@@ -15,7 +15,31 @@ router.get("/", async (req, res) => {
 // POST /api/student-groups
 router.post("/", async (req, res) => {
   try {
-    const studentGroup = new StudentGroup(req.body);
+    const { department, year, section } = req.body;
+
+    // Validate required fields
+    if (!department || !year || !section) {
+      return res
+        .status(400)
+        .json({ error: "Department, year, and section are required" });
+    }
+
+    // Check for existing student group (case-insensitive for department and section)
+    const existingGroup = await StudentGroup.findOne({
+      department: { $regex: `^${department}$`, $options: "i" },
+      year,
+      section: { $regex: `^${section}$`, $options: "i" },
+      isDeleted: false,
+    });
+
+    if (existingGroup) {
+      return res
+        .status(400)
+        .json({ error: "Student group with these details already exists" });
+    }
+
+    // Create and save new student group
+    const studentGroup = new StudentGroup({ department, year, section });
     await studentGroup.save();
     res.status(201).json(studentGroup);
   } catch (err) {
