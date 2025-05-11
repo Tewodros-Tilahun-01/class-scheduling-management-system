@@ -11,8 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 
 const ScheduleTable = () => {
   const { semester } = useParams();
@@ -89,9 +89,15 @@ const ScheduleTable = () => {
           Object.keys(schedulesData).length > 0
         ) {
           setAllSchedules(schedulesData);
+          toast.success("Schedules loaded successfully", {
+            description: `Fetched schedules for ${decodedSemester}`,
+          });
           console.log("Fetched schedules:", schedulesData);
         } else {
           setAllSchedules(null);
+          toast.error("No schedules found", {
+            description: `No schedules available for ${decodedSemester}`,
+          });
           console.warn("No schedules returned for semester:", decodedSemester);
         }
       } catch (err) {
@@ -100,6 +106,9 @@ const ScheduleTable = () => {
             err.response?.data?.error || err.message
           }`
         );
+        toast.error(err.response?.data?.error || "Failed to load schedules", {
+          description: "Unable to fetch schedules from the server",
+        });
         console.error("Fetch error:", err);
       } finally {
         setLoading(false);
@@ -189,16 +198,6 @@ const ScheduleTable = () => {
         <div className="flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      ) : error ? (
-        <Card>
-          <CardContent>
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
       ) : allSchedules ? (
         Object.values(allSchedules).length > 0 ? (
           Object.values(allSchedules)

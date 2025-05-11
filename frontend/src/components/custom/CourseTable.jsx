@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/sonner";
 import {
   fetchCourses,
   addCourse,
@@ -55,7 +56,6 @@ export function CourseTable() {
     longName: "",
     courseCode: "",
   });
-  const [error, setError] = React.useState(null);
   const [formErrors, setFormErrors] = React.useState({});
 
   // Fetch courses on mount
@@ -66,7 +66,9 @@ export function CourseTable() {
         const courses = await fetchCourses();
         setTableData(courses);
       } catch (err) {
-        setError("Failed to load courses");
+        toast.error(err.response?.data?.error || "Failed to load courses", {
+          description: "Unable to fetch courses from the server",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -82,6 +84,11 @@ export function CourseTable() {
       errors.courseCode = "Course code is required";
     }
     setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fill all required fields", {
+        description: "Course name, long name, and course code are required",
+      });
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -97,8 +104,11 @@ export function CourseTable() {
       setTableData((prev) => prev.filter((row) => row._id !== deleteRowId));
       setIsDeleteConfirmOpen(false);
       setDeleteRowId(null);
+      toast.success("Course deleted successfully");
     } catch (err) {
-      setError("Failed to delete course");
+      toast.error(err.response?.data?.error || "Failed to delete course", {
+        description: "Unable to delete the course",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -115,8 +125,14 @@ export function CourseTable() {
         prev.filter((row) => !selectedIds.includes(row._id))
       );
       setRowSelection({});
+      toast.success("Selected courses deleted successfully");
     } catch (err) {
-      setError("Failed to delete selected courses");
+      toast.error(
+        err.response?.data?.error || "Failed to delete selected courses",
+        {
+          description: "Unable to delete the selected courses",
+        }
+      );
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +148,6 @@ export function CourseTable() {
     setIsModalOpen(false);
     setEditRowId(null);
     setNewRow({ name: "", longName: "", courseCode: "" });
-    setError(null);
     setFormErrors({});
   };
 
@@ -152,13 +167,17 @@ export function CourseTable() {
             row._id === editRowId ? { ...row, ...updatedCourse } : row
           )
         );
+        toast.success("Course updated successfully");
       } else {
         const newCourse = await addCourse(newRow);
         setTableData((prev) => [newCourse, ...prev]);
+        toast.success("Course added successfully");
       }
       handleModalClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to save course");
+      toast.error(err.response?.data?.error || "Failed to save course", {
+        description: "Unable to save the course",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -280,13 +299,6 @@ export function CourseTable() {
 
   return (
     <div className="w-full">
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
       {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onClose={handleModalClose}>
         <div className="fixed inset-0 bg-black/30" />

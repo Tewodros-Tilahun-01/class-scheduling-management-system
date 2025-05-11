@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 import { fetchSemesters } from "@/services/api";
 
 const SemesterList = () => {
@@ -19,8 +19,14 @@ const SemesterList = () => {
         const semestersData = await fetchSemesters();
         if (Array.isArray(semestersData) && semestersData.length > 0) {
           setSemesters(semestersData);
+          toast.success("Semesters loaded successfully", {
+            description: `${semestersData.length} semester(s) fetched`,
+          });
         } else {
           setSemesters([]);
+          toast.error("No semesters found", {
+            description: "No semesters available",
+          });
         }
       } catch (err) {
         setError(
@@ -28,6 +34,9 @@ const SemesterList = () => {
             err.response?.data?.error || err.message
           }`
         );
+        toast.error(err.response?.data?.error || "Failed to load semesters", {
+          description: "Unable to fetch semesters from the server",
+        });
       } finally {
         setLoading(false);
       }
@@ -46,12 +55,6 @@ const SemesterList = () => {
             <div className="flex justify-center">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
-          ) : error ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
           ) : semesters.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {semesters.map((semester) => (

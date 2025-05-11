@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/sonner";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import {
   fetchRooms,
@@ -66,7 +67,6 @@ export default function Room() {
     type: "",
     building: "",
   });
-  const [error, setError] = React.useState(null);
   const [formErrors, setFormErrors] = React.useState({});
 
   // Fetch rooms and room types on mount
@@ -81,7 +81,12 @@ export default function Room() {
         setTableData(rooms);
         setRoomTypes(types);
       } catch (err) {
-        setError("Failed to load rooms or room types");
+        toast.error(
+          err.response?.data?.error || "Failed to load rooms or room types",
+          {
+            description: "Unable to fetch data from the server",
+          }
+        );
       } finally {
         setIsLoading(false);
       }
@@ -100,6 +105,12 @@ export default function Room() {
     if (!newRow.type) errors.type = "Room type is required";
     if (!newRow.building.trim()) errors.building = "Building is required";
     setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fill all required fields", {
+        description:
+          "Room name, capacity, room type, and building are required",
+      });
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -115,8 +126,11 @@ export default function Room() {
       setTableData((prev) => prev.filter((row) => row._id !== deleteRowId));
       setIsDeleteConfirmOpen(false);
       setDeleteRowId(null);
+      toast.success("Room deleted successfully");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete room");
+      toast.error(err.response?.data?.error || "Failed to delete room", {
+        description: "Unable to delete the room",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -133,8 +147,14 @@ export default function Room() {
         prev.filter((row) => !selectedIds.includes(row._id))
       );
       setRowSelection({});
+      toast.success("Selected rooms deleted successfully");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete selected rooms");
+      toast.error(
+        err.response?.data?.error || "Failed to delete selected rooms",
+        {
+          description: "Unable to delete the selected rooms",
+        }
+      );
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +170,6 @@ export default function Room() {
     setIsModalOpen(false);
     setEditRowId(null);
     setNewRow({ name: "", capacity: "", type: "", building: "" });
-    setError(null);
     setFormErrors({});
   };
 
@@ -173,16 +192,20 @@ export default function Room() {
             row._id === editRowId ? { ...row, ...updatedRoom } : row
           )
         );
+        toast.success("Room updated successfully");
       } else {
         const newRoom = await addRoom({
           ...newRow,
           capacity: Number(newRow.capacity),
         });
         setTableData((prev) => [newRoom, ...prev]);
+        toast.success("Room added successfully");
       }
       handleModalClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to save room");
+      toast.error(err.response?.data?.error || "Failed to save room", {
+        description: "Unable to save the room",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -341,13 +364,6 @@ export default function Room() {
   return (
     <DashboardLayout>
       <div className="w-full p-4">
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
         {/* Add/Edit Modal */}
         <Dialog open={isModalOpen} onClose={handleModalClose}>
           <div className="fixed inset-0 bg-black/30" />

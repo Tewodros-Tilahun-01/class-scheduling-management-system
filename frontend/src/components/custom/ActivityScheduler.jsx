@@ -28,8 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertCircle, Loader2, Trash2 } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, Trash2 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -50,7 +50,6 @@ const ActivityList = ({
   studentGroups,
   onDeleteActivity,
   loading,
-  error,
 }) => {
   const handleDeleteActivity = async (id) => {
     try {
@@ -98,11 +97,7 @@ const ActivityList = ({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteDialogOpen(false)}
-                  disabled={loading}
-                >
+                <Button variant="outline" onClick={() => {}} disabled={loading}>
                   No
                 </Button>
                 <Button
@@ -129,16 +124,6 @@ const ActivityList = ({
       <div className="flex justify-center items-center h-32">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
     );
   }
 
@@ -174,7 +159,7 @@ const ActivityList = ({
 const ActivityScheduler = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
-  const [lectures, setlectures] = useState([]);
+  const [lectures, setLectures] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [studentGroups, setStudentGroups] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -190,8 +175,6 @@ const ActivityScheduler = () => {
   const [loadingData, setLoadingData] = useState(true); // Loading state for initial data
   const [loadingActivities, setLoadingActivities] = useState(false); // Loading state for activities
   const [formLoading, setFormLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [formError, setFormError] = useState(null);
 
   // Predefined list of semesters from 2017 to 2027
   const semesters = [];
@@ -213,18 +196,23 @@ const ActivityScheduler = () => {
           ]);
 
         setCourses(Array.isArray(coursesData) ? coursesData : []);
-        setlectures(Array.isArray(lecturesData) ? lecturesData : []);
+        setLectures(Array.isArray(lecturesData) ? lecturesData : []);
         setRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
         setStudentGroups(
           Array.isArray(studentGroupsData) ? studentGroupsData : []
         );
-        setLoadingData(false);
+        toast.success("Data loaded successfully", {
+          description:
+            "Courses, lectures, room types, and student groups fetched",
+        });
       } catch (err) {
-        setError(
-          err.response?.data?.error ||
-            err.message ||
-            "Failed to fetch data. Ensure backend is running at http://localhost:5000"
+        toast.error(
+          err.response?.data?.error || err.message || "Failed to fetch data",
+          {
+            description: "Ensure backend is running at http://localhost:5000",
+          }
         );
+      } finally {
         setLoadingData(false);
       }
     };
@@ -239,11 +227,18 @@ const ActivityScheduler = () => {
           setLoadingActivities(true);
           const activitiesData = await fetchActivities({ semester });
           setActivities(Array.isArray(activitiesData) ? activitiesData : []);
+          toast.success("Activities loaded successfully", {
+            description: `Fetched activities for ${semester}`,
+          });
         } catch (err) {
-          setError(
+          toast.error(
             err.response?.data?.error ||
               err.message ||
-              "Failed to fetch activities"
+              "Failed to fetch activities",
+            {
+              description:
+                "Unable to fetch activities for the selected semester",
+            }
           );
         } finally {
           setLoadingActivities(false);
@@ -258,12 +253,10 @@ const ActivityScheduler = () => {
 
   const handleActivityChange = (name, value) => {
     setActivityForm({ ...activityForm, [name]: value });
-    setFormError(null);
   };
 
   const handleAddActivity = async (e) => {
     e.preventDefault();
-    setFormError(null);
     setFormLoading(true);
 
     const {
@@ -283,24 +276,33 @@ const ActivityScheduler = () => {
       !studentGroup ||
       !semester
     ) {
-      setFormError("Please fill all required fields, including semester");
+      toast.error("Please fill all required fields", {
+        description:
+          "Course, lecture, total duration, split, student group, and semester are required",
+      });
       setFormLoading(false);
       return;
     }
     const totalDurationNum = Number(totalDuration);
     const splitNum = Number(split);
     if (isNaN(totalDurationNum) || totalDurationNum < 1) {
-      setFormError("Total Duration must be a positive number");
+      toast.error("Invalid Total Duration", {
+        description: "Total Duration must be a positive number",
+      });
       setFormLoading(false);
       return;
     }
     if (isNaN(splitNum) || splitNum < 1) {
-      setFormError("Split must be a positive number");
+      toast.error("Invalid Split", {
+        description: "Split must be a positive number",
+      });
       setFormLoading(false);
       return;
     }
     if (splitNum > totalDurationNum) {
-      setFormError("Split cannot exceed Total Duration");
+      toast.error("Invalid Split", {
+        description: "Split cannot exceed Total Duration",
+      });
       setFormLoading(false);
       return;
     }
@@ -325,9 +327,17 @@ const ActivityScheduler = () => {
         studentGroup: "",
         roomRequirement: "",
       });
-      setFormLoading(false);
+      toast.success("Activity added successfully", {
+        description: `Added activity for ${semester}`,
+      });
     } catch (err) {
-      setFormError(err.response?.data?.error || err.message);
+      toast.error(
+        err.response?.data?.error || err.message || "Failed to add activity",
+        {
+          description: "Unable to add the activity",
+        }
+      );
+    } finally {
       setFormLoading(false);
     }
   };
@@ -338,27 +348,45 @@ const ActivityScheduler = () => {
       await deleteActivity(id);
       const activitiesData = await fetchActivities({ semester });
       setActivities(Array.isArray(activitiesData) ? activitiesData : []);
-      setLoadingActivities(false);
+      toast.success("Activity deleted successfully", {
+        description: `Removed activity from ${semester}`,
+      });
     } catch (err) {
-      setError(
-        err.response?.data?.error || err.message || "Failed to delete activity"
+      toast.error(
+        err.response?.data?.error || err.message || "Failed to delete activity",
+        {
+          description: "Unable to delete the activity",
+        }
       );
+    } finally {
       setLoadingActivities(false);
     }
   };
 
   const handleGenerateSchedule = async () => {
     if (!semester) {
-      setFormError("Please select a semester to generate the schedule");
+      toast.error("No semester selected", {
+        description: "Please select a semester to generate the schedule",
+      });
       return;
     }
     try {
       setFormLoading(true);
       await generateSchedule(semester);
-      setFormLoading(false);
+      toast.success("Schedule generated successfully", {
+        description: `Generated schedule for ${semester}`,
+      });
       navigate(`/schedules/${semester}`);
     } catch (err) {
-      setFormError(err.response?.data?.error || err.message);
+      toast.error(
+        err.response?.data?.error ||
+          err.message ||
+          "Failed to generate schedule",
+        {
+          description: "Unable to generate the schedule",
+        }
+      );
+    } finally {
       setFormLoading(false);
     }
   };
@@ -367,28 +395,6 @@ const ActivityScheduler = () => {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error && !loadingData) {
-    return (
-      <div className="max-w-2xl mx-auto p-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <Button
-          onClick={() => {
-            setError(null);
-            setLoadingData(true);
-            fetchData();
-          }}
-          className="mt-4"
-        >
-          Retry
-        </Button>
       </div>
     );
   }
@@ -441,13 +447,6 @@ const ActivityScheduler = () => {
           <CardTitle>Add New Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          {formError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{formError}</AlertDescription>
-            </Alert>
-          )}
           <form onSubmit={handleAddActivity} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -623,7 +622,6 @@ const ActivityScheduler = () => {
             studentGroups={studentGroups}
             onDeleteActivity={handleDeleteActivity}
             loading={loadingActivities}
-            error={error}
           />
         </CardContent>
       </Card>

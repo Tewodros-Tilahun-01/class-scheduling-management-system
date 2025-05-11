@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/sonner";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import {
   fetchLectures,
@@ -55,7 +56,6 @@ export default function Lectures() {
     name: "",
     maxLoad: "",
   });
-  const [error, setError] = React.useState(null);
   const [formErrors, setFormErrors] = React.useState({});
 
   // Fetch lectures on mount
@@ -65,8 +65,11 @@ export default function Lectures() {
       try {
         const lectures = await fetchLectures();
         setTableData(lectures);
+        toast.success("Lectures loaded successfully");
       } catch (err) {
-        setError("Failed to load lectures");
+        toast.error(err.response?.data?.error || "Failed to load lectures", {
+          description: "Unable to fetch lectures from the server",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -83,6 +86,11 @@ export default function Lectures() {
       errors.maxLoad = "Max load must be a positive number";
     }
     setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fill all required fields", {
+        description: "Lecture name and max load are required",
+      });
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -98,8 +106,11 @@ export default function Lectures() {
       setTableData((prev) => prev.filter((row) => row._id !== deleteRowId));
       setIsDeleteConfirmOpen(false);
       setDeleteRowId(null);
+      toast.success("Lecture deleted successfully");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete lecture");
+      toast.error(err.response?.data?.error || "Failed to delete lecture", {
+        description: "Unable to delete the lecture",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -116,9 +127,13 @@ export default function Lectures() {
         prev.filter((row) => !selectedIds.includes(row._id))
       );
       setRowSelection({});
+      toast.success("Selected lectures deleted successfully");
     } catch (err) {
-      setError(
-        err.response?.data?.error || "Failed to delete selected lectures"
+      toast.error(
+        err.response?.data?.error || "Failed to delete selected lectures",
+        {
+          description: "Unable to delete the selected lectures",
+        }
       );
     } finally {
       setIsLoading(false);
@@ -135,7 +150,6 @@ export default function Lectures() {
     setIsModalOpen(false);
     setEditRowId(null);
     setNewRow({ name: "", maxLoad: "" });
-    setError(null);
     setFormErrors({});
   };
 
@@ -158,16 +172,20 @@ export default function Lectures() {
             row._id === editRowId ? { ...row, ...updatedLecture } : row
           )
         );
+        toast.success("Lecture updated successfully");
       } else {
         const newLecture = await addLecture({
           name: newRow.name,
           maxLoad: Number(newRow.maxLoad),
         });
         setTableData((prev) => [newLecture, ...prev]);
+        toast.success("Lecture added successfully");
       }
       handleModalClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to save lecture");
+      toast.error(err.response?.data?.error || "Failed to save lecture", {
+        description: "Unable to save the lecture",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -303,13 +321,6 @@ export default function Lectures() {
   return (
     <DashboardLayout>
       <div className="w-full p-4">
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
         {/* Add/Edit Modal */}
         <Dialog open={isModalOpen} onClose={handleModalClose}>
           <div className="fixed inset-0 bg-black/30" />
