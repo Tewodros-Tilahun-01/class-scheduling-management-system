@@ -26,15 +26,13 @@ function parseTime(timeStr) {
   return hours * 60 + minutes;
 }
 
-function sortTimeslots(timeslots, schedule) {
-  const daysOrder = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
+async function getDynamicDays() {
+  const timeslots = await Timeslot.find().lean();
+  const days = [...new Set(timeslots.map((ts) => ts.day))].sort(); // Sort alphabetically or customize as needed
+  return days;
+}
+
+function sortTimeslots(timeslots, schedule, daysOrder) {
   const dayUsage = daysOrder.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
   schedule.forEach((entry) => {
     if (entry.timeslot && entry.timeslot.day) {
@@ -88,11 +86,19 @@ function isValidAssignmentSingleTimeslot(
   usedTimeslots
 ) {
   if (activity.roomRequirement && room.type !== activity.roomRequirement) {
+    console.log(
+      `Room ${room._id} type ${room.type} does not match requirement ${activity.roomRequirement} for activity ${activity._id}`
+    );
     return false;
   }
   const studentGroup = activity.studentGroup || {};
   const defaultEnrollment = 50;
   if (room.capacity < (studentGroup.expectedEnrollment || defaultEnrollment)) {
+    console.log(
+      `Room ${room._id} capacity ${room.capacity} too low for enrollment ${
+        studentGroup.expectedEnrollment || defaultEnrollment
+      } for activity ${activity._id}`
+    );
     return false;
   }
   for (const entry of schedule) {
@@ -104,6 +110,9 @@ function isValidAssignmentSingleTimeslot(
       entry.room.toString() === room._id.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
     ) {
+      console.log(
+        `Room ${room._id} already booked for timeslot ${timeslot._id} for activity ${activity._id}`
+      );
       return false;
     }
     if (
@@ -111,6 +120,9 @@ function isValidAssignmentSingleTimeslot(
         activity.lecture._id.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
     ) {
+      console.log(
+        `Lecture ${activity.lecture._id} conflict for timeslot ${timeslot._id} for activity ${activity._id}`
+      );
       return false;
     }
     if (
@@ -120,11 +132,17 @@ function isValidAssignmentSingleTimeslot(
         activity.studentGroup._id.toString() &&
       timeslotsOverlap(entry.timeslot, timeslot)
     ) {
+      console.log(
+        `Student group ${activity.studentGroup._id} conflict for timeslot ${timeslot._id} for activity ${activity._id}`
+      );
       return false;
     }
   }
   const timeslotRoomKey = `${timeslot._id}-${room._id}`;
   if (usedTimeslots.has(timeslotRoomKey)) {
+    console.log(
+      `Timeslot ${timeslot._id} and room ${room._id} already used for activity ${activity._id}`
+    );
     return false;
   }
   return true;
@@ -132,42 +150,25 @@ function isValidAssignmentSingleTimeslot(
 
 function isValidAssignment(
   activity,
-  startTimeslot,
+  timeslot,
   room,
   schedule,
   lectureLoad,
-  usedTimeslots,
-  allTimeslots
+  usedTimeslots
 ) {
   const sessionDurationHours = activity.sessionDuration;
   const minutesPerHour = 60;
   const sessionMinutes = sessionDurationHours * minutesPerHour;
 
-  const startIndex = allTimeslots.findIndex(
-    (ts) => ts._id.toString() === startTimeslot._id.toString()
-  );
-  if (startIndex === -1) return false;
+  // Check if the single timeslot can cover the session duration
+  const tsStart = parseTime(timeslot.startTime);
+  const tsEnd = parseTime(timeslot.endTime);
+  const tsDuration = tsEnd - tsStart;
 
-  const requiredTimeslots = [];
-  let currentTime = parseTime(startTimeslot.startTime);
-  const endTime = currentTime + sessionMinutes;
-  let i = startIndex;
-
-  while (i < allTimeslots.length && currentTime < endTime) {
-    const ts = allTimeslots[i];
-    if (ts.day !== startTimeslot.day) {
-      return false;
-    }
-    const tsStart = parseTime(ts.startTime);
-    const tsEnd = parseTime(ts.endTime);
-    if (tsStart !== currentTime) {
-      return false;
-    }
-    requiredTimeslots.push(ts);
-    currentTime = tsEnd;
-    i++;
-  }
-  if (currentTime !== endTime) {
+  if (tsDuration < sessionMinutes) {
+    console.log(
+      `Timeslot ${timeslot._id} duration ${tsDuration} minutes is too short for ${sessionMinutes} minutes required by activity ${activity._id}`
+    );
     return false;
   }
 
@@ -181,59 +182,47 @@ function isValidAssignment(
     activity.lecture.maxLoad &&
     currentLoad + sessionDurationHours > activity.lecture.maxLoad
   ) {
+    console.log(
+      `Lecture ${lectureId} load ${
+        currentLoad + sessionDurationHours
+      } exceeds maxLoad ${activity.lecture.maxLoad} for activity ${
+        activity._id
+      }`
+    );
     return false;
   }
 
-  for (const timeslot of requiredTimeslots) {
-    if (
-      !isValidAssignmentSingleTimeslot(
-        activity,
-        timeslot,
-        room,
-        schedule,
-        usedTimeslots
-      )
-    ) {
-      return false;
-    }
+  if (
+    !isValidAssignmentSingleTimeslot(
+      activity,
+      timeslot,
+      room,
+      schedule,
+      usedTimeslots
+    )
+  ) {
+    return false;
   }
 
-  return requiredTimeslots;
+  return [timeslot];
 }
 
 async function sortActivities(activities, rooms, timeslots) {
   const activityConstraints = [];
   for (const activity of activities) {
     let validOptions = 0;
-    for (let i = 0; i < timeslots.length; i++) {
-      const startTimeslot = timeslots[i];
+    for (const timeslot of timeslots) {
       const sessionDurationHours = activity.sessionDuration;
-      let valid = true;
-      let currentTime = parseTime(startTimeslot.startTime);
-      const endTime = currentTime + sessionDurationHours * 60;
-      let j = i;
-      while (j < timeslots.length && currentTime < endTime) {
-        if (
-          timeslots[j].day !== startTimeslot.day ||
-          parseTime(timeslots[j].startTime) !== currentTime
-        ) {
-          valid = false;
-          break;
-        }
-        currentTime = parseTime(timeslots[j].endTime);
-        j++;
-      }
-      if (currentTime !== endTime) {
-        valid = false;
-      }
-      if (!valid) continue;
+      const tsStart = parseTime(timeslot.startTime);
+      const tsEnd = parseTime(timeslot.endTime);
+      const tsDuration = tsEnd - tsStart;
+      if (tsDuration < sessionDurationHours * 60) continue;
       for (const room of rooms) {
         if (activity.roomRequirement && room.type !== activity.roomRequirement)
           continue;
         validOptions++;
       }
     }
-    // Add random factor to validOptions for sorting
     const randomFactor = Math.random() * 10; // Small random weight
     activityConstraints.push({
       activity,
@@ -256,15 +245,26 @@ async function backtrack(
   userId
 ) {
   if (index >= activities.length) {
+    console.log("Successfully scheduled all activities");
     return true;
   }
   const activity = activities[index];
+  console.log(
+    `Attempting to schedule activity ${activity._id} (original: ${
+      activity.originalId || activity._id
+    })`
+  );
   const sessionKey = `${activity.originalId || activity._id}`;
   const currentSessions = scheduledSessions.get(sessionKey) || 0;
   const maxSessions = activity.originalActivity
-    ? activity.originalActivity.split
+    ? Math.ceil(
+        activity.originalActivity.totalDuration / activity.sessionDuration
+      )
     : 1;
   if (currentSessions >= maxSessions) {
+    console.log(
+      `Activity ${activity._id} already has ${currentSessions} sessions, moving to next`
+    );
     return await backtrack(
       activities,
       rooms,
@@ -278,10 +278,13 @@ async function backtrack(
     );
   }
 
-  const sortedTimeslots = sortTimeslots(timeslots, schedule);
+  const sortedTimeslots = sortTimeslots(
+    timeslots,
+    schedule,
+    await getDynamicDays()
+  );
   const sortedRooms = sortRooms(rooms, activity, schedule);
 
-  // Collect all valid assignments
   const validAssignments = [];
   for (const timeslot of sortedTimeslots) {
     for (const room of sortedRooms) {
@@ -291,8 +294,7 @@ async function backtrack(
         room,
         schedule,
         lectureLoad,
-        usedTimeslots,
-        timeslots
+        usedTimeslots
       );
       if (validTimeslots) {
         validAssignments.push({ timeslot, room, validTimeslots });
@@ -300,10 +302,16 @@ async function backtrack(
     }
   }
 
-  // Shuffle valid assignments to introduce randomness
+  if (validAssignments.length === 0) {
+    console.log(`No valid assignments found for activity ${activity._id}`);
+  }
+
   shuffleArray(validAssignments);
 
   for (const { timeslot, room, validTimeslots } of validAssignments) {
+    console.log(
+      `Trying timeslot ${timeslot._id} and room ${room._id} for activity ${activity._id}`
+    );
     const newEntries = [];
     for (const validTimeslot of validTimeslots) {
       const entry = {
@@ -341,6 +349,9 @@ async function backtrack(
       return true;
     }
 
+    console.log(
+      `Backtracking: removing assignment for activity ${activity._id}`
+    );
     for (let i = 0; i < newEntries.length; i++) {
       schedule.pop();
     }
@@ -358,19 +369,31 @@ async function backtrack(
   return false;
 }
 
-async function generateSchedule(semester, userId) {
+async function generateSchedule(semester, userId, sessionLength = 1) {
   if (!semester) {
     throw new Error("Semester is required");
   }
+  if (sessionLength <= 0) {
+    throw new Error("Session length must be positive");
+  }
 
-  const activities = await Activity.find({ semester, createdBy: userId })
+  console.log(
+    `Fetching activities for semester ${semester} and user ${userId}`
+  );
+  const activities = await Activity.find({
+    semester,
+    createdBy: userId,
+    isDeleted: false,
+  })
     .populate("course lecture studentGroup")
     .lean();
   if (activities.length === 0) {
     throw new Error("No activities found for the specified semester and user");
   }
 
+  console.log(`Found ${activities.length} activities`);
   activities.forEach((activity, index) => {
+    console.log(`Validating activity ${activity._id} (index ${index})`);
     if (!activity.lecture) {
       throw new Error(
         `Activity ${activity._id} (index ${index}) has no lecture`
@@ -394,37 +417,28 @@ async function generateSchedule(semester, userId) {
         `Activity ${activity._id} (index ${index}) has invalid totalDuration: ${activity.totalDuration}`
       );
     }
-    if (!activity.split || activity.split < 1) {
-      throw new Error(
-        `Activity ${activity._id} (index ${index}) has invalid split: ${activity.split}`
-      );
-    }
-    if (activity.split > activity.totalDuration) {
-      throw new Error(
-        `Activity ${activity._id} (index ${index}) has split (${activity.split}) exceeding totalDuration (${activity.totalDuration})`
-      );
-    }
   });
 
   const expandedActivities = [];
   activities.forEach((activity) => {
-    const baseDuration = Math.floor(activity.totalDuration / activity.split);
-    const remainder = activity.totalDuration % activity.split;
-    for (let i = 0; i < activity.split; i++) {
-      const sessionDuration =
-        baseDuration + (i === activity.split - 1 ? remainder : 0);
-      if (sessionDuration > 0) {
+    const sessions = Math.ceil(activity.totalDuration / sessionLength);
+    for (let i = 0; i < sessions; i++) {
+      const remainingDuration = activity.totalDuration - i * sessionLength;
+      if (remainingDuration <= 0) break;
+      const currentSessionDuration = Math.min(sessionLength, remainingDuration);
+      if (currentSessionDuration > 0) {
         expandedActivities.push({
           ...activity,
           _id: `${activity._id}_${i}`,
           originalId: activity._id,
           originalActivity: activity,
-          sessionDuration,
+          sessionDuration: currentSessionDuration,
         });
       }
     }
   });
 
+  console.log(`Expanded to ${expandedActivities.length} activities`);
   expandedActivities.forEach((activity) => {
     const total = expandedActivities
       .filter((a) => a.originalId === activity.originalId)
@@ -432,15 +446,19 @@ async function generateSchedule(semester, userId) {
     const originalActivity = activities.find(
       (a) => a._id.toString() === activity.originalId.toString()
     );
-    if (total !== originalActivity.totalDuration) {
+    if (Math.abs(total - originalActivity.totalDuration) > 0.01) {
       throw new Error(
         `Total duration mismatch for activity ${activity.originalId}: expected ${originalActivity.totalDuration}, got ${total}`
       );
     }
   });
 
-  const rooms = await Room.find({ active: true }).lean(); // Only fetch active rooms
+  console.log("Fetching rooms");
+  const rooms = await Room.find({ active: true }).lean();
+  console.log(`Found ${rooms.length} active rooms`);
+  console.log("Fetching timeslots");
   const timeslots = await Timeslot.find().lean();
+  console.log(`Found ${timeslots.length} timeslots`);
   const sortedActivities = await sortActivities(
     expandedActivities,
     rooms,
@@ -458,6 +476,7 @@ async function generateSchedule(semester, userId) {
   const usedTimeslots = new Map();
   const scheduledSessions = new Map();
 
+  console.log("Starting backtracking");
   const found = await backtrack(
     sortedActivities,
     rooms,
@@ -471,9 +490,11 @@ async function generateSchedule(semester, userId) {
   );
 
   if (!found) {
+    console.error("Backtracking failed to find a valid schedule");
     throw new Error("Failed to generate a valid schedule");
   }
 
+  console.log("Saving schedules");
   const schedulesToSave = schedule.map((entry) => ({
     activity: entry.activityId,
     timeslot: entry.timeslot,
@@ -493,6 +514,7 @@ async function generateSchedule(semester, userId) {
     throw new Error(`Failed to save schedules: ${error.message}`);
   }
 
+  console.log("Fetching final schedules");
   const schedules = await Schedule.find({ semester })
     .populate({
       path: "activity",

@@ -9,6 +9,7 @@ import Room from "./pages/Room";
 import { StudentGroup } from "./pages/StudentGroup";
 import ScheduleTable from "./pages/ScheduleTable";
 import ThemeLayout from "./layouts/ThemeLayout";
+import TimeslotManager from "./pages/TimeslotManager";
 let router = createBrowserRouter([
   {
     path: "/",
@@ -38,6 +39,7 @@ let router = createBrowserRouter([
     path: "schedules/:semester",
     Component: ScheduleTable,
   },
+  // { path: "TimeslotManager", Component: TimeslotManager },
 ]);
 function App() {
   return (

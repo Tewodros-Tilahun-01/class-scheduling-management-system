@@ -1,103 +1,90 @@
 const express = require("express");
 const router = express.Router();
 const Timeslot = require("../models/Timeslot");
-const mongoose = require("mongoose");
+const { generateSchedule } = require("../services/scheduler");
 
-// GET /api/timeslots - Retrieve all active timeslots
-router.get("/", async (req, res) => {
+// Middleware to verify user authentication (simplified)
+const authMiddleware = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  next();
+};
+
+// Get all timeslots
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const timeslots = await Timeslot.find({ isDeleted: false }).lean();
+    const timeslots = await Timeslot.find({ createdBy: req.user._id }).lean();
     res.json(timeslots);
-  } catch (err) {
-    console.error("Error fetching timeslots:", err);
-    res.status(500).json({ error: err.message || "Failed to fetch timeslots" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch timeslots" });
   }
 });
 
-// POST /api/timeslots - Create a new timeslot
-router.post("/", async (req, res) => {
+// Add a new timeslot
+router.post("/", authMiddleware, async (req, res) => {
   try {
     const { day, startTime, endTime, preferenceScore } = req.body;
-
-    if (!day || !startTime || !endTime) {
-      return res
-        .status(400)
-        .json({ error: "Day, startTime, and endTime are required" });
-    }
-
     const timeslot = new Timeslot({
       day,
       startTime,
       endTime,
-      preferenceScore,
+      preferenceScore: preferenceScore || 10,
+      createdBy: req.user._id,
     });
-
     await timeslot.save();
     res.status(201).json(timeslot);
-  } catch (err) {
-    console.error("Error creating timeslot:", err);
-    res.status(500).json({ error: err.message || "Failed to create timeslot" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
-// PUT /api/timeslots/:id - Update an existing timeslot
-router.put("/:id", async (req, res) => {
+// Update a timeslot
+router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { day, startTime, endTime, preferenceScore } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid timeslot ID" });
-    }
-
-    if (!day || !startTime || !endTime) {
-      return res
-        .status(400)
-        .json({ error: "Day, startTime, and endTime are required" });
-    }
-
     const timeslot = await Timeslot.findOneAndUpdate(
-      { _id: id, isDeleted: false },
+      { _id: id, createdBy: req.user._id },
       { day, startTime, endTime, preferenceScore },
       { new: true, runValidators: true }
     );
-
     if (!timeslot) {
-      return res.status(404).json({ error: "Timeslot not found or deleted" });
+      return res.status(404).json({ error: "Timeslot not found" });
     }
-
     res.json(timeslot);
-  } catch (err) {
-    console.error("Error updating timeslot:", err);
-    res.status(500).json({ error: err.message || "Failed to update timeslot" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
-// DELETE /api/timeslots/:id - Soft delete a timeslot
-router.delete("/:id", async (req, res) => {
+// Delete a timeslot
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid timeslot ID" });
-    }
-
-    const timeslot = await Timeslot.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      { isDeleted: true },
-      { new: true }
-    );
-
+    const timeslot = await Timeslot.findOneAndDelete({
+      _id: id,
+      createdBy: req.user._id,
+    });
     if (!timeslot) {
-      return res
-        .status(404)
-        .json({ error: "Timeslot not found or already deleted" });
+      return res.status(404).json({ error: "Timeslot not found" });
     }
+    res.json({ message: "Timeslot deleted" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete timeslot" });
+  }
+});
 
-    res.json({ message: "Timeslot soft deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting timeslot:", err);
-    res.status(500).json({ error: err.message || "Failed to delete timeslot" });
+// Generate schedule
+router.post("/schedule", authMiddleware, async (req, res) => {
+  try {
+    const { semester, sessionLength } = req.body;
+    const schedules = await generateSchedule(
+      semester,
+      req.user._id,
+      sessionLength
+    );
+    res.json(schedules);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
