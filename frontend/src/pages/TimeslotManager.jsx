@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import {
+  fetchTimeslots,
+  addTimeslot,
+  updateTimeslot,
+  deleteTimeslot,
+} from "../services/api"; // Adjust the path to where your API file is located
 
 const TimeslotManager = () => {
   const [timeslots, setTimeslots] = useState([]);
@@ -14,13 +19,13 @@ const TimeslotManager = () => {
 
   // Fetch timeslots on mount
   useEffect(() => {
-    fetchTimeslots();
+    fetchTimeslotsData();
   }, []);
 
-  const fetchTimeslots = async () => {
+  const fetchTimeslotsData = async () => {
     try {
-      const response = await axios.get("/api/timeslots");
-      setTimeslots(response.data);
+      const data = await fetchTimeslots();
+      setTimeslots(data);
       setError(null);
     } catch (err) {
       setError("Failed to fetch timeslots");
@@ -37,10 +42,20 @@ const TimeslotManager = () => {
     try {
       if (form.id) {
         // Update timeslot
-        await axios.put(`/api/timeslots/${form.id}`, form);
+        await updateTimeslot(form.id, {
+          day: form.day,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          preferenceScore: form.preferenceScore,
+        });
       } else {
         // Add new timeslot
-        await axios.post("/api/timeslots", form);
+        await addTimeslot({
+          day: form.day,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          preferenceScore: form.preferenceScore,
+        });
       }
       setForm({
         id: null,
@@ -49,7 +64,7 @@ const TimeslotManager = () => {
         endTime: "09:00",
         preferenceScore: 10,
       });
-      fetchTimeslots();
+      fetchTimeslotsData();
       setError(null);
     } catch (err) {
       setError(
@@ -70,8 +85,8 @@ const TimeslotManager = () => {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`/api/timeslots/${id}`);
-      fetchTimeslots();
+      await deleteTimeslot(id);
+      fetchTimeslotsData();
       setError(null);
     } catch (err) {
       setError("Failed to delete timeslot");

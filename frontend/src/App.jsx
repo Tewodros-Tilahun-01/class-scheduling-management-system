@@ -39,7 +39,7 @@ let router = createBrowserRouter([
     path: "schedules/:semester",
     Component: ScheduleTable,
   },
-  // { path: "TimeslotManager", Component: TimeslotManager },
+  { path: "TimeslotManager", Component: TimeslotManager },
 ]);
 function App() {
   return (

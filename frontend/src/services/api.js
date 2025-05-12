@@ -5,6 +5,7 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Existing API functions (schedules, semesters, courses, etc.) remain unchanged
 export const fetchSchedules = async ({ semester } = {}) => {
   const url = semester
     ? `/schedules/${encodeURIComponent(semester)}`
@@ -121,6 +122,27 @@ export const updateStudentGroup = async (id, studentGroupData) => {
 
 export const deleteStudentGroup = async (id) => {
   const response = await api.delete(`/studentGroups/${id}`);
+  return response.data;
+};
+
+// New Timeslot API functions
+export const fetchTimeslots = async () => {
+  const response = await api.get("/timeslots");
+  return response.data;
+};
+
+export const addTimeslot = async (timeslotData) => {
+  const response = await api.post("/timeslots", timeslotData);
+  return response.data;
+};
+
+export const updateTimeslot = async (id, timeslotData) => {
+  const response = await api.put(`/timeslots/${id}`, timeslotData);
+  return response.data;
+};
+
+export const deleteTimeslot = async (id) => {
+  const response = await api.delete(`/timeslots/${id}`);
   return response.data;
 };
 

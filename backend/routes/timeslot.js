@@ -12,7 +12,7 @@ const authMiddleware = (req, res, next) => {
 // Get all timeslots
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const timeslots = await Timeslot.find({ createdBy: req.user._id }).lean();
+    const timeslots = await Timeslot.find().lean();
     res.json(timeslots);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch timeslots" });
