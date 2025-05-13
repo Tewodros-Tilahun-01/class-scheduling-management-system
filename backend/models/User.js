@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now },
   isDeleted: { type: Boolean, default: false, index: true },
+  password: { type: String, required: true },
 });
 
 module.exports = mongoose.model("User", UserSchema);

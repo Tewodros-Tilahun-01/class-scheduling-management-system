@@ -3,7 +3,10 @@ export default {
   darkMode: ["class"],
   content: ["./src/**/*.{html,js,jsx,ts,tsx}", "./public/index.html"],
   theme: {
-    fontFamily: {},
+    fontFamily: {
+      underdog: ["Underdog", "system-ui"],
+      quicksand: ["Quicksand", "sans-serif"],
+    },
     extend: {
       colors: {
         background: "hsl(var(--background))",
@@ -38,7 +41,7 @@ export default {
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
+        ring: "#22c55e",
         chart: {
           1: "hsl(var(--chart-1))",
           2: "hsl(var(--chart-2))",
