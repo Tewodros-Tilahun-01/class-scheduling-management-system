@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchSchedules } from "@/services/api";
+import { fetchSchedules, fetchTimeslots } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -18,8 +18,11 @@ const ScheduleTable = () => {
   const { semester } = useParams();
   const decodedSemester = decodeURIComponent(semester);
   const [allSchedules, setAllSchedules] = useState(null);
+  const [timeslots, setTimeslots] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [timeslotsLoading, setTimeslotsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [timeslotsError, setTimeslotsError] = useState(null);
 
   const days = [
     "Monday",
@@ -30,33 +33,32 @@ const ScheduleTable = () => {
     "Saturday",
   ];
 
-  const timeSlots = [
-    "8:00-9:00",
-    "9:00-10:00",
-    "10:00-11:00",
-    "11:00-12:00",
-    "12:00-1:00",
-    "1:00-2:00",
-    "2:00-3:00",
-    "3:00-4:00",
-  ];
-
-  // Parse time to minutes since midnight, assuming 24-hour format
+  // Parse time to minutes since midnight, assuming 24-hour format (e.g., "2:00")
   const parseTime = (timeStr) => {
-    let [hours, minutes] = timeStr.split(":").map(Number);
-    return hours * 60 + minutes;
+    if (!timeStr) {
+      console.warn("Invalid time string:", timeStr);
+      return 0;
+    }
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return hours * 60 + (minutes || 0);
   };
 
-  // Find all activities that overlap with the fixed time slot on the given day
-  const findActivities = (entries, timeSlot, day) => {
+  // Find all activities that overlap with the given timeslot on the specified day
+  const findActivities = (entries, timeslot, day) => {
     if (!entries || !Array.isArray(entries)) return [];
-    const [slotStart, slotEnd] = timeSlot.split("-").map(parseTime);
+    if (!timeslot || !timeslot.startTime || !timeslot.endTime) {
+      console.warn("Invalid timeslot:", timeslot);
+      return [];
+    }
+    const slotStart = parseTime(timeslot.startTime);
+    const slotEnd = parseTime(timeslot.endTime);
     const activities = entries.filter((entry) => {
       if (
         !entry ||
         !entry.timeslot ||
         !entry.timeslot.startTime ||
-        !entry.timeslot.endTime
+        !entry.timeslot.endTime ||
+        !entry.timeslot.day
       ) {
         console.warn("Invalid entry:", entry);
         return false;
@@ -67,7 +69,7 @@ const ScheduleTable = () => {
       const overlaps = scheduleStart < slotEnd && scheduleEnd > slotStart;
       if (!overlaps) {
         console.debug(
-          `Entry ${entry._id} does not overlap: ${entry.timeslot.startTime}-${entry.timeslot.endTime} vs ${timeSlot} on ${day}`
+          `Entry ${entry._id} does not overlap: ${entry.timeslot.startTime}-${entry.timeslot.endTime} vs ${timeslot.startTime}-${timeslot.endTime} on ${day}`
         );
       }
       return overlaps;
@@ -75,6 +77,7 @@ const ScheduleTable = () => {
     return activities;
   };
 
+  // Fetch schedules and timeslots
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -114,7 +117,42 @@ const ScheduleTable = () => {
         setLoading(false);
       }
     };
+
+    const fetchTimeslotsData = async () => {
+      try {
+        setTimeslotsLoading(true);
+        setTimeslotsError(null);
+        const timeslotsData = await fetchTimeslots();
+        if (timeslotsData && Array.isArray(timeslotsData)) {
+          // Filter out deleted timeslots and sort by startTime
+          const filteredTimeslots = timeslotsData
+            .filter((ts) => !ts.isDeleted)
+            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+          setTimeslots(filteredTimeslots);
+          toast.success("Timeslots loaded successfully");
+          console.log("Fetched timeslots:", filteredTimeslots);
+        } else {
+          setTimeslots([]);
+          toast.error("No timeslots found");
+          console.warn("No timeslots returned");
+        }
+      } catch (err) {
+        setTimeslotsError(
+          `Error fetching timeslots: ${
+            err.response?.data?.error || err.message
+          }`
+        );
+        toast.error(err.response?.data?.error || "Failed to load timeslots", {
+          description: "Unable to fetch timeslots from the server",
+        });
+        console.error("Timeslots fetch error:", err);
+      } finally {
+        setTimeslotsLoading(false);
+      }
+    };
+
     fetchData();
+    fetchTimeslotsData();
   }, [decodedSemester]);
 
   const renderTimetable = (groupData) => {
@@ -142,38 +180,52 @@ const ScheduleTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timeSlots.map((timeSlot) => (
-                <TableRow key={timeSlot}>
-                  <TableCell>{timeSlot}</TableCell>
-                  {days.map((day) => {
-                    const activities = findActivities(entries, timeSlot, day);
-                    return (
-                      <TableCell key={`${day}-${timeSlot}`}>
-                        {activities.length > 0 ? (
-                          <div className="space-y-2">
-                            {activities.map((entry, index) => (
-                              <div key={entry._id || index}>
-                                <div>
-                                  {entry.activity?.course
-                                    ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                    : "Course N/A"}
+              {timeslots
+                .filter((ts) => ts.day === days[0]) // Use timeslots from one day (e.g., Monday) to define time slots
+                .map((timeslot) => (
+                  <TableRow key={`${timeslot._id}`}>
+                    <TableCell>{`${timeslot.startTime}-${timeslot.endTime}`}</TableCell>
+                    {days.map((day) => {
+                      // Find the timeslot for the current day with matching start and end times
+                      const currentTimeslot =
+                        timeslots.find(
+                          (ts) =>
+                            ts.day === day &&
+                            ts.startTime === timeslot.startTime &&
+                            ts.endTime === timeslot.endTime
+                        ) || timeslot;
+                      const activities = findActivities(
+                        entries,
+                        currentTimeslot,
+                        day
+                      );
+                      return (
+                        <TableCell key={`${day}-${timeslot._id}`}>
+                          {activities.length > 0 ? (
+                            <div className="space-y-2">
+                              {activities.map((entry, index) => (
+                                <div key={entry._id || index}>
+                                  <div>
+                                    {entry.activity?.course
+                                      ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                      : "Course N/A"}
+                                  </div>
+                                  <div>
+                                    Lecture:{" "}
+                                    {entry.activity?.lecture?.name || "N/A"}
+                                  </div>
+                                  <div>Room: {entry.room?.name || "N/A"}</div>
                                 </div>
-                                <div>
-                                  lecture:{" "}
-                                  {entry.activity?.lecture?.name || "N/A"}
-                                </div>
-                                <div>Room: {entry.room?.name || "N/A"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+                              ))}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -194,11 +246,17 @@ const ScheduleTable = () => {
         </CardContent>
       </Card>
 
-      {loading ? (
+      {loading || timeslotsLoading ? (
         <div className="flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      ) : allSchedules ? (
+      ) : error || timeslotsError ? (
+        <Card>
+          <CardContent>
+            <p className="text-destructive">{error || timeslotsError}</p>
+          </CardContent>
+        </Card>
+      ) : allSchedules && timeslots.length > 0 ? (
         Object.values(allSchedules).length > 0 ? (
           Object.values(allSchedules)
             .filter(
@@ -218,7 +276,7 @@ const ScheduleTable = () => {
         <Card>
           <CardContent>
             <p className="text-muted-foreground">
-              Failed to load schedules for {decodedSemester}.
+              Failed to load schedules or timeslots for {decodedSemester}.
             </p>
           </CardContent>
         </Card>
