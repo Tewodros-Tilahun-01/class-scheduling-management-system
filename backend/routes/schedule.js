@@ -253,3 +253,212 @@ router.delete("/:id", async (req, res) => {
 });
 
 module.exports = router;
+
+const {
+  Document,
+  Packer,
+  Paragraph,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  TextRun,
+} = require("docx");
+
+// Existing routes (e.g., POST /generate) go here
+
+// GET /schedules/:semester/export - Export schedule as DOCX
+router.get("/:semester/export", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const decodedSemester = decodeURIComponent(semester);
+
+    // Fetch schedules with populated data
+    const schedules = await Schedule.find({ semester: decodedSemester })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name")
+      .populate("timeslot", "day startTime endTime")
+      .populate("studentGroup", "department year section")
+      .lean();
+
+    if (!schedules.length) {
+      return res
+        .status(404)
+        .json({ error: `No schedules found for ${decodedSemester}` });
+    }
+
+    // Group schedules by student group
+    const groupedSchedules = schedules.reduce((acc, entry) => {
+      const groupId = entry.studentGroup?._id?.toString() || "unknown";
+      if (!acc[groupId]) {
+        acc[groupId] = {
+          studentGroup: entry.studentGroup || {
+            department: "Unknown",
+            year: 0,
+            section: "N/A",
+          },
+          entries: [],
+        };
+      }
+      acc[groupId].entries.push(entry);
+      return acc;
+    }, {});
+
+    // Define days and fetch unique timeslots
+    const days = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const timeslots = [
+      ...new Set(
+        schedules
+          .filter((s) => s.timeslot && s.timeslot.day === days[0])
+          .map((s) => `${s.timeslot.startTime}-${s.timeslot.endTime}`)
+          .sort((a, b) => {
+            const [startA] = a.split("-").map((t) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            });
+            const [startB] = b.split("-").map((t) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            });
+            return startA - startB;
+          })
+      ),
+    ];
+
+    // Create DOCX document
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Schedule for ${decodedSemester}`,
+                  bold: true,
+                  size: 28,
+                }),
+              ],
+              spacing: { after: 400 },
+            }),
+            ...Object.values(groupedSchedules).flatMap((group) => {
+              const { studentGroup, entries } = group;
+              const title = new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `Timetable for ${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`,
+                    bold: true,
+                    size: 24,
+                  }),
+                ],
+                spacing: { after: 200 },
+              });
+
+              // Create table
+              const table = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                  // Header row
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [new Paragraph("Time")],
+                        width: { size: 15, type: WidthType.PERCENTAGE },
+                      }),
+                      ...days.map(
+                        (day) =>
+                          new TableCell({
+                            children: [new Paragraph(day)],
+                            width: { size: 14.16, type: WidthType.PERCENTAGE },
+                          })
+                      ),
+                    ],
+                  }),
+                  // Data rows
+                  ...timeslots.map((timeslot) => {
+                    const row = new TableRow({
+                      children: [
+                        new TableCell({
+                          children: [new Paragraph(timeslot)],
+                        }),
+                        ...days.map((day) => {
+                          const activities = entries.filter((entry) => {
+                            if (!entry.timeslot) return false;
+                            return (
+                              entry.timeslot.day === day &&
+                              `${entry.timeslot.startTime}-${entry.timeslot.endTime}` ===
+                                timeslot
+                            );
+                          });
+                          const cellContent =
+                            activities.length > 0
+                              ? activities
+                                  .map(
+                                    (a) =>
+                                      `${
+                                        a.activity?.course?.courseCode || "N/A"
+                                      } - ${
+                                        a.activity?.course?.name || "N/A"
+                                      }\nLecture: ${
+                                        a.activity?.lecture?.name || "N/A"
+                                      }\nRoom: ${a.room?.name || "N/A"}`
+                                  )
+                                  .join("\n\n")
+                              : "-";
+                          return new TableCell({
+                            children: [new Paragraph(cellContent)],
+                          });
+                        }),
+                      ],
+                    });
+                    return row;
+                  }),
+                ],
+              });
+
+              return [title, table, new Paragraph({ spacing: { after: 400 } })];
+            }),
+          ],
+        },
+      ],
+    });
+
+    // Generate buffer
+    const buffer = await Packer.toBuffer(doc);
+
+    // Set headers for file download
+    res.set({
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename=Schedule_${decodedSemester.replace(
+        /\s/g,
+        "_"
+      )}.docx`,
+      "Content-Length": buffer.length,
+    });
+
+    // Send the file
+    res.send(buffer);
+  } catch (error) {
+    console.error("Error exporting schedule:", error);
+    res
+      .status(500)
+      .json({ error: `Failed to export schedule: ${error.message}` });
+  }
+});
+
+module.exports = router;

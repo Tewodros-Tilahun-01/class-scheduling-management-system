@@ -13,6 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import axios from "axios";
+import { saveAs } from "file-saver";
 
 const ScheduleTable = () => {
   const { semester } = useParams();
@@ -23,6 +25,7 @@ const ScheduleTable = () => {
   const [timeslotsLoading, setTimeslotsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [timeslotsError, setTimeslotsError] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const days = [
     "Monday",
@@ -155,6 +158,40 @@ const ScheduleTable = () => {
     fetchTimeslotsData();
   }, [decodedSemester]);
 
+  // Export schedule as DOCX
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const response = await axios.get(
+        `http://localhost:5000/api/schedules/${encodeURIComponent(
+          decodedSemester
+        )}/export`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      // Trigger download
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      saveAs(blob, `Schedule_${decodedSemester.replace(/\s/g, "_")}.docx`);
+
+      toast.success("Schedule exported successfully", {
+        description: `Downloaded schedule for ${decodedSemester}`,
+      });
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.error || "Unable to download the schedule";
+      toast.error("Failed to export schedule", {
+        description: errorMessage,
+      });
+      console.error("Export error:", err);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const renderTimetable = (groupData) => {
     const studentGroup = groupData.studentGroup || {};
     const entries = Array.isArray(groupData.entries) ? groupData.entries : [];
@@ -239,9 +276,25 @@ const ScheduleTable = () => {
         <CardHeader>
           <CardTitle>Schedules for {decodedSemester}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex space-x-4">
           <Button asChild variant="link">
             <Link to="/">Back to Semesters</Link>
+          </Button>
+          <Button
+            onClick={handleExport}
+            disabled={
+              exportLoading || !allSchedules || loading || timeslotsLoading
+            }
+            className="ml-auto"
+          >
+            {exportLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              "Export Schedule"
+            )}
           </Button>
         </CardContent>
       </Card>
