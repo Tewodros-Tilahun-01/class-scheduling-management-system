@@ -580,13 +580,13 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
   }
 
   // Max retries reached
-  // const errorMessage = `Failed to generate schedule after ${MAX_RETRIES} attempts. Conflicts detected: ${JSON.stringify(
-  //   conflicts,
-  //   null,
-  //   2
-  // )}`;
-  // console.error(errorMessage);
-  // throw new Error(errorMessage);
+  const errorMessage = `Failed to generate schedule after ${MAX_RETRIES} attempts. Conflicts detected: ${JSON.stringify(
+    conflicts,
+    null,
+    2
+  )}`;
+  console.error(errorMessage);
+  throw new Error(errorMessage);
 }
 
 module.exports = { generateSchedule };
