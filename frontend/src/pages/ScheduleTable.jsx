@@ -36,51 +36,36 @@ const ScheduleTable = () => {
     "Saturday",
   ];
 
-  // Parse time to minutes since midnight, assuming 24-hour format (e.g., "2:00")
   const parseTime = (timeStr) => {
-    if (!timeStr) {
-      console.warn("Invalid time string:", timeStr);
-      return 0;
-    }
+    if (!timeStr) return 0;
     const [hours, minutes] = timeStr.split(":").map(Number);
     return hours * 60 + (minutes || 0);
   };
 
-  // Find all activities that overlap with the given timeslot on the specified day
-  const findActivities = (entries, timeslot, day) => {
-    if (!entries || !Array.isArray(entries)) return [];
-    if (!timeslot || !timeslot.startTime || !timeslot.endTime) {
-      console.warn("Invalid timeslot:", timeslot);
-      return [];
-    }
-    const slotStart = parseTime(timeslot.startTime);
-    const slotEnd = parseTime(timeslot.endTime);
-    const activities = entries.filter((entry) => {
-      if (
-        !entry ||
-        !entry.timeslot ||
-        !entry.timeslot.startTime ||
-        !entry.timeslot.endTime ||
-        !entry.timeslot.day
-      ) {
-        console.warn("Invalid entry:", entry);
-        return false;
-      }
-      if (entry.timeslot.day !== day) return false;
-      const scheduleStart = parseTime(entry.timeslot.startTime);
-      const scheduleEnd = parseTime(entry.timeslot.endTime);
-      const overlaps = scheduleStart < slotEnd && scheduleEnd > slotStart;
-      if (!overlaps) {
-        console.debug(
-          `Entry ${entry._id} does not overlap: ${entry.timeslot.startTime}-${entry.timeslot.endTime} vs ${timeslot.startTime}-${timeslot.endTime} on ${day}`
-        );
-      }
-      return overlaps;
-    });
-    return activities;
+  const formatTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins
+      .toString()
+      .padStart(2, "0")}`;
   };
 
-  // Fetch schedules and timeslots
+  const findActivities = (entries, timeslot, day) => {
+    if (!entries || !Array.isArray(entries)) return [];
+    const slotStart = parseTime(timeslot.startTime);
+    const slotEnd = parseTime(timeslot.endTime);
+
+    return entries.filter((entry) => {
+      if (!entry || !entry.timeslot) return false;
+      const primaryTimeslot = entry.timeslot;
+      if (primaryTimeslot.day !== day) return false;
+
+      const startTime = parseTime(primaryTimeslot.startTime);
+      const endTime = startTime + entry.totalDuration;
+      return startTime < slotEnd && endTime > slotStart;
+    });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,33 +74,22 @@ const ScheduleTable = () => {
         const schedulesData = await fetchSchedules({
           semester: decodedSemester,
         });
-        if (
-          schedulesData &&
-          typeof schedulesData === "object" &&
-          Object.keys(schedulesData).length > 0
-        ) {
+        if (schedulesData && typeof schedulesData === "object") {
           setAllSchedules(schedulesData);
           toast.success("Schedules loaded successfully", {
             description: `Fetched schedules for ${decodedSemester}`,
           });
-          console.log("Fetched schedules:", schedulesData);
         } else {
           setAllSchedules(null);
           toast.error("No schedules found", {
             description: `No schedules available for ${decodedSemester}`,
           });
-          console.warn("No schedules returned for semester:", decodedSemester);
         }
       } catch (err) {
-        setError(
-          `Error fetching schedules: ${
-            err.response?.data?.error || err.message
-          }`
-        );
-        toast.error(err.response?.data?.error || "Failed to load schedules", {
+        setError(`Error fetching schedules: ${err.message}`);
+        toast.error("Failed to load schedules", {
           description: "Unable to fetch schedules from the server",
         });
-        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -127,28 +101,20 @@ const ScheduleTable = () => {
         setTimeslotsError(null);
         const timeslotsData = await fetchTimeslots();
         if (timeslotsData && Array.isArray(timeslotsData)) {
-          // Filter out deleted timeslots and sort by startTime
           const filteredTimeslots = timeslotsData
             .filter((ts) => !ts.isDeleted)
             .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
           setTimeslots(filteredTimeslots);
           toast.success("Timeslots loaded successfully");
-          console.log("Fetched timeslots:", filteredTimeslots);
         } else {
           setTimeslots([]);
           toast.error("No timeslots found");
-          console.warn("No timeslots returned");
         }
       } catch (err) {
-        setTimeslotsError(
-          `Error fetching timeslots: ${
-            err.response?.data?.error || err.message
-          }`
-        );
-        toast.error(err.response?.data?.error || "Failed to load timeslots", {
+        setTimeslotsError(`Error fetching timeslots: ${err.message}`);
+        toast.error("Failed to load timeslots", {
           description: "Unable to fetch timeslots from the server",
         });
-        console.error("Timeslots fetch error:", err);
       } finally {
         setTimeslotsLoading(false);
       }
@@ -158,7 +124,6 @@ const ScheduleTable = () => {
     fetchTimeslotsData();
   }, [decodedSemester]);
 
-  // Export schedule as DOCX
   const handleExport = async () => {
     try {
       setExportLoading(true);
@@ -166,12 +131,9 @@ const ScheduleTable = () => {
         `http://localhost:5000/api/schedules/${encodeURIComponent(
           decodedSemester
         )}/export`,
-        {
-          responseType: "blob",
-        }
+        { responseType: "blob" }
       );
 
-      // Trigger download
       const blob = new Blob([response.data], {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
@@ -181,12 +143,9 @@ const ScheduleTable = () => {
         description: `Downloaded schedule for ${decodedSemester}`,
       });
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.error || "Unable to download the schedule";
       toast.error("Failed to export schedule", {
-        description: errorMessage,
+        description: err.message,
       });
-      console.error("Export error:", err);
     } finally {
       setExportLoading(false);
     }
@@ -218,12 +177,11 @@ const ScheduleTable = () => {
             </TableHeader>
             <TableBody>
               {timeslots
-                .filter((ts) => ts.day === days[0]) // Use timeslots from one day (e.g., Monday) to define time slots
+                .filter((ts) => ts.day === days[0])
                 .map((timeslot) => (
                   <TableRow key={`${timeslot._id}`}>
                     <TableCell>{`${timeslot.startTime}-${timeslot.endTime}`}</TableCell>
                     {days.map((day) => {
-                      // Find the timeslot for the current day with matching start and end times
                       const currentTimeslot =
                         timeslots.find(
                           (ts) =>
@@ -240,20 +198,33 @@ const ScheduleTable = () => {
                         <TableCell key={`${day}-${timeslot._id}`}>
                           {activities.length > 0 ? (
                             <div className="space-y-2">
-                              {activities.map((entry, index) => (
-                                <div key={entry._id || index}>
-                                  <div>
-                                    {entry.activity?.course
-                                      ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                      : "Course N/A"}
+                              {activities.map((entry) => {
+                                const startTime = parseTime(
+                                  entry.timeslot.startTime
+                                );
+                                const endTime = startTime + entry.totalDuration;
+                                return (
+                                  <div
+                                    key={entry._id}
+                                    style={{
+                                      minHeight: `${
+                                        (entry.totalDuration / 60) * 50
+                                      }px`,
+                                    }}
+                                  >
+                                    <div>
+                                      {entry.activity?.course
+                                        ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                        : "Course N/A"}
+                                    </div>
+                                    <div>
+                                      Lecture:{" "}
+                                      {entry.activity?.lecture?.name || "N/A"}
+                                    </div>
+                                    <div>Room: {entry.room?.name || "N/A"}</div>
                                   </div>
-                                  <div>
-                                    Lecture:{" "}
-                                    {entry.activity?.lecture?.name || "N/A"}
-                                  </div>
-                                  <div>Room: {entry.room?.name || "N/A"}</div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             "-"

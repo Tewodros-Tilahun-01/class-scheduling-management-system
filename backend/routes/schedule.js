@@ -3,9 +3,17 @@ const router = express.Router();
 const { generateSchedule } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
 const mongoose = require("mongoose");
-require("../models/User");
+const {
+  Document,
+  Packer,
+  Paragraph,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  TextRun,
+} = require("docx");
 
-// POST /api/schedules/generate - Generate a single schedule for the semester
 router.post("/generate", async (req, res) => {
   try {
     const { semester } = req.body;
@@ -32,7 +40,6 @@ router.post("/generate", async (req, res) => {
   }
 });
 
-// GET /api/semesters - Retrieve all unique semesters
 router.get("/semesters", async (req, res) => {
   try {
     const semesters = await Schedule.distinct("semester");
@@ -46,14 +53,11 @@ router.get("/semesters", async (req, res) => {
   }
 });
 
-// GET /api/schedules - Retrieve all schedules, optionally grouped or filtered by semester and ownership
 router.get("/", async (req, res) => {
   try {
     const { groupByStudentGroup, semester, own } = req.query;
     const query = {};
-    if (semester) {
-      query.semester = semester;
-    }
+    if (semester) query.semester = semester;
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
@@ -75,7 +79,8 @@ router.get("/", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("timeslot", "day startTime endTime duration")
+      .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
@@ -107,7 +112,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/schedules/:semester - Retrieve schedules for a specific semester
 router.get("/:semester", async (req, res) => {
   try {
     const { semester } = req.params;
@@ -134,7 +138,8 @@ router.get("/:semester", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("timeslot", "day startTime endTime duration")
+      .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
@@ -169,7 +174,6 @@ router.get("/:semester", async (req, res) => {
   }
 });
 
-// GET /api/schedules/group/:studentGroupId - Retrieve schedule for a specific student group
 router.get("/group/:studentGroupId", async (req, res) => {
   try {
     const { studentGroupId } = req.params;
@@ -179,9 +183,7 @@ router.get("/group/:studentGroupId", async (req, res) => {
     }
 
     const query = { studentGroup: studentGroupId };
-    if (semester) {
-      query.semester = semester;
-    }
+    if (semester) query.semester = semester;
     if (own === "true") {
       if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
@@ -203,7 +205,8 @@ router.get("/group/:studentGroupId", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime preferenceScore")
+      .populate("timeslot", "day startTime endTime duration")
+      .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
       .lean();
@@ -230,21 +233,26 @@ router.get("/group/:studentGroupId", async (req, res) => {
   }
 });
 
-// DELETE /api/schedules/:id - Hard delete a schedule
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid schedule ID" });
     }
 
-    const schedule = await Schedule.findByIdAndDelete(id);
-
+    const schedule = await Schedule.findById(id);
     if (!schedule) {
       return res.status(404).json({ error: "Schedule not found" });
     }
 
+    await mongoose
+      .model("Timeslot")
+      .updateMany(
+        { _id: { $in: schedule.reservedTimeslots } },
+        { isReserved: false }
+      );
+
+    await Schedule.findByIdAndDelete(id);
     res.json({ message: "Schedule deleted successfully" });
   } catch (err) {
     console.error("Error deleting schedule:", err);
@@ -252,28 +260,11 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
-
-const {
-  Document,
-  Packer,
-  Paragraph,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  TextRun,
-} = require("docx");
-
-// Existing routes (e.g., POST /generate) go here
-
-// GET /schedules/:semester/export - Export schedule as DOCX
 router.get("/:semester/export", async (req, res) => {
   try {
     const { semester } = req.params;
     const decodedSemester = decodeURIComponent(semester);
 
-    // Fetch schedules with populated data
     const schedules = await Schedule.find({ semester: decodedSemester })
       .populate({
         path: "activity",
@@ -284,8 +275,8 @@ router.get("/:semester/export", async (req, res) => {
         ],
       })
       .populate("room", "name")
-      .populate("timeslot", "day startTime endTime")
-      .populate("studentGroup", "department year section")
+      .populate("timeslot", "day startTime endTime duration")
+      .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
 
     if (!schedules.length) {
@@ -294,7 +285,6 @@ router.get("/:semester/export", async (req, res) => {
         .json({ error: `No schedules found for ${decodedSemester}` });
     }
 
-    // Group schedules by student group
     const groupedSchedules = schedules.reduce((acc, entry) => {
       const groupId = entry.studentGroup?._id?.toString() || "unknown";
       if (!acc[groupId]) {
@@ -311,7 +301,6 @@ router.get("/:semester/export", async (req, res) => {
       return acc;
     }, {});
 
-    // Define days and fetch unique timeslots
     const days = [
       "Monday",
       "Tuesday",
@@ -320,26 +309,22 @@ router.get("/:semester/export", async (req, res) => {
       "Friday",
       "Saturday",
     ];
+
     const timeslots = [
       ...new Set(
         schedules
           .filter((s) => s.timeslot && s.timeslot.day === days[0])
-          .map((s) => `${s.timeslot.startTime}-${s.timeslot.endTime}`)
-          .sort((a, b) => {
-            const [startA] = a.split("-").map((t) => {
-              const [h, m] = t.split(":").map(Number);
-              return h * 60 + m;
-            });
-            const [startB] = b.split("-").map((t) => {
-              const [h, m] = t.split(":").map(Number);
-              return h * 60 + m;
-            });
-            return startA - startB;
+          .map((s) => {
+            const start = parseTime(s.timeslot.startTime);
+            const end = start + s.totalDuration;
+            return `${s.timeslot.startTime}-${formatTime(end)}`;
           })
+          .sort(
+            (a, b) => parseTime(a.split("-")[0]) - parseTime(b.split("-")[0])
+          )
       ),
     ];
 
-    // Create DOCX document
     const doc = new Document({
       sections: [
         {
@@ -368,11 +353,9 @@ router.get("/:semester/export", async (req, res) => {
                 spacing: { after: 200 },
               });
 
-              // Create table
               const table = new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 rows: [
-                  // Header row
                   new TableRow({
                     children: [
                       new TableCell({
@@ -388,7 +371,6 @@ router.get("/:semester/export", async (req, res) => {
                       ),
                     ],
                   }),
-                  // Data rows
                   ...timeslots.map((timeslot) => {
                     const row = new TableRow({
                       children: [
@@ -398,10 +380,14 @@ router.get("/:semester/export", async (req, res) => {
                         ...days.map((day) => {
                           const activities = entries.filter((entry) => {
                             if (!entry.timeslot) return false;
+                            const start = parseTime(entry.timeslot.startTime);
+                            const end = start + entry.totalDuration;
+                            const slotStart = parseTime(timeslot.split("-")[0]);
+                            const slotEnd = parseTime(timeslot.split("-")[1]);
                             return (
                               entry.timeslot.day === day &&
-                              `${entry.timeslot.startTime}-${entry.timeslot.endTime}` ===
-                                timeslot
+                              start < slotEnd &&
+                              end > slotStart
                             );
                           });
                           const cellContent =
@@ -437,21 +423,16 @@ router.get("/:semester/export", async (req, res) => {
       ],
     });
 
-    // Generate buffer
     const buffer = await Packer.toBuffer(doc);
-
-    // Set headers for file download
     res.set({
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename=Schedule_${decodedSemester.replace(
+      "Content-Disposition": `attachment; Wfilename=Schedule_${decodedSemester.replace(
         /\s/g,
         "_"
       )}.docx`,
       "Content-Length": buffer.length,
     });
-
-    // Send the file
     res.send(buffer);
   } catch (error) {
     console.error("Error exporting schedule:", error);
@@ -460,5 +441,18 @@ router.get("/:semester/export", async (req, res) => {
       .json({ error: `Failed to export schedule: ${error.message}` });
   }
 });
+
+function parseTime(timeStr) {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 60 + (minutes || 0);
+}
+
+function formatTime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins
+    .toString()
+    .padStart(2, "0")}`;
+}
 
 module.exports = router;

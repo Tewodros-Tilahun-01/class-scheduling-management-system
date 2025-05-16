@@ -3,7 +3,6 @@ const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
 
-// Utility function to shuffle an array (Fisher-Yates shuffle)
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -22,12 +21,15 @@ function timeslotsOverlap(ts1, ts2) {
 }
 
 function parseTime(timeStr) {
-  let [hours, minutes] = timeStr.split(":").map(Number);
-  return hours * 60 + minutes;
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 60 + (minutes || 0);
 }
 
 async function getDynamicDays() {
-  const timeslots = await Timeslot.find().lean();
+  const timeslots = await Timeslot.find({
+    isDeleted: false,
+    isReserved: false,
+  }).lean();
   const days = [...new Set(timeslots.map((ts) => ts.day))].sort();
   return days;
 }
@@ -90,6 +92,9 @@ function isValidAssignmentSingleTimeslot(
   if (room.capacity < (studentGroup.expectedEnrollment || defaultEnrollment)) {
     return false;
   }
+  if (timeslot.isReserved) {
+    return false;
+  }
   for (const entry of schedule) {
     if (!entry.room || !entry.activityData) {
       console.error("Invalid schedule entry:", entry);
@@ -97,14 +102,14 @@ function isValidAssignmentSingleTimeslot(
     }
     if (
       entry.room.toString() === room._id.toString() &&
-      timeslotsOverlap(entry.timeslot, timeslot)
+      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
     ) {
       return false;
     }
     if (
       entry.activityData.lecture._id.toString() ===
         activity.lecture._id.toString() &&
-      timeslotsOverlap(entry.timeslot, timeslot)
+      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
     ) {
       return false;
     }
@@ -113,14 +118,14 @@ function isValidAssignmentSingleTimeslot(
       entry.activityData.studentGroup?._id &&
       entry.activityData.studentGroup._id.toString() ===
         activity.studentGroup._id.toString() &&
-      timeslotsOverlap(entry.timeslot, timeslot)
+      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
     ) {
       return false;
     }
     if (
       (entry.activityData.originalId || entry.activityData._id).toString() ===
         (activity.originalId || activity._id).toString() &&
-      timeslotsOverlap(entry.timeslot, timeslot)
+      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
     ) {
       return false;
     }
@@ -148,22 +153,20 @@ function isValidAssignment(
   usedActivityTimeslots,
   allTimeslots
 ) {
-  const sessionDurationHours = activity.sessionDuration;
-  const minutesPerHour = 60;
-  const sessionMinutes = sessionDurationHours * minutesPerHour;
+  const sessionMinutes = activity.sessionDuration * 60;
   const timeslotDuration =
     parseTime(startTimeslot.endTime) - parseTime(startTimeslot.startTime);
   const requiredSlots = Math.ceil(sessionMinutes / timeslotDuration);
 
   const sameDayTimeslots = allTimeslots
-    .filter((ts) => ts.day === startTimeslot.day)
+    .filter((ts) => ts.day === startTimeslot.day && !ts.isReserved)
     .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
 
   const startIndex = sameDayTimeslots.findIndex(
     (ts) => ts._id.toString() === startTimeslot._id.toString()
   );
   if (startIndex === -1) {
-    console.error(`Start timeslot ${startTimeslot._id} not found in timeslots`);
+    console.error(`Start timeslot ${startTimeslot._id} not found`);
     return false;
   }
 
@@ -183,26 +186,22 @@ function isValidAssignment(
     if (currentEnd !== nextStart) {
       return false;
     }
-    totalDuration +=
-      parseTime(selectedTimeslots[i].endTime) -
-      parseTime(selectedTimeslots[i].startTime);
+    totalDuration += selectedTimeslots[i].duration;
   }
-  totalDuration +=
-    parseTime(selectedTimeslots[selectedTimeslots.length - 1].endTime) -
-    parseTime(selectedTimeslots[selectedTimeslots.length - 1].startTime);
+  totalDuration += selectedTimeslots[selectedTimeslots.length - 1].duration;
   if (totalDuration < sessionMinutes) {
     return false;
   }
 
   const lectureId = activity.lecture?._id;
   if (!lectureId) {
-    console.error("Lecture ID is undefined for activity:", activity);
+    console.error("Lecture ID undefined for activity:", activity);
     return false;
   }
   const currentLoad = lectureLoad.get(lectureId.toString()) || 0;
   if (
     activity.lecture.maxLoad &&
-    currentLoad + sessionDurationHours > activity.lecture.maxLoad
+    currentLoad + activity.sessionDuration > activity.lecture.maxLoad
   ) {
     return false;
   }
@@ -230,11 +229,39 @@ async function sortActivities(activities, rooms, timeslots, randomize = false) {
   for (const activity of activities) {
     let validOptions = 0;
     for (const timeslot of timeslots) {
-      const sessionDurationHours = activity.sessionDuration;
-      const tsStart = parseTime(timeslot.startTime);
-      const tsEnd = parseTime(timeslot.endTime);
-      const tsDuration = tsEnd - tsStart;
-      if (tsDuration < sessionDurationHours * 60) continue;
+      const sessionMinutes = activity.sessionDuration * 60;
+      const sameDayTimeslots = timeslots
+        .filter((ts) => ts.day === timeslot.day && !ts.isReserved)
+        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+      const startIndex = sameDayTimeslots.findIndex(
+        (ts) => ts._id.toString() === timeslot._id.toString()
+      );
+      if (startIndex === -1) continue;
+      const requiredSlots = Math.ceil(
+        sessionMinutes /
+          (parseTime(timeslot.endTime) - parseTime(timeslot.startTime))
+      );
+      if (startIndex + requiredSlots - 1 >= sameDayTimeslots.length) continue;
+      const selectedTimeslots = sameDayTimeslots.slice(
+        startIndex,
+        startIndex + requiredSlots
+      );
+      let totalDuration = 0;
+      for (let i = 0; i < selectedTimeslots.length - 1; i++) {
+        if (
+          parseTime(selectedTimeslots[i].endTime) !==
+          parseTime(selectedTimeslots[i + 1].startTime)
+        ) {
+          totalDuration = 0;
+          break;
+        }
+        totalDuration += selectedTimeslots[i].duration;
+      }
+      if (totalDuration > 0) {
+        totalDuration +=
+          selectedTimeslots[selectedTimeslots.length - 1].duration;
+      }
+      if (totalDuration < sessionMinutes) continue;
       for (const room of rooms) {
         if (activity.roomRequirement && room.type !== activity.roomRequirement)
           continue;
@@ -246,7 +273,6 @@ async function sortActivities(activities, rooms, timeslots, randomize = false) {
       validOptions,
     });
   }
-  // Sort by valid options (ascending), with randomization for ties if requested
   activityConstraints.sort((a, b) => {
     if (a.validOptions !== b.validOptions)
       return a.validOptions - b.validOptions;
@@ -274,9 +300,7 @@ async function backtrack(
   const sessionKey = `${activity.originalId || activity._id}`;
   const currentSessions = scheduledSessions.get(sessionKey) || 0;
   const maxSessions = activity.originalActivity
-    ? Math.ceil(
-        activity.originalActivity.totalDuration / activity.sessionDuration
-      )
+    ? activity.split // Use split directly
     : 1;
   if (currentSessions >= maxSessions) {
     return await backtrack(
@@ -294,7 +318,7 @@ async function backtrack(
   }
 
   const sortedTimeslots = sortTimeslots(
-    timeslots,
+    timeslots.filter((ts) => !ts.isReserved),
     schedule,
     await getDynamicDays()
   );
@@ -326,26 +350,31 @@ async function backtrack(
   shuffleArray(validAssignments);
 
   for (const { timeslot, room, validTimeslots } of validAssignments) {
-    const newEntries = [];
-    const newActivityTimeslots = [];
-    for (const validTimeslot of validTimeslots) {
-      const entry = {
-        activityData: activity,
-        activityId: activity.originalId || activity._id,
-        timeslot: validTimeslot._id,
-        room: room._id,
-        studentGroup: activity.studentGroup,
-        createdBy: userId,
-      };
-      schedule.push(entry);
-      newEntries.push(entry);
-      usedTimeslots.set(`${validTimeslot._id}-${room._id}`, activity._id);
-      const activityTimeslotKey = `${activity.originalId || activity._id}-${
-        validTimeslot._id
-      }-${activity.studentGroup?._id || "N/A"}`;
-      usedActivityTimeslots.set(activityTimeslotKey, room._id);
-      newActivityTimeslots.push(activityTimeslotKey);
-    }
+    const totalDuration = validTimeslots.reduce(
+      (sum, ts) => sum + ts.duration,
+      0
+    );
+    const entry = {
+      activityData: activity,
+      activityId: activity.originalId || activity._id,
+      timeslot: timeslot._id, // First timeslot
+      reservedTimeslots: validTimeslots.map((ts) => ts._id),
+      totalDuration,
+      room: room._id,
+      studentGroup: activity.studentGroup,
+      createdBy: userId,
+    };
+    schedule.push(entry);
+    usedTimeslots.set(`${timeslot._id}-${room._id}`, activity._id);
+    const activityTimeslotKeys = validTimeslots.map(
+      (ts) =>
+        `${activity.originalId || activity._id}-${ts._id}-${
+          activity.studentGroup?._id || "N/A"
+        }`
+    );
+    activityTimeslotKeys.forEach((key) =>
+      usedActivityTimeslots.set(key, room._id)
+    );
     lectureLoad.set(
       activity.lecture._id.toString(),
       (lectureLoad.get(activity.lecture._id.toString()) || 0) +
@@ -370,15 +399,9 @@ async function backtrack(
       return true;
     }
 
-    for (let i = 0; i < newEntries.length; i++) {
-      schedule.pop();
-    }
-    for (const validTimeslot of validTimeslots) {
-      usedTimeslots.delete(`${validTimeslot._id}-${room._id}`);
-    }
-    for (const activityTimeslotKey of newActivityTimeslots) {
-      usedActivityTimeslots.delete(activityTimeslotKey);
-    }
+    schedule.pop();
+    usedTimeslots.delete(`${timeslot._id}-${room._id}`);
+    activityTimeslotKeys.forEach((key) => usedActivityTimeslots.delete(key));
     lectureLoad.set(
       activity.lecture._id.toString(),
       (lectureLoad.get(activity.lecture._id.toString()) || 0) -
@@ -390,7 +413,7 @@ async function backtrack(
   return false;
 }
 
-async function generateSchedule(semester, userId, sessionLength = 2) {
+async function generateSchedule(semester, userId) {
   const MAX_RETRIES = 5;
 
   if (!semester) {
@@ -410,31 +433,22 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
 
   const expandedActivities = [];
   activities.forEach((activity) => {
-    const baseDuration = activity.split || sessionLength;
-    const totalDuration = activity.totalDuration;
-    const numSessions = Math.ceil(totalDuration / baseDuration);
-
-    for (let i = 0; i < numSessions; i++) {
-      const sessionDuration = Math.min(
-        baseDuration,
-        totalDuration - i * baseDuration
-      );
-      if (sessionDuration > 0) {
-        expandedActivities.push({
-          ...activity,
-          _id: `${activity._id}_${i}`,
-          originalId: activity._id,
-          originalActivity: activity,
-          sessionDuration,
-        });
-      }
+    const sessionDuration = Math.ceil(activity.totalDuration / activity.split);
+    for (let i = 0; i < activity.split; i++) {
+      expandedActivities.push({
+        ...activity,
+        _id: `${activity._id}_${i}`,
+        originalId: activity._id,
+        originalActivity: activity,
+        sessionDuration: sessionDuration / 60, // Convert to hours for backtracking
+      });
     }
   });
 
   expandedActivities.forEach((activity) => {
     const total = expandedActivities
       .filter((a) => a.originalId === activity.originalId)
-      .reduce((sum, a) => sum + a.sessionDuration, 0);
+      .reduce((sum, a) => sum + a.sessionDuration * 60, 0);
     const originalActivity = activities.find(
       (a) => a._id.toString() === activity.originalId.toString()
     );
@@ -446,9 +460,12 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
   });
 
   const rooms = await Room.find({ active: true }).lean();
-  const timeslots = await Timeslot.find({ isDeleted: false }).lean();
+  const timeslots = await Timeslot.find({
+    isDeleted: false,
+    isReserved: false,
+  }).lean();
 
-  timeslots.forEach((ts, index) => {
+  timeslots.forEach((ts) => {
     if (!ts._id) {
       throw new Error(`Timeslot ${ts.day} ${ts.startTime} missing _id`);
     }
@@ -461,12 +478,11 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
   while (attempt < MAX_RETRIES) {
     console.log(`Scheduling attempt ${attempt + 1} of ${MAX_RETRIES}`);
 
-    // Randomize activity sorting for retries (except first attempt)
     const sortedActivities = await sortActivities(
       expandedActivities,
       rooms,
       timeslots,
-      attempt > 0 // Randomize on retries
+      attempt > 0
     );
 
     schedule = [];
@@ -494,16 +510,18 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
       continue;
     }
 
-    // Validate for conflicts
     const timeslotGroups = {};
     schedule.forEach((entry) => {
-      const key = `${entry.studentGroup?._id || "N/A"}-${entry.timeslot}`;
-      if (!timeslotGroups[key]) timeslotGroups[key] = [];
-      timeslotGroups[key].push({
-        activityId: entry.activityId,
-        timeslot: entry.timeslot,
-        room: entry.room,
-        studentGroup: entry.studentGroup?._id,
+      entry.reservedTimeslots.forEach((tsId) => {
+        const key = `${entry.studentGroup?._id || "N/A"}-${tsId}`;
+        if (!timeslotGroups[key]) timeslotGroups[key] = [];
+        timeslotGroups[key].push({
+          activityId: entry.activityId,
+          timeslot: entry.timeslot,
+          reservedTimeslots: entry.reservedTimeslots,
+          room: entry.room,
+          studentGroup: entry.studentGroup?._id,
+        });
       });
     });
     conflicts = Object.values(timeslotGroups)
@@ -511,10 +529,11 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
       .map((group) => group);
 
     if (conflicts.length === 0) {
-      // Success: Save the schedule
       const schedulesToSave = schedule.map((entry) => ({
         activity: entry.activityId,
         timeslot: entry.timeslot,
+        reservedTimeslots: entry.reservedTimeslots,
+        totalDuration: entry.totalDuration,
         room: entry.room,
         studentGroup: entry.studentGroup?._id,
         createdBy: userId,
@@ -524,13 +543,18 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
       try {
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });
+        await Timeslot.updateMany(
+          {
+            _id: { $in: schedule.flatMap((entry) => entry.reservedTimeslots) },
+          },
+          { isReserved: true }
+        );
         console.log("Schedule generated and saved successfully");
       } catch (error) {
         console.error("Error saving schedules:", error);
         throw new Error(`Failed to save schedules: ${error.message}`);
       }
 
-      // Return grouped schedules
       const schedules = await Schedule.find({ semester })
         .populate({
           path: "activity",
@@ -545,7 +569,8 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
           ],
         })
         .populate("room", "name capacity type building")
-        .populate("timeslot", "day startTime endTime preferenceScore")
+        .populate("timeslot", "day startTime endTime duration preferenceScore")
+        .populate("reservedTimeslots", "day startTime endTime duration")
         .populate("studentGroup", "department year section expectedEnrollment")
         .populate("createdBy", "username name")
         .lean();
@@ -579,14 +604,9 @@ async function generateSchedule(semester, userId, sessionLength = 2) {
     attempt++;
   }
 
-  // Max retries reached
-  const errorMessage = `Failed to generate schedule after ${MAX_RETRIES} attempts. Conflicts detected: ${JSON.stringify(
-    conflicts,
-    null,
-    2
-  )}`;
-  console.error(errorMessage);
-  throw new Error(errorMessage);
+  throw new Error(
+    `Failed to generate schedule after ${MAX_RETRIES} attempts. Conflicts detected.`
+  );
 }
 
 module.exports = { generateSchedule };
