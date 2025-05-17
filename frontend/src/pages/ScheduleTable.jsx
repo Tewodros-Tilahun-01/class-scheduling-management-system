@@ -61,8 +61,10 @@ const ScheduleTable = () => {
       if (primaryTimeslot.day !== day) return false;
 
       const startTime = parseTime(primaryTimeslot.startTime);
-      const endTime = startTime + entry.totalDuration;
-      return startTime < slotEnd && endTime > slotStart;
+      const duration = 60; // Assuming each entry covers exactly one timeslot (1 hour)
+      const endTime = startTime + duration;
+
+      return startTime >= slotStart && endTime <= slotEnd;
     });
   };
 
@@ -155,6 +157,18 @@ const ScheduleTable = () => {
     const studentGroup = groupData.studentGroup || {};
     const entries = Array.isArray(groupData.entries) ? groupData.entries : [];
 
+    // Get unique timeslots for the first day to define the time rows
+    const uniqueTimeslots = [
+      ...new Set(
+        timeslots
+          .filter((ts) => ts.day === days[0])
+          .map((ts) => `${ts.startTime}-${ts.endTime}`)
+      ),
+    ].map((time) => {
+      const [startTime, endTime] = time.split("-");
+      return { startTime, endTime };
+    });
+
     return (
       <Card key={studentGroup._id || "unknown"}>
         <CardHeader>
@@ -176,64 +190,52 @@ const ScheduleTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timeslots
-                .filter((ts) => ts.day === days[0])
-                .map((timeslot) => (
-                  <TableRow key={`${timeslot._id}`}>
-                    <TableCell>{`${timeslot.startTime}-${timeslot.endTime}`}</TableCell>
-                    {days.map((day) => {
-                      const currentTimeslot =
-                        timeslots.find(
-                          (ts) =>
-                            ts.day === day &&
-                            ts.startTime === timeslot.startTime &&
-                            ts.endTime === timeslot.endTime
-                        ) || timeslot;
-                      const activities = findActivities(
-                        entries,
-                        currentTimeslot,
-                        day
-                      );
-                      return (
-                        <TableCell key={`${day}-${timeslot._id}`}>
-                          {activities.length > 0 ? (
-                            <div className="space-y-2">
-                              {activities.map((entry) => {
-                                const startTime = parseTime(
-                                  entry.timeslot.startTime
-                                );
-                                const endTime = startTime + entry.totalDuration;
-                                return (
-                                  <div
-                                    key={entry._id}
-                                    style={{
-                                      minHeight: `${
-                                        (entry.totalDuration / 60) * 50
-                                      }px`,
-                                    }}
-                                  >
-                                    <div>
-                                      {entry.activity?.course
-                                        ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                        : "Course N/A"}
-                                    </div>
-                                    <div>
-                                      Lecture:{" "}
-                                      {entry.activity?.lecture?.name || "N/A"}
-                                    </div>
-                                    <div>Room: {entry.room?.name || "N/A"}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
+              {uniqueTimeslots.map((timeslot, index) => (
+                <TableRow key={`time-${index}`}>
+                  <TableCell>{`${timeslot.startTime}-${timeslot.endTime}`}</TableCell>
+                  {days.map((day) => {
+                    const currentTimeslot = timeslots.find(
+                      (ts) =>
+                        ts.day === day &&
+                        ts.startTime === timeslot.startTime &&
+                        ts.endTime === timeslot.endTime
+                    ) || {
+                      startTime: timeslot.startTime,
+                      endTime: timeslot.endTime,
+                      day,
+                    };
+                    const activities = findActivities(
+                      entries,
+                      currentTimeslot,
+                      day
+                    );
+                    return (
+                      <TableCell key={`${day}-${index}`}>
+                        {activities.length > 0 ? (
+                          <div className="space-y-2">
+                            {activities.map((entry) => (
+                              <div key={entry._id}>
+                                <div>
+                                  {entry.activity?.course
+                                    ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                    : "Course N/A"}
+                                </div>
+                                <div>
+                                  Lecturer:{" "}
+                                  {entry.activity?.lecture?.name || "N/A"}
+                                </div>
+                                <div>Room: {entry.room?.name || "N/A"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

@@ -153,11 +153,28 @@ function isValidAssignment(
   usedActivityTimeslots,
   allTimeslots
 ) {
-  const sessionMinutes = activity.sessionDuration * 60;
+  const sessionMinutes = activity.sessionDuration * 60; // Convert hours to minutes
   const timeslotDuration =
     parseTime(startTimeslot.endTime) - parseTime(startTimeslot.startTime);
-  const requiredSlots = Math.ceil(sessionMinutes / timeslotDuration);
 
+  // If session fits in one timeslot
+  if (sessionMinutes <= timeslotDuration) {
+    if (
+      isValidAssignmentSingleTimeslot(
+        activity,
+        startTimeslot,
+        room,
+        schedule,
+        usedTimeslots,
+        usedActivityTimeslots
+      )
+    ) {
+      return [startTimeslot]; // Single timeslot, return as array
+    }
+    return false;
+  }
+
+  // Find consecutive timeslots
   const sameDayTimeslots = allTimeslots
     .filter((ts) => ts.day === startTimeslot.day && !ts.isReserved)
     .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
@@ -170,42 +187,32 @@ function isValidAssignment(
     return false;
   }
 
-  if (startIndex + requiredSlots - 1 >= sameDayTimeslots.length) {
-    return false;
+  let totalDuration = 0;
+  let endIndex = startIndex;
+  while (endIndex < sameDayTimeslots.length && totalDuration < sessionMinutes) {
+    totalDuration +=
+      parseTime(sameDayTimeslots[endIndex].endTime) -
+      parseTime(sameDayTimeslots[endIndex].startTime);
+    endIndex++;
+  }
+  endIndex--; // Adjust to last used timeslot
+
+  if (totalDuration < sessionMinutes) {
+    return false; // Not enough time
   }
 
-  const selectedTimeslots = sameDayTimeslots.slice(
-    startIndex,
-    startIndex + requiredSlots
-  );
+  const selectedTimeslots = sameDayTimeslots.slice(startIndex, endIndex + 1);
 
-  let totalDuration = 0;
+  // Verify consecutive timeslots
   for (let i = 0; i < selectedTimeslots.length - 1; i++) {
     const currentEnd = parseTime(selectedTimeslots[i].endTime);
     const nextStart = parseTime(selectedTimeslots[i + 1].startTime);
     if (currentEnd !== nextStart) {
-      return false;
+      return false; // Not consecutive
     }
-    totalDuration += selectedTimeslots[i].duration;
-  }
-  totalDuration += selectedTimeslots[selectedTimeslots.length - 1].duration;
-  if (totalDuration < sessionMinutes) {
-    return false;
   }
 
-  const lectureId = activity.lecture?._id;
-  if (!lectureId) {
-    console.error("Lecture ID undefined for activity:", activity);
-    return false;
-  }
-  const currentLoad = lectureLoad.get(lectureId.toString()) || 0;
-  if (
-    activity.lecture.maxLoad &&
-    currentLoad + activity.sessionDuration > activity.lecture.maxLoad
-  ) {
-    return false;
-  }
-
+  // Validate each timeslot
   for (const timeslot of selectedTimeslots) {
     if (
       !isValidAssignmentSingleTimeslot(
@@ -221,7 +228,24 @@ function isValidAssignment(
     }
   }
 
-  return selectedTimeslots;
+  // Validate lecture load
+  const lectureId = activity.lecture?._id;
+  if (!lectureId) {
+    console.error("Lecture ID undefined for activity:", activity);
+    return false;
+  }
+  const currentLoad = lectureLoad.get(lectureId.toString()) || 0;
+  if (
+    activity.lecture.maxLoad &&
+    currentLoad + activity.sessionDuration > activity.lecture.maxLoad
+  ) {
+    return false;
+  }
+
+  // Return only first and last timeslots (or single if only one)
+  return selectedTimeslots.length > 1
+    ? [selectedTimeslots[0], selectedTimeslots[selectedTimeslots.length - 1]]
+    : selectedTimeslots;
 }
 
 async function sortActivities(activities, rooms, timeslots, randomize = false) {
@@ -299,9 +323,7 @@ async function backtrack(
   const activity = activities[index];
   const sessionKey = `${activity.originalId || activity._id}`;
   const currentSessions = scheduledSessions.get(sessionKey) || 0;
-  const maxSessions = activity.originalActivity
-    ? activity.split // Use split directly
-    : 1;
+  const maxSessions = activity.originalActivity ? 1 : 1; // One session per expanded activity
   if (currentSessions >= maxSessions) {
     return await backtrack(
       activities,
@@ -350,22 +372,21 @@ async function backtrack(
   shuffleArray(validAssignments);
 
   for (const { timeslot, room, validTimeslots } of validAssignments) {
-    const totalDuration = validTimeslots.reduce(
-      (sum, ts) => sum + ts.duration,
-      0
-    );
+    const totalDuration = activity.sessionDuration * 60; // In minutes
     const entry = {
       activityData: activity,
       activityId: activity.originalId || activity._id,
       timeslot: timeslot._id, // First timeslot
-      reservedTimeslots: validTimeslots.map((ts) => ts._id),
+      reservedTimeslots: validTimeslots.map((ts) => ts._id), // First and last
       totalDuration,
       room: room._id,
       studentGroup: activity.studentGroup,
       createdBy: userId,
     };
     schedule.push(entry);
-    usedTimeslots.set(`${timeslot._id}-${room._id}`, activity._id);
+    validTimeslots.forEach((ts) => {
+      usedTimeslots.set(`${ts._id}-${room._id}`, activity._id);
+    });
     const activityTimeslotKeys = validTimeslots.map(
       (ts) =>
         `${activity.originalId || activity._id}-${ts._id}-${
@@ -400,7 +421,9 @@ async function backtrack(
     }
 
     schedule.pop();
-    usedTimeslots.delete(`${timeslot._id}-${room._id}`);
+    validTimeslots.forEach((ts) => {
+      usedTimeslots.delete(`${ts._id}-${room._id}`);
+    });
     activityTimeslotKeys.forEach((key) => usedActivityTimeslots.delete(key));
     lectureLoad.set(
       activity.lecture._id.toString(),
@@ -431,14 +454,38 @@ async function generateSchedule(semester, userId) {
     throw new Error("No activities found for the specified semester and user");
   }
 
-  const sessionLength = 1;
   const expandedActivities = [];
   activities.forEach((activity) => {
-    const sessions = Math.ceil(activity.totalDuration / sessionLength);
+    if (
+      !Number.isFinite(activity.totalDuration) ||
+      activity.totalDuration <= 0
+    ) {
+      throw new Error(
+        `Invalid totalDuration for activity ${activity._id}: ${activity.totalDuration}`
+      );
+    }
+    if (!Number.isFinite(activity.split) || activity.split <= 0) {
+      throw new Error(
+        `Invalid split for activity ${activity._id}: ${activity.split}`
+      );
+    }
+    if (!activity._id) {
+      throw new Error(`Missing _id for activity`);
+    }
+    const sessions = Math.ceil(activity.totalDuration / activity.split);
     for (let i = 0; i < sessions; i++) {
-      const remainingDuration = activity.totalDuration - i * sessionLength;
+      const remainingDuration = activity.totalDuration - i * activity.split;
       if (remainingDuration <= 0) break;
-      const currentSessionDuration = Math.min(sessionLength, remainingDuration);
+      let currentSessionDuration = Math.min(activity.split, remainingDuration);
+      if (
+        currentSessionDuration < activity.split &&
+        expandedActivities.length > 0
+      ) {
+        expandedActivities[expandedActivities.length - 1].sessionDuration =
+          expandedActivities[expandedActivities.length - 1].sessionDuration +
+          currentSessionDuration;
+        break;
+      }
       if (currentSessionDuration > 0) {
         expandedActivities.push({
           ...activity,
@@ -451,13 +498,20 @@ async function generateSchedule(semester, userId) {
     }
   });
 
+  if (expandedActivities.length === 0) {
+    throw new Error("No valid activities to expand");
+  }
+
   expandedActivities.forEach((activity) => {
     const total = expandedActivities
       .filter((a) => a.originalId === activity.originalId)
-      .reduce((sum, a) => sum + a.sessionDuration * 60, 0);
+      .reduce((sum, a) => sum + a.sessionDuration, 0);
     const originalActivity = activities.find(
       (a) => a._id.toString() === activity.originalId.toString()
     );
+    if (!originalActivity) {
+      throw new Error(`Original activity not found for ${activity.originalId}`);
+    }
     if (Math.abs(total - originalActivity.totalDuration) > 0.01) {
       throw new Error(
         `Total duration mismatch for activity ${activity.originalId}: expected ${originalActivity.totalDuration}, got ${total}`
@@ -549,15 +603,39 @@ async function generateSchedule(semester, userId) {
       try {
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });
+        // Collect all timeslots used (including intermediate ones)
+        const allReservedTimeslots = new Set();
+        schedule.forEach((entry) => {
+          const startTs = timeslots.find(
+            (ts) => ts._id.toString() === entry.timeslot.toString()
+          );
+          if (!startTs) return;
+          const sameDayTimeslots = timeslots
+            .filter((ts) => ts.day === startTs.day && !ts.isReserved)
+            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+          const startIndex = sameDayTimeslots.findIndex(
+            (ts) => ts._id.toString() === startTs._id.toString()
+          );
+          let totalDuration = 0;
+          let endIndex = startIndex;
+          while (
+            endIndex < sameDayTimeslots.length &&
+            totalDuration < entry.totalDuration
+          ) {
+            totalDuration +=
+              parseTime(sameDayTimeslots[endIndex].endTime) -
+              parseTime(sameDayTimeslots[endIndex].startTime);
+            allReservedTimeslots.add(sameDayTimeslots[endIndex]._id);
+            endIndex++;
+          }
+        });
         await Timeslot.updateMany(
-          {
-            _id: { $in: schedule.flatMap((entry) => entry.reservedTimeslots) },
-          },
+          { _id: { $in: Array.from(allReservedTimeslots) } },
           { isReserved: true }
         );
         console.log("Schedule generated and saved successfully");
       } catch (error) {
-        console.error("Error saving schedules:", error);
+        console.error("Error saving schedules:", error.stack);
         throw new Error(`Failed to save schedules: ${error.message}`);
       }
 
