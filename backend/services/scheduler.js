@@ -431,17 +431,23 @@ async function generateSchedule(semester, userId) {
     throw new Error("No activities found for the specified semester and user");
   }
 
+  const sessionLength = 1;
   const expandedActivities = [];
   activities.forEach((activity) => {
-    const sessionDuration = Math.ceil(activity.totalDuration / activity.split);
-    for (let i = 0; i < activity.split; i++) {
-      expandedActivities.push({
-        ...activity,
-        _id: `${activity._id}_${i}`,
-        originalId: activity._id,
-        originalActivity: activity,
-        sessionDuration: sessionDuration / 60, // Convert to hours for backtracking
-      });
+    const sessions = Math.ceil(activity.totalDuration / sessionLength);
+    for (let i = 0; i < sessions; i++) {
+      const remainingDuration = activity.totalDuration - i * sessionLength;
+      if (remainingDuration <= 0) break;
+      const currentSessionDuration = Math.min(sessionLength, remainingDuration);
+      if (currentSessionDuration > 0) {
+        expandedActivities.push({
+          ...activity,
+          _id: `${activity._id}_${i}`,
+          originalId: activity._id,
+          originalActivity: activity,
+          sessionDuration: currentSessionDuration,
+        });
+      }
     }
   });
 
