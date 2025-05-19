@@ -2,6 +2,7 @@ const Activity = require("../models/Activity");
 const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
+require("../models/User");
 
 /*
  * Utility function to shuffle an array in place using Fisher-Yates algorithm.
@@ -535,7 +536,7 @@ async function backtrackForwardChecking(
  * IMPORTANT: No checks against existing schedules; ensure no concurrent runs to avoid overwrites.
  */
 async function generateSchedule(semester, userId) {
-  const MAX_RETRIES = 5;
+  const MAX_RETRIES = 8;
 
   if (!semester) {
     throw new Error("Semester is required");
