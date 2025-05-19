@@ -36,35 +36,47 @@ const ScheduleTable = () => {
     "Saturday",
   ];
 
+  // Parse "HH:MM" to minutes
   const parseTime = (timeStr) => {
     if (!timeStr) return 0;
     const [hours, minutes] = timeStr.split(":").map(Number);
     return hours * 60 + (minutes || 0);
   };
 
-  const formatTime = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours.toString().padStart(2, "0")}:${mins
-      .toString()
-      .padStart(2, "0")}`;
+  // Get earliest start and latest end from reservedTimeslots
+  const getActivityTimeRange = (entry) => {
+    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
+      return null;
+    // reservedTimeslots may be array of IDs or populated objects
+    const slots = entry.reservedTimeslots.filter(
+      (ts) => ts && ts.startTime && ts.endTime && ts.day
+    );
+    if (slots.length === 0) return null;
+    const sorted = [...slots].sort(
+      (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
+    );
+    return {
+      start: sorted[0].startTime,
+      end: sorted[sorted.length - 1].endTime,
+      day: sorted[0].day,
+    };
   };
 
+  // Find activities that overlap with a timeslot cell
   const findActivities = (entries, timeslot, day) => {
     if (!entries || !Array.isArray(entries)) return [];
     const slotStart = parseTime(timeslot.startTime);
     const slotEnd = parseTime(timeslot.endTime);
 
     return entries.filter((entry) => {
-      if (!entry || !entry.timeslot) return false;
-      const primaryTimeslot = entry.timeslot;
-      if (primaryTimeslot.day !== day) return false;
-
-      const startTime = parseTime(primaryTimeslot.startTime);
-      const duration = 60; // Assuming each entry covers exactly one timeslot (1 hour)
-      const endTime = startTime + duration;
-
-      return startTime >= slotStart && endTime <= slotEnd;
+      if (!entry) return false;
+      // Use reservedTimeslots for accurate placement
+      const range = getActivityTimeRange(entry);
+      if (!range || range.day !== day) return false;
+      const activityStart = parseTime(range.start);
+      const activityEnd = parseTime(range.end);
+      // Overlap check
+      return activityStart < slotEnd && activityEnd > slotStart;
     });
   };
 
@@ -213,20 +225,29 @@ const ScheduleTable = () => {
                       <TableCell key={`${day}-${index}`}>
                         {activities.length > 0 ? (
                           <div className="space-y-2">
-                            {activities.map((entry) => (
-                              <div key={entry._id}>
-                                <div>
-                                  {entry.activity?.course
-                                    ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                    : "Course N/A"}
+                            {activities.map((entry) => {
+                              const range = getActivityTimeRange(entry);
+                              return (
+                                <div key={entry._id}>
+                                  <div>
+                                    {entry.activity?.course
+                                      ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                      : "Course N/A"}
+                                  </div>
+                                  <div>
+                                    Lecturer:{" "}
+                                    {entry.activity?.lecture?.name || "N/A"}
+                                  </div>
+                                  <div>Room: {entry.room?.name || "N/A"}</div>
+                                  <div>
+                                    Time:{" "}
+                                    {range
+                                      ? `${range.start} - ${range.end}`
+                                      : "N/A"}
+                                  </div>
                                 </div>
-                                <div>
-                                  Lecturer:{" "}
-                                  {entry.activity?.lecture?.name || "N/A"}
-                                </div>
-                                <div>Room: {entry.room?.name || "N/A"}</div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           "-"
