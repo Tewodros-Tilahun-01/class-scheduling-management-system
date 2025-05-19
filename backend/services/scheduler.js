@@ -17,19 +17,6 @@ function shuffleArray(array) {
 }
 
 /*
- * Checks if two timeslots overlap on the same day.
- * Returns true if their time ranges intersect, false otherwise.
- */
-function timeslotsOverlap(ts1, ts2) {
-  if (ts1.day !== ts2.day) return false;
-  const start1 = parseTime(ts1.startTime);
-  const end1 = parseTime(ts1.endTime);
-  const start2 = parseTime(ts2.startTime);
-  const end2 = parseTime(ts2.endTime);
-  return start1 < end2 && start2 < end1;
-}
-
-/*
  * Converts a time string (HH:MM) to minutes since midnight for comparison.
  * Assumes valid input; minutes are optional (e.g., "14:00" or "14").
  */
@@ -38,7 +25,7 @@ function parseTime(timeStr) {
   return hours * 60 + (minutes || 0);
 }
 
-/*
+/**
  * Fetches unique days from non-deleted timeslots, sorted for consistent ordering.
  * Used to organize timeslots by day in scheduling.
  */
@@ -48,7 +35,7 @@ async function getDynamicDays() {
   return days;
 }
 
-/*
+/**
  * Sorts timeslots to balance usage across days and prioritize earlier times.
  * Uses day usage count and day order to minimize overbooking on specific days.
  */
@@ -358,8 +345,10 @@ async function buildDomains(
   const domains = {};
   for (const activity of activities) {
     const validAssignments = [];
+    // Sort rooms for this activity and current schedule
+    const sortedRooms = sortRooms(rooms, activity, schedule);
     for (const timeslot of timeslots) {
-      for (const room of rooms) {
+      for (const room of sortedRooms) {
         const validTimeslots = await isValidAssignment(
           activity,
           timeslot,
@@ -619,6 +608,13 @@ async function generateSchedule(semester, userId) {
     }
   });
 
+  // --- INTEGRATION OF SORTING FUNCTIONS ---
+  // Get dynamic days for consistent ordering
+  const daysOrder = await getDynamicDays();
+
+  // Sort timeslots for balanced day usage and earlier times
+  const sortedTimeslots = sortTimeslots(timeslots, [], daysOrder);
+
   let attempt = 0;
   let conflicts = [];
   let schedule = [];
@@ -627,10 +623,13 @@ async function generateSchedule(semester, userId) {
   while (attempt < MAX_RETRIES) {
     console.log(`Scheduling attempt ${attempt + 1} of ${MAX_RETRIES}`);
 
+    // For each activity, sort rooms for that activity and use sortedTimeslots
+    // Optionally, you can pass sortedRooms and sortedTimeslots to sortActivities/buildDomains if needed
+
     const sortedActivities = await sortActivities(
       expandedActivities,
       rooms,
-      timeslots,
+      sortedTimeslots,
       attempt > 0
     );
 
@@ -640,10 +639,11 @@ async function generateSchedule(semester, userId) {
     const usedActivityTimeslots = new Map();
     const scheduledSessions = new Map();
 
+    // Build domains using sortedTimeslots and sorted rooms for each activity
     const domains = await buildDomains(
       sortedActivities,
       rooms,
-      timeslots,
+      sortedTimeslots,
       schedule,
       lectureLoad,
       usedTimeslots,
@@ -653,7 +653,7 @@ async function generateSchedule(semester, userId) {
     const found = await backtrackForwardChecking(
       sortedActivities,
       rooms,
-      timeslots,
+      sortedTimeslots,
       schedule,
       lectureLoad,
       usedTimeslots,
@@ -690,18 +690,28 @@ async function generateSchedule(semester, userId) {
       .map((group) => group);
 
     if (conflicts.length === 0) {
-      const schedulesToSave = schedule.map((entry) => ({
-        activity: entry.activityId,
-        timeslot: entry.timeslot,
-        reservedTimeslots: entry.reservedTimeslots,
-        totalDuration: entry.totalDuration,
-        room: entry.room,
-        studentGroup: entry.studentGroup?._id,
-        createdBy: userId,
-        semester,
-      }));
+      const schedulesToSave = schedule
+        .filter(
+          (entry) =>
+            entry.activityId &&
+            entry.timeslot &&
+            entry.room &&
+            entry.reservedTimeslots &&
+            entry.reservedTimeslots.length > 0
+        )
+        .map((entry) => ({
+          activity: entry.activityId,
+          timeslot: entry.timeslot,
+          reservedTimeslots: entry.reservedTimeslots,
+          totalDuration: entry.totalDuration,
+          room: entry.room,
+          studentGroup: entry.studentGroup?._id,
+          createdBy: userId,
+          semester,
+        }));
 
       try {
+        console.log(schedule);
         // IMPORTANT: Deletes all existing schedules for the semester, preventing conflicts but risking data loss if not intended.
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });
