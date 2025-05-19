@@ -5,7 +5,6 @@ const TimeslotSchema = new mongoose.Schema({
   startTime: { type: String, required: true },
   endTime: { type: String, required: true },
   preferenceScore: { type: Number, default: 0 },
-  isReserved: { type: Boolean, default: false },
   isDeleted: { type: Boolean, default: false, index: true },
 });
 

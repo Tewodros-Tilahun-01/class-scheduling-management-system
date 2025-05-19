@@ -3,6 +3,10 @@ const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
 
+/*
+ * Utility function to shuffle an array in place using Fisher-Yates algorithm.
+ * Used to randomize domain assignments in backtracking for varied solutions.
+ */
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -11,6 +15,10 @@ function shuffleArray(array) {
   return array;
 }
 
+/*
+ * Checks if two timeslots overlap on the same day.
+ * Returns true if their time ranges intersect, false otherwise.
+ */
 function timeslotsOverlap(ts1, ts2) {
   if (ts1.day !== ts2.day) return false;
   const start1 = parseTime(ts1.startTime);
@@ -20,20 +28,29 @@ function timeslotsOverlap(ts1, ts2) {
   return start1 < end2 && start2 < end1;
 }
 
+/*
+ * Converts a time string (HH:MM) to minutes since midnight for comparison.
+ * Assumes valid input; minutes are optional (e.g., "14:00" or "14").
+ */
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);
 }
 
+/*
+ * Fetches unique days from non-deleted timeslots, sorted for consistent ordering.
+ * Used to organize timeslots by day in scheduling.
+ */
 async function getDynamicDays() {
-  const timeslots = await Timeslot.find({
-    isDeleted: false,
-    isReserved: false,
-  }).lean();
+  const timeslots = await Timeslot.find({ isDeleted: false }).lean();
   const days = [...new Set(timeslots.map((ts) => ts.day))].sort();
   return days;
 }
 
+/*
+ * Sorts timeslots to balance usage across days and prioritize earlier times.
+ * Uses day usage count and day order to minimize overbooking on specific days.
+ */
 function sortTimeslots(timeslots, schedule, daysOrder) {
   const dayUsage = daysOrder.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
   schedule.forEach((entry) => {
@@ -52,6 +69,10 @@ function sortTimeslots(timeslots, schedule, daysOrder) {
   });
 }
 
+/*
+ * Sorts rooms to balance usage and match activity requirements.
+ * Prioritizes less-used rooms and those meeting room type and capacity needs.
+ */
 function sortRooms(rooms, activity, schedule) {
   const roomUsage = rooms.reduce(
     (acc, room) => ({ ...acc, [room._id]: 0 }),
@@ -76,7 +97,12 @@ function sortRooms(rooms, activity, schedule) {
   });
 }
 
-function isValidAssignmentSingleTimeslot(
+/*
+ * Validates a single timeslot assignment for an activity and room.
+ * Checks room type, capacity, and conflicts within the current schedule.
+ * IMPORTANT: No checks against existing schedules in DB; relies on Schedule.deleteMany to clear prior conflicts.
+ */
+async function isValidAssignmentSingleTimeslot(
   activity,
   timeslot,
   room,
@@ -84,6 +110,7 @@ function isValidAssignmentSingleTimeslot(
   usedTimeslots,
   usedActivityTimeslots
 ) {
+  // Verify room meets activity requirements
   if (activity.roomRequirement && room.type !== activity.roomRequirement) {
     return false;
   }
@@ -92,9 +119,7 @@ function isValidAssignmentSingleTimeslot(
   if (room.capacity < (studentGroup.expectedEnrollment || defaultEnrollment)) {
     return false;
   }
-  if (timeslot.isReserved) {
-    return false;
-  }
+  // Check for conflicts in the current schedule (room, lecturer, student group, activity)
   for (const entry of schedule) {
     if (!entry.room || !entry.activityData) {
       console.error("Invalid schedule entry:", entry);
@@ -130,6 +155,7 @@ function isValidAssignmentSingleTimeslot(
       return false;
     }
   }
+  // Ensure timeslot-room and activity-timeslot combinations are unique
   const timeslotRoomKey = `${timeslot._id}-${room._id}`;
   if (usedTimeslots.has(timeslotRoomKey)) {
     return false;
@@ -143,7 +169,12 @@ function isValidAssignmentSingleTimeslot(
   return true;
 }
 
-function isValidAssignment(
+/*
+ * Validates an assignment for an activity, handling both single and multi-timeslot sessions.
+ * Ensures consecutive timeslots for longer sessions and checks lecturer load.
+ * IMPORTANT: Debug if long sessions (e.g., 3.5 hours) fail due to non-consecutive timeslots.
+ */
+async function isValidAssignment(
   activity,
   startTimeslot,
   room,
@@ -153,14 +184,14 @@ function isValidAssignment(
   usedActivityTimeslots,
   allTimeslots
 ) {
-  const sessionMinutes = activity.sessionDuration * 60; // Convert hours to minutes
+  const sessionMinutes = activity.sessionDuration * 60;
   const timeslotDuration =
     parseTime(startTimeslot.endTime) - parseTime(startTimeslot.startTime);
 
-  // If session fits in one timeslot
+  // Handle single-timeslot sessions
   if (sessionMinutes <= timeslotDuration) {
     if (
-      isValidAssignmentSingleTimeslot(
+      await isValidAssignmentSingleTimeslot(
         activity,
         startTimeslot,
         room,
@@ -169,14 +200,14 @@ function isValidAssignment(
         usedActivityTimeslots
       )
     ) {
-      return [startTimeslot]; // Single timeslot, return as array
+      return [startTimeslot];
     }
     return false;
   }
 
-  // Find consecutive timeslots
+  // Handle multi-timeslot sessions
   const sameDayTimeslots = allTimeslots
-    .filter((ts) => ts.day === startTimeslot.day && !ts.isReserved)
+    .filter((ts) => ts.day === startTimeslot.day)
     .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
 
   const startIndex = sameDayTimeslots.findIndex(
@@ -187,6 +218,7 @@ function isValidAssignment(
     return false;
   }
 
+  // Accumulate timeslots until session duration is met
   let totalDuration = 0;
   let endIndex = startIndex;
   while (endIndex < sameDayTimeslots.length && totalDuration < sessionMinutes) {
@@ -195,40 +227,40 @@ function isValidAssignment(
       parseTime(sameDayTimeslots[endIndex].startTime);
     endIndex++;
   }
-  endIndex--; // Adjust to last used timeslot
+  endIndex--;
 
   if (totalDuration < sessionMinutes) {
-    return false; // Not enough time
+    return false;
   }
 
   const selectedTimeslots = sameDayTimeslots.slice(startIndex, endIndex + 1);
 
-  // Verify consecutive timeslots
+  // Ensure timeslots are consecutive
   for (let i = 0; i < selectedTimeslots.length - 1; i++) {
     const currentEnd = parseTime(selectedTimeslots[i].endTime);
     const nextStart = parseTime(selectedTimeslots[i + 1].startTime);
     if (currentEnd !== nextStart) {
-      return false; // Not consecutive
+      return false;
     }
   }
 
   // Validate each timeslot
   for (const timeslot of selectedTimeslots) {
     if (
-      !isValidAssignmentSingleTimeslot(
+      !(await isValidAssignmentSingleTimeslot(
         activity,
         timeslot,
         room,
         schedule,
         usedTimeslots,
         usedActivityTimeslots
-      )
+      ))
     ) {
       return false;
     }
   }
 
-  // Validate lecture load
+  // Check lecturer load
   const lectureId = activity.lecture?._id;
   if (!lectureId) {
     console.error("Lecture ID undefined for activity:", activity);
@@ -242,12 +274,16 @@ function isValidAssignment(
     return false;
   }
 
-  // Return only first and last timeslots (or single if only one)
   return selectedTimeslots.length > 1
     ? [selectedTimeslots[0], selectedTimeslots[selectedTimeslots.length - 1]]
     : selectedTimeslots;
 }
 
+/*
+ * Sorts activities by the number of valid assignment options to prioritize constrained ones.
+ * Randomizes order after the first attempt to explore different solutions.
+ * IMPORTANT: Log validOptions if scheduling fails to identify overly constrained activities.
+ */
 async function sortActivities(activities, rooms, timeslots, randomize = false) {
   const activityConstraints = [];
   for (const activity of activities) {
@@ -255,7 +291,7 @@ async function sortActivities(activities, rooms, timeslots, randomize = false) {
     for (const timeslot of timeslots) {
       const sessionMinutes = activity.sessionDuration * 60;
       const sameDayTimeslots = timeslots
-        .filter((ts) => ts.day === timeslot.day && !ts.isReserved)
+        .filter((ts) => ts.day === timeslot.day)
         .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
       const startIndex = sameDayTimeslots.findIndex(
         (ts) => ts._id.toString() === timeslot._id.toString()
@@ -305,7 +341,50 @@ async function sortActivities(activities, rooms, timeslots, randomize = false) {
   return activityConstraints.map((ac) => ac.activity);
 }
 
-async function backtrack(
+/*
+ * Builds domains for each activity, listing valid timeslot-room assignments.
+ * IMPORTANT: Empty domains indicate infeasible schedules; debug with logging if this occurs.
+ */
+async function buildDomains(
+  activities,
+  rooms,
+  timeslots,
+  schedule,
+  lectureLoad,
+  usedTimeslots,
+  usedActivityTimeslots
+) {
+  const domains = {};
+  for (const activity of activities) {
+    const validAssignments = [];
+    for (const timeslot of timeslots) {
+      for (const room of rooms) {
+        const validTimeslots = await isValidAssignment(
+          activity,
+          timeslot,
+          room,
+          schedule,
+          lectureLoad,
+          usedTimeslots,
+          usedActivityTimeslots,
+          timeslots
+        );
+        if (validTimeslots) {
+          validAssignments.push({ timeslot, room, validTimeslots });
+        }
+      }
+    }
+    domains[activity._id] = validAssignments;
+  }
+  return domains;
+}
+
+/*
+ * Implements backtracking with forward checking to assign timeslots and rooms.
+ * Prunes domains for future activities to reduce search space.
+ * IMPORTANT: Over-pruning can lead to false negatives; relax checks if scheduling fails repeatedly.
+ */
+async function backtrackForwardChecking(
   activities,
   rooms,
   timeslots,
@@ -315,7 +394,8 @@ async function backtrack(
   usedActivityTimeslots,
   scheduledSessions,
   index,
-  userId
+  userId,
+  domains
 ) {
   if (index >= activities.length) {
     return true;
@@ -323,9 +403,9 @@ async function backtrack(
   const activity = activities[index];
   const sessionKey = `${activity.originalId || activity._id}`;
   const currentSessions = scheduledSessions.get(sessionKey) || 0;
-  const maxSessions = activity.originalActivity ? 1 : 1; // One session per expanded activity
+  const maxSessions = activity.originalActivity ? 1 : 1;
   if (currentSessions >= maxSessions) {
-    return await backtrack(
+    return await backtrackForwardChecking(
       activities,
       rooms,
       timeslots,
@@ -335,49 +415,23 @@ async function backtrack(
       usedActivityTimeslots,
       scheduledSessions,
       index + 1,
-      userId
+      userId,
+      domains
     );
   }
 
-  const sortedTimeslots = sortTimeslots(
-    timeslots.filter((ts) => !ts.isReserved),
-    schedule,
-    await getDynamicDays()
-  );
-  const sortedRooms = sortRooms(rooms, activity, schedule);
+  const domain = domains[activity._id] || [];
+  if (domain.length === 0) return false;
 
-  const validAssignments = [];
-  for (const timeslot of sortedTimeslots) {
-    for (const room of sortedRooms) {
-      const validTimeslots = isValidAssignment(
-        activity,
-        timeslot,
-        room,
-        schedule,
-        lectureLoad,
-        usedTimeslots,
-        usedActivityTimeslots,
-        timeslots
-      );
-      if (validTimeslots) {
-        validAssignments.push({ timeslot, room, validTimeslots });
-      }
-    }
-  }
+  shuffleArray(domain);
 
-  if (validAssignments.length === 0) {
-    return false;
-  }
-
-  shuffleArray(validAssignments);
-
-  for (const { timeslot, room, validTimeslots } of validAssignments) {
-    const totalDuration = activity.sessionDuration * 60; // In minutes
+  for (const { timeslot, room, validTimeslots } of domain) {
+    const totalDuration = activity.sessionDuration * 60;
     const entry = {
       activityData: activity,
       activityId: activity.originalId || activity._id,
-      timeslot: timeslot._id, // First timeslot
-      reservedTimeslots: validTimeslots.map((ts) => ts._id), // First and last
+      timeslot: timeslot._id,
+      reservedTimeslots: validTimeslots.map((ts) => ts._id),
       totalDuration,
       room: room._id,
       studentGroup: activity.studentGroup,
@@ -403,8 +457,44 @@ async function backtrack(
     );
     scheduledSessions.set(sessionKey, currentSessions + 1);
 
+    // Forward checking: Prune domains for future activities
+    const newDomains = JSON.parse(JSON.stringify(domains));
+    for (let j = index + 1; j < activities.length; j++) {
+      const nextActivity = activities[j];
+      newDomains[nextActivity._id] = (
+        newDomains[nextActivity._id] || []
+      ).filter(({ timeslot: ts, room: r, validTimeslots: vts }) =>
+        isValidAssignment(
+          nextActivity,
+          ts,
+          r,
+          schedule,
+          lectureLoad,
+          usedTimeslots,
+          usedActivityTimeslots,
+          timeslots
+        )
+      );
+      if (newDomains[nextActivity._id].length === 0) {
+        schedule.pop();
+        validTimeslots.forEach((ts) => {
+          usedTimeslots.delete(`${ts._id}-${room._id}`);
+        });
+        activityTimeslotKeys.forEach((key) =>
+          usedActivityTimeslots.delete(key)
+        );
+        lectureLoad.set(
+          activity.lecture._id.toString(),
+          (lectureLoad.get(activity.lecture._id.toString()) || 0) -
+            activity.sessionDuration
+        );
+        scheduledSessions.set(sessionKey, currentSessions);
+        return false;
+      }
+    }
+
     if (
-      await backtrack(
+      await backtrackForwardChecking(
         activities,
         rooms,
         timeslots,
@@ -414,12 +504,14 @@ async function backtrack(
         usedActivityTimeslots,
         scheduledSessions,
         index + 1,
-        userId
+        userId,
+        newDomains
       )
     ) {
       return true;
     }
 
+    // Backtrack: Undo assignment
     schedule.pop();
     validTimeslots.forEach((ts) => {
       usedTimeslots.delete(`${ts._id}-${room._id}`);
@@ -436,6 +528,12 @@ async function backtrack(
   return false;
 }
 
+/*
+ * Main scheduling function to generate a conflict-free schedule for a semester.
+ * Uses backtracking with forward checking to assign timeslots and rooms.
+ * IMPORTANT: Deletes existing schedules for the semester before saving new ones.
+ * IMPORTANT: No checks against existing schedules; ensure no concurrent runs to avoid overwrites.
+ */
 async function generateSchedule(semester, userId) {
   const MAX_RETRIES = 5;
 
@@ -443,6 +541,7 @@ async function generateSchedule(semester, userId) {
     throw new Error("Semester is required");
   }
 
+  // Fetch activities for the semester and user
   const activities = await Activity.find({
     semester,
     createdBy: userId,
@@ -454,21 +553,9 @@ async function generateSchedule(semester, userId) {
     throw new Error("No activities found for the specified semester and user");
   }
 
+  // Expand activities into sessions based on totalDuration and split
   const expandedActivities = [];
   activities.forEach((activity) => {
-    if (
-      !Number.isFinite(activity.totalDuration) ||
-      activity.totalDuration <= 0
-    ) {
-      throw new Error(
-        `Invalid totalDuration for activity ${activity._id}: ${activity.totalDuration}`
-      );
-    }
-    if (!Number.isFinite(activity.split) || activity.split <= 0) {
-      throw new Error(
-        `Invalid split for activity ${activity._id}: ${activity.split}`
-      );
-    }
     if (!activity._id) {
       throw new Error(`Missing _id for activity`);
     }
@@ -502,6 +589,7 @@ async function generateSchedule(semester, userId) {
     throw new Error("No valid activities to expand");
   }
 
+  // Validate total duration of expanded sessions
   expandedActivities.forEach((activity) => {
     const total = expandedActivities
       .filter((a) => a.originalId === activity.originalId)
@@ -519,12 +607,11 @@ async function generateSchedule(semester, userId) {
     }
   });
 
+  // Fetch rooms and timeslots
   const rooms = await Room.find({ active: true }).lean();
-  const timeslots = await Timeslot.find({
-    isDeleted: false,
-    isReserved: false,
-  }).lean();
+  const timeslots = await Timeslot.find({ isDeleted: false }).lean();
 
+  // Validate timeslot IDs
   timeslots.forEach((ts) => {
     if (!ts._id) {
       throw new Error(`Timeslot ${ts.day} ${ts.startTime} missing _id`);
@@ -535,6 +622,7 @@ async function generateSchedule(semester, userId) {
   let conflicts = [];
   let schedule = [];
 
+  // Retry scheduling up to MAX_RETRIES times
   while (attempt < MAX_RETRIES) {
     console.log(`Scheduling attempt ${attempt + 1} of ${MAX_RETRIES}`);
 
@@ -551,7 +639,17 @@ async function generateSchedule(semester, userId) {
     const usedActivityTimeslots = new Map();
     const scheduledSessions = new Map();
 
-    const found = await backtrack(
+    const domains = await buildDomains(
+      sortedActivities,
+      rooms,
+      timeslots,
+      schedule,
+      lectureLoad,
+      usedTimeslots,
+      usedActivityTimeslots
+    );
+
+    const found = await backtrackForwardChecking(
       sortedActivities,
       rooms,
       timeslots,
@@ -561,7 +659,8 @@ async function generateSchedule(semester, userId) {
       usedActivityTimeslots,
       scheduledSessions,
       0,
-      userId
+      userId,
+      domains
     );
 
     if (!found) {
@@ -570,6 +669,7 @@ async function generateSchedule(semester, userId) {
       continue;
     }
 
+    // Check for student group conflicts in the schedule
     const timeslotGroups = {};
     schedule.forEach((entry) => {
       entry.reservedTimeslots.forEach((tsId) => {
@@ -601,44 +701,16 @@ async function generateSchedule(semester, userId) {
       }));
 
       try {
+        // IMPORTANT: Deletes all existing schedules for the semester, preventing conflicts but risking data loss if not intended.
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });
-        // Collect all timeslots used (including intermediate ones)
-        const allReservedTimeslots = new Set();
-        schedule.forEach((entry) => {
-          const startTs = timeslots.find(
-            (ts) => ts._id.toString() === entry.timeslot.toString()
-          );
-          if (!startTs) return;
-          const sameDayTimeslots = timeslots
-            .filter((ts) => ts.day === startTs.day && !ts.isReserved)
-            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-          const startIndex = sameDayTimeslots.findIndex(
-            (ts) => ts._id.toString() === startTs._id.toString()
-          );
-          let totalDuration = 0;
-          let endIndex = startIndex;
-          while (
-            endIndex < sameDayTimeslots.length &&
-            totalDuration < entry.totalDuration
-          ) {
-            totalDuration +=
-              parseTime(sameDayTimeslots[endIndex].endTime) -
-              parseTime(sameDayTimeslots[endIndex].startTime);
-            allReservedTimeslots.add(sameDayTimeslots[endIndex]._id);
-            endIndex++;
-          }
-        });
-        await Timeslot.updateMany(
-          { _id: { $in: Array.from(allReservedTimeslots) } },
-          { isReserved: true }
-        );
         console.log("Schedule generated and saved successfully");
       } catch (error) {
         console.error("Error saving schedules:", error.stack);
         throw new Error(`Failed to save schedules: ${error.message}`);
       }
 
+      // Fetch and group the saved schedules for return
       const schedules = await Schedule.find({ semester })
         .populate({
           path: "activity",
