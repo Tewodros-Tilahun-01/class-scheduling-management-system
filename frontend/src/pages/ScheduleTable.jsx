@@ -233,10 +233,11 @@ const ScheduleTable = () => {
                                 ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
                                 : "Course N/A"}
                             </div>
-                            <div>
-                              Lecturer: {entry.activity?.lecture?.name || "N/A"}
-                            </div>
+                            <div>{entry.activity?.lecture?.name || "N/A"}</div>
                             <div>Room: {entry.room?.name || "N/A"}</div>
+                            <div>
+                              {entry.activity?.roomRequirement || "N/A"}
+                            </div>
                             <div>
                               Time:{" "}
                               {(() => {

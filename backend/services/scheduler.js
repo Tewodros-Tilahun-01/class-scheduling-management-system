@@ -115,14 +115,18 @@ async function isValidAssignmentSingleTimeslot(
     }
     if (
       entry.room.toString() === room._id.toString() &&
-      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
+      entry.reservedTimeslots.some(
+        (tsId) => tsId.toString() === timeslot._id.toString()
+      )
     ) {
       return false;
     }
     if (
       entry.activityData.lecture._id.toString() ===
         activity.lecture._id.toString() &&
-      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
+      entry.reservedTimeslots.some(
+        (tsId) => tsId.toString() === timeslot._id.toString()
+      )
     ) {
       return false;
     }
@@ -131,14 +135,18 @@ async function isValidAssignmentSingleTimeslot(
       entry.activityData.studentGroup?._id &&
       entry.activityData.studentGroup._id.toString() ===
         activity.studentGroup._id.toString() &&
-      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
+      entry.reservedTimeslots.some(
+        (tsId) => tsId.toString() === timeslot._id.toString()
+      )
     ) {
       return false;
     }
     if (
       (entry.activityData.originalId || entry.activityData._id).toString() ===
         (activity.originalId || activity._id).toString() &&
-      entry.reservedTimeslots.some((tsId) => timeslot._id.equals(tsId))
+      entry.reservedTimeslots.some(
+        (tsId) => tsId.toString() === timeslot._id.toString()
+      )
     ) {
       return false;
     }
@@ -523,7 +531,7 @@ async function backtrackForwardChecking(
  * IMPORTANT: No checks against existing schedules; ensure no concurrent runs to avoid overwrites.
  */
 async function generateSchedule(semester, userId) {
-  const MAX_RETRIES = 8;
+  const MAX_RETRIES = 30;
 
   if (!semester) {
     throw new Error("Semester is required");
@@ -718,7 +726,6 @@ async function generateSchedule(semester, userId) {
         });
 
       try {
-        console.log(schedule);
         // IMPORTANT: Deletes all existing schedules for the semester, preventing conflicts but risking data loss if not intended.
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });

@@ -344,139 +344,164 @@ router.get("/:semester/export", async (req, res) => {
               ],
               spacing: { after: 400 },
             }),
-            ...Object.values(groupedSchedules).flatMap((group) => {
-              const { studentGroup, entries } = group;
-              const title = new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Timetable for ${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`,
-                    bold: true,
-                    size: 24,
-                  }),
-                ],
-                spacing: { after: 200 },
-              });
-
-              // Build a cellMap for rowSpan logic
-              const cellMap = {};
-              entries.forEach((entry) => {
-                const slots = [...(entry.reservedTimeslots || [])].sort(
-                  (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
-                );
-                if (slots.length === 0) return;
-                const day = slots[0].day;
-                const firstSlotId = slots[0]._id.toString();
-                cellMap[`${day}-${firstSlotId}`] = {
-                  entry,
-                  span: slots.length,
-                };
-                for (let i = 1; i < slots.length; i++) {
-                  cellMap[`${day}-${slots[i]._id.toString()}`] = { skip: true };
-                }
-              });
-
-              // Find the max number of timeslots in any day
-              const maxRows = Math.max(
-                ...days.map((day) => dayTimeslots[day].length)
-              );
-
-              // Example margin object for padding (all sides)
-              const cellMargin = {
-                top: 200,
-                bottom: 200,
-                left: 200,
-                right: 200,
-              };
-
-              const numDays = days.length;
-              const timeColWidth = 20; // percent
-              const dayColWidth = Math.floor((100 - timeColWidth) / numDays); // percent
-
-              // Build the table rows
-              const tableRows = [
-                new TableRow({
+            ...Object.values(groupedSchedules)
+              .map((group, idx) => {
+                const { studentGroup, entries } = group;
+                const title = new Paragraph({
                   children: [
-                    new TableCell({
-                      children: [new Paragraph("Time")],
-                      margins: cellMargin,
-                      width: { size: timeColWidth, type: WidthType.PERCENTAGE },
+                    new TextRun({
+                      text: `Timetable for ${studentGroup.department} Year ${studentGroup.year} Section ${studentGroup.section}`,
+                      bold: true,
+                      size: 24,
                     }),
-                    ...days.map(
-                      (day) =>
-                        new TableCell({
-                          children: [new Paragraph(day)],
-                          margins: cellMargin,
-                          width: {
-                            size: dayColWidth,
-                            type: WidthType.PERCENTAGE,
-                          },
-                        })
-                    ),
                   ],
-                }),
-                ...Array.from({ length: maxRows }).map((_, rowIdx) => {
-                  return new TableRow({
+                  spacing: { after: 200 },
+                });
+
+                // Build a cellMap for rowSpan logic
+                const cellMap = {};
+                entries.forEach((entry) => {
+                  const slots = [...(entry.reservedTimeslots || [])].sort(
+                    (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
+                  );
+                  if (slots.length === 0) return;
+                  const day = slots[0].day;
+                  const firstSlotId = slots[0]._id.toString();
+                  cellMap[`${day}-${firstSlotId}`] = {
+                    entry,
+                    span: slots.length,
+                  };
+                  for (let i = 1; i < slots.length; i++) {
+                    cellMap[`${day}-${slots[i]._id.toString()}`] = {
+                      skip: true,
+                    };
+                  }
+                });
+
+                // Find the max number of timeslots in any day
+                const maxRows = Math.max(
+                  ...days.map((day) => dayTimeslots[day].length)
+                );
+
+                // Example margin object for padding (all sides)
+                const cellMargin = {
+                  top: 200,
+                  bottom: 200,
+                  left: 170,
+                  right: 170,
+                };
+
+                const numDays = days.length;
+                const timeColWidth = 20; // percent
+                const dayColWidth = Math.floor((100 - timeColWidth) / numDays); // percent
+
+                // Build the table rows
+                const tableRows = [
+                  new TableRow({
                     children: [
                       new TableCell({
-                        children: [
-                          (() => {
-                            for (const day of days) {
-                              if (dayTimeslots[day][rowIdx]) {
-                                const ts = dayTimeslots[day][rowIdx];
-                                return new Paragraph(
-                                  `${ts.startTime}-${ts.endTime}`
-                                );
-                              }
-                            }
-                            return new Paragraph("");
-                          })(),
-                        ],
+                        children: [new Paragraph("Time")],
                         margins: cellMargin,
                         width: {
                           size: timeColWidth,
                           type: WidthType.PERCENTAGE,
                         },
                       }),
-                      ...days.map((day) => {
-                        const ts = dayTimeslots[day][rowIdx];
-                        if (!ts)
-                          return new TableCell({
-                            children: [new Paragraph("")],
+                      ...days.map(
+                        (day) =>
+                          new TableCell({
+                            children: [new Paragraph(day)],
                             margins: cellMargin,
                             width: {
                               size: dayColWidth,
                               type: WidthType.PERCENTAGE,
                             },
-                          });
-                        const cellKey = `${day}-${ts._id.toString()}`;
-                        const cellInfo = cellMap[cellKey];
-                        if (cellInfo?.skip) return null;
-                        if (cellInfo?.entry) {
-                          const entry = cellInfo.entry;
-                          const slots = [
-                            ...(entry.reservedTimeslots || []),
-                          ].sort(
-                            (a, b) =>
-                              parseTime(a.startTime) - parseTime(b.startTime)
-                          );
+                          })
+                      ),
+                    ],
+                  }),
+                  ...Array.from({ length: maxRows }).map((_, rowIdx) => {
+                    return new TableRow({
+                      children: [
+                        new TableCell({
+                          children: [
+                            (() => {
+                              for (const day of days) {
+                                if (dayTimeslots[day][rowIdx]) {
+                                  const ts = dayTimeslots[day][rowIdx];
+                                  return new Paragraph(
+                                    `${ts.startTime}-${ts.endTime}`
+                                  );
+                                }
+                              }
+                              return new Paragraph("");
+                            })(),
+                          ],
+                          margins: cellMargin,
+                          width: {
+                            size: timeColWidth,
+                            type: WidthType.PERCENTAGE,
+                          },
+                        }),
+                        ...days.map((day) => {
+                          const ts = dayTimeslots[day][rowIdx];
+                          if (!ts)
+                            return new TableCell({
+                              children: [new Paragraph("")],
+                              margins: cellMargin,
+                              width: {
+                                size: dayColWidth,
+                                type: WidthType.PERCENTAGE,
+                              },
+                            });
+                          const cellKey = `${day}-${ts._id.toString()}`;
+                          const cellInfo = cellMap[cellKey];
+                          if (cellInfo?.skip) return null;
+                          if (cellInfo?.entry) {
+                            const entry = cellInfo.entry;
+                            const slots = [
+                              ...(entry.reservedTimeslots || []),
+                            ].sort(
+                              (a, b) =>
+                                parseTime(a.startTime) - parseTime(b.startTime)
+                            );
+                            return new TableCell({
+                              rowSpan: cellInfo.span,
+                              children: [
+                                new Paragraph(
+                                  `${
+                                    entry.activity?.course?.courseCode || "N/A"
+                                  }\n${entry.room?.name || "N/A"}\n ${
+                                    entry.activity?.roomRequirement || "N/A"
+                                  }\n ${
+                                    slots.length
+                                      ? `${slots[0].startTime} - ${
+                                          slots[slots.length - 1].endTime
+                                        }`
+                                      : "N/A"
+                                  }\n${
+                                    entry.activity?.roomRequirement || "N/A"
+                                  }\n `
+                                ),
+                              ],
+                              margins: cellMargin,
+                              width: {
+                                size: dayColWidth,
+                                type: WidthType.PERCENTAGE,
+                              },
+                            });
+                          }
+                          // No activity starts here: show a black dash
                           return new TableCell({
-                            rowSpan: cellInfo.span,
                             children: [
-                              new Paragraph(
-                                `${
-                                  entry.activity?.course?.courseCode || "N/A"
-                                }\n${
-                                  entry.activity?.lecture?.name || "N/A"
-                                }\n ${entry.room?.name || "N/A"}\n ${
-                                  entry.activity?.roomRequirement || "N/A"
-                                }\n ${
-                                  slots.length
-                                    ? `${slots[0].startTime} - ${
-                                        slots[slots.length - 1].endTime
-                                      }`
-                                    : "N/A"
-                                }`
-                              ),
+                              new Paragraph({
+                                children: [
+                                  new TextRun({
+                                    text: "-",
+                                    color: "000000",
+                                  }),
+                                ],
+                              }),
                             ],
                             margins: cellMargin,
                             width: {
@@ -484,51 +509,45 @@ router.get("/:semester/export", async (req, res) => {
                               type: WidthType.PERCENTAGE,
                             },
                           });
-                        }
-                        // No activity starts here: show a black dash
-                        return new TableCell({
-                          children: [
-                            new Paragraph({
-                              children: [
-                                new TextRun({
-                                  text: "-",
-                                  color: "000000",
-                                }),
-                              ],
-                            }),
-                          ],
-                          margins: cellMargin,
-                          width: {
-                            size: dayColWidth,
-                            type: WidthType.PERCENTAGE,
-                          },
-                        });
-                      }),
-                    ].filter(Boolean), // Remove nulls (skipped cells)
-                  });
-                }),
-              ];
+                        }),
+                      ].filter(Boolean), // Remove nulls (skipped cells)
+                    });
+                  }),
+                ];
 
-              // Add visible borders to the table
-              const table = new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: {
-                  top: { style: "single", size: 2, color: "000000" },
-                  bottom: { style: "single", size: 2, color: "000000" },
-                  left: { style: "single", size: 2, color: "000000" },
-                  right: { style: "single", size: 2, color: "000000" },
-                  insideHorizontal: {
-                    style: "single",
-                    size: 2,
-                    color: "000000",
+                // Add visible borders to the table
+                const table = new Table({
+                  width: { size: 100, type: WidthType.PERCENTAGE },
+                  borders: {
+                    top: { style: "single", size: 2, color: "000000" },
+                    bottom: { style: "single", size: 2, color: "000000" },
+                    left: { style: "single", size: 2, color: "000000" },
+                    right: { style: "single", size: 2, color: "000000" },
+                    insideHorizontal: {
+                      style: "single",
+                      size: 2,
+                      color: "000000",
+                    },
+                    insideVertical: {
+                      style: "single",
+                      size: 2,
+                      color: "000000",
+                    },
                   },
-                  insideVertical: { style: "single", size: 2, color: "000000" },
-                },
-                rows: tableRows,
-              });
+                  rows: tableRows,
+                });
 
-              return [title, table, new Paragraph({ spacing: { after: 400 } })];
-            }),
+                const pageBreak =
+                  idx > 0 ? [new Paragraph({ pageBreakBefore: true })] : [];
+
+                return [
+                  ...pageBreak,
+                  title,
+                  table,
+                  new Paragraph({ spacing: { after: 400 } }),
+                ];
+              })
+              .flat(),
           ],
         },
       ],
