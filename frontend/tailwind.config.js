@@ -3,7 +3,10 @@ export default {
   darkMode: ["class"],
   content: ["./src/**/*.{html,js,jsx,ts,tsx}", "./public/index.html"],
   theme: {
-    fontFamily: {},
+    fontFamily: {
+      underdog: ["Underdog", "system-ui"],
+      quicksand: ["Quicksand", "sans-serif"],
+    },
     extend: {
       colors: {
         background: "hsl(var(--background))",
