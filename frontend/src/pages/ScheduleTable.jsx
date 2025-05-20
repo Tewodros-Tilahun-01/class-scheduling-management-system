@@ -161,20 +161,67 @@ const ScheduleTable = () => {
     }
   };
 
+  // Build a map for quick timeslot lookup by _id
+  const timeslotMap = React.useMemo(() => {
+    const map = {};
+    timeslots.forEach((ts) => {
+      map[ts._id?.toString()] = ts;
+    });
+    return map;
+  }, [timeslots]);
+
+  // Helper: get sorted reserved timeslots for an entry
+  const getSortedReservedTimeslots = (entry) => {
+    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
+      return [];
+    return [...entry.reservedTimeslots]
+      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
+      .filter(Boolean)
+      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+  };
+
+  // Helper: get the row span for an activity in a given day and timeslot
+  const getRowSpan = (entry, day, timeSlotId) => {
+    const slots = getSortedReservedTimeslots(entry);
+    if (slots.length === 0) return 1;
+    // Only consider slots for the current day
+    const daySlots = slots.filter((ts) => ts.day === day);
+    if (daySlots.length === 0) return 1;
+    // If this timeslot is the first for this activity on this day, return the span
+    if (daySlots[0]._id.toString() === timeSlotId.toString()) {
+      return daySlots.length;
+    }
+    // Otherwise, don't render (will be covered by rowSpan)
+    return 0;
+  };
+
+  // Build a 2D array: rows = timeslots for the day, columns = days
   const renderTimetable = (groupData) => {
     const studentGroup = groupData.studentGroup || {};
     const entries = Array.isArray(groupData.entries) ? groupData.entries : [];
 
-    // Get unique timeslots for the first day to define the time rows
-    const uniqueTimeslots = [
-      ...new Set(
-        timeslots
-          .filter((ts) => ts.day === days[0])
-          .map((ts) => `${ts.startTime}-${ts.endTime}`)
-      ),
-    ].map((time) => {
-      const [startTime, endTime] = time.split("-");
-      return { startTime, endTime };
+    // Get all unique days and all timeslots for each day
+    const uniqueDays = [...new Set(timeslots.map((ts) => ts.day))];
+    // For each day, get sorted timeslots
+    const dayTimeslots = {};
+    uniqueDays.forEach((day) => {
+      dayTimeslots[day] = timeslots
+        .filter((ts) => ts.day === day)
+        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+    });
+
+    // Build a lookup: for each [day][timeslotId], which entry (if any) starts here
+    const cellMap = {};
+    entries.forEach((entry) => {
+      const slots = getSortedReservedTimeslots(entry);
+      if (slots.length === 0) return;
+      const day = slots[0].day;
+      const firstSlotId = slots[0]._id.toString();
+      cellMap[`${day}-${firstSlotId}`] = { entry, span: slots.length };
+      // Mark all slots covered by this entry so we can skip them later
+      for (let i = 1; i < slots.length; i++) {
+        cellMap[`${day}-${slots[i]._id.toString()}`] = { skip: true };
+      }
     });
 
     return (
@@ -188,71 +235,95 @@ const ScheduleTable = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <Table>
+          <Table className="border border-black ">
             <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                {days.map((day) => (
-                  <TableHead key={day}>{day}</TableHead>
+              <TableRow className="border border-black  ">
+                <TableHead className="border border-black ">Time</TableHead>
+                {uniqueDays.map((day) => (
+                  <TableHead key={day} className="border border-black ">
+                    {day}
+                  </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {uniqueTimeslots.map((timeslot, index) => (
-                <TableRow key={`time-${index}`}>
-                  <TableCell>{`${timeslot.startTime}-${timeslot.endTime}`}</TableCell>
-                  {days.map((day) => {
-                    const currentTimeslot = timeslots.find(
-                      (ts) =>
-                        ts.day === day &&
-                        ts.startTime === timeslot.startTime &&
-                        ts.endTime === timeslot.endTime
-                    ) || {
-                      startTime: timeslot.startTime,
-                      endTime: timeslot.endTime,
-                      day,
-                    };
-                    const activities = findActivities(
-                      entries,
-                      currentTimeslot,
-                      day
-                    );
-                    return (
-                      <TableCell key={`${day}-${index}`}>
-                        {activities.length > 0 ? (
-                          <div className="space-y-2">
-                            {activities.map((entry) => {
-                              const range = getActivityTimeRange(entry);
-                              return (
-                                <div key={entry._id}>
-                                  <div>
-                                    {entry.activity?.course
-                                      ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                      : "Course N/A"}
-                                  </div>
-                                  <div>
-                                    Lecturer:{" "}
-                                    {entry.activity?.lecture?.name || "N/A"}
-                                  </div>
-                                  <div>Room: {entry.room?.name || "N/A"}</div>
-                                  <div>
-                                    Time:{" "}
-                                    {range
-                                      ? `${range.start} - ${range.end}`
-                                      : "N/A"}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+              {/* For each row (timeslot index) */}
+              {(() => {
+                // Find the max number of timeslots in any day
+                const maxRows = Math.max(
+                  ...uniqueDays.map((day) => dayTimeslots[day].length)
+                );
+                return Array.from({ length: maxRows }).map((_, rowIdx) => (
+                  <TableRow
+                    key={`row-${rowIdx}`}
+                    className="border border-black "
+                  >
+                    {/* Time column: show the time for the first day that has this row */}
+                    <TableCell className="border border-black ">
+                      {(() => {
+                        for (const day of uniqueDays) {
+                          if (dayTimeslots[day][rowIdx]) {
+                            const ts = dayTimeslots[day][rowIdx];
+                            return `${ts.startTime}-${ts.endTime}`;
+                          }
+                        }
+                        return "";
+                      })()}
+                    </TableCell>
+                    {/* For each day, render the cell */}
+                    {uniqueDays.map((day) => {
+                      const ts = dayTimeslots[day][rowIdx];
+                      if (!ts)
+                        return (
+                          <TableCell
+                            key={day}
+                            className="border border-black "
+                          />
+                        );
+                      const cellKey = `${day}-${ts._id.toString()}`;
+                      const cellInfo = cellMap[cellKey];
+                      if (cellInfo?.skip) return null;
+                      if (cellInfo?.entry) {
+                        const entry = cellInfo.entry;
+                        return (
+                          <TableCell
+                            key={day}
+                            rowSpan={cellInfo.span}
+                            className="border border-black "
+                          >
+                            <div>
+                              {entry.activity?.course
+                                ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                : "Course N/A"}
+                            </div>
+                            <div>
+                              Lecturer: {entry.activity?.lecture?.name || "N/A"}
+                            </div>
+                            <div>Room: {entry.room?.name || "N/A"}</div>
+                            <div>
+                              Time:{" "}
+                              {(() => {
+                                const slots = getSortedReservedTimeslots(entry);
+                                return slots.length
+                                  ? `${slots[0].startTime} - ${
+                                      slots[slots.length - 1].endTime
+                                    }`
+                                  : "N/A";
+                              })()}
+                            </div>
+                          </TableCell>
+                        );
+                      }
+                      // No activity starts here
+                      return (
+                        <TableCell key={day} className="border border-black ">
+                          <span className=" flex justify-center">-</span>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
