@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchSchedules, fetchTimeslots } from "@/services/api";
+import { fetchSchedules, fetchTimeslots, exportSchedule } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,7 +13,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import axios from "axios";
 import { saveAs } from "file-saver";
 
 const ScheduleTable = () => {
@@ -116,18 +115,11 @@ const ScheduleTable = () => {
   const handleExport = async () => {
     try {
       setExportLoading(true);
-      const response = await axios.get(
-        `http://localhost:5000/api/schedules/${encodeURIComponent(
-          decodedSemester
-        )}/export`,
-        { responseType: "blob" }
-      );
-
-      const blob = new Blob([response.data], {
+      const data = await exportSchedule(decodedSemester);
+      const blob = new Blob([data], {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
       saveAs(blob, `Schedule_${decodedSemester.replace(/\s/g, "_")}.docx`);
-
       toast.success("Schedule exported successfully", {
         description: `Downloaded schedule for ${decodedSemester}`,
       });

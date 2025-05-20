@@ -146,4 +146,12 @@ export const deleteTimeslot = async (id) => {
   return response.data;
 };
 
+export const exportSchedule = async (semester) => {
+  const response = await api.get(
+    `/schedules/${encodeURIComponent(semester)}/export`,
+    { responseType: "blob" }
+  );
+  return response.data;
+};
+
 export default api;
