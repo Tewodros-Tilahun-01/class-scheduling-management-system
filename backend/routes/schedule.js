@@ -297,7 +297,18 @@ router.get("/:semester/export", async (req, res) => {
     }, {});
 
     // Get all unique days from the Timeslot collection
-    const days = await Timeslot.distinct("day");
+    let days = await Timeslot.distinct("day");
+
+    // Sort days in the desired order
+    const dayOrder = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    days = dayOrder.filter((d) => days.includes(d));
 
     // For each day, get sorted unique timeslots from the Timeslot collection
     const allTimeslots = await Timeslot.find({ day: { $in: days } }).lean();
@@ -369,17 +380,36 @@ router.get("/:semester/export", async (req, res) => {
                 ...days.map((day) => dayTimeslots[day].length)
               );
 
+              // Example margin object for padding (all sides)
+              const cellMargin = {
+                top: 200,
+                bottom: 200,
+                left: 200,
+                right: 200,
+              };
+
+              const numDays = days.length;
+              const timeColWidth = 20; // percent
+              const dayColWidth = Math.floor((100 - timeColWidth) / numDays); // percent
+
               // Build the table rows
               const tableRows = [
                 new TableRow({
                   children: [
                     new TableCell({
                       children: [new Paragraph("Time")],
+                      margins: cellMargin,
+                      width: { size: timeColWidth, type: WidthType.PERCENTAGE },
                     }),
                     ...days.map(
                       (day) =>
                         new TableCell({
                           children: [new Paragraph(day)],
+                          margins: cellMargin,
+                          width: {
+                            size: dayColWidth,
+                            type: WidthType.PERCENTAGE,
+                          },
                         })
                     ),
                   ],
@@ -387,7 +417,6 @@ router.get("/:semester/export", async (req, res) => {
                 ...Array.from({ length: maxRows }).map((_, rowIdx) => {
                   return new TableRow({
                     children: [
-                      // Time column: show the time for the first day that has this row
                       new TableCell({
                         children: [
                           (() => {
@@ -402,12 +431,22 @@ router.get("/:semester/export", async (req, res) => {
                             return new Paragraph("");
                           })(),
                         ],
+                        margins: cellMargin,
+                        width: {
+                          size: timeColWidth,
+                          type: WidthType.PERCENTAGE,
+                        },
                       }),
                       ...days.map((day) => {
                         const ts = dayTimeslots[day][rowIdx];
                         if (!ts)
                           return new TableCell({
                             children: [new Paragraph("")],
+                            margins: cellMargin,
+                            width: {
+                              size: dayColWidth,
+                              type: WidthType.PERCENTAGE,
+                            },
                           });
                         const cellKey = `${day}-${ts._id.toString()}`;
                         const cellInfo = cellMap[cellKey];
@@ -426,11 +465,11 @@ router.get("/:semester/export", async (req, res) => {
                               new Paragraph(
                                 `${
                                   entry.activity?.course?.courseCode || "N/A"
-                                } - ${
-                                  entry.activity?.course?.name || "N/A"
-                                }\nLecture: ${
+                                }\n${
                                   entry.activity?.lecture?.name || "N/A"
-                                }\nRoom: ${entry.room?.name || "N/A"}\nTime: ${
+                                }\n ${entry.room?.name || "N/A"}\n ${
+                                  entry.activity?.roomRequirement || "N/A"
+                                }\n ${
                                   slots.length
                                     ? `${slots[0].startTime} - ${
                                         slots[slots.length - 1].endTime
@@ -439,9 +478,13 @@ router.get("/:semester/export", async (req, res) => {
                                 }`
                               ),
                             ],
+                            margins: cellMargin,
+                            width: {
+                              size: dayColWidth,
+                              type: WidthType.PERCENTAGE,
+                            },
                           });
                         }
-
                         // No activity starts here: show a black dash
                         return new TableCell({
                           children: [
@@ -454,6 +497,11 @@ router.get("/:semester/export", async (req, res) => {
                               ],
                             }),
                           ],
+                          margins: cellMargin,
+                          width: {
+                            size: dayColWidth,
+                            type: WidthType.PERCENTAGE,
+                          },
                         });
                       }),
                     ].filter(Boolean), // Remove nulls (skipped cells)
