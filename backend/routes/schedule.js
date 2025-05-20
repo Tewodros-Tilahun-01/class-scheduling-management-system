@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { generateSchedule } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
+const Timeslot = require("../models/Timeslot"); // Add this import at the top if not present
 const mongoose = require("mongoose");
 const {
   Document,
@@ -93,7 +94,6 @@ router.get("/", async (req, res) => {
               department: "Unknown",
               year: 0,
               section: "N/A",
-              expectedEnrollment: 0,
             },
             entries: [],
           };
@@ -156,7 +156,6 @@ router.get("/:semester", async (req, res) => {
             department: "Unknown",
             year: 0,
             section: "N/A",
-            expectedEnrollment: 0,
           },
           entries: [],
         };
@@ -297,30 +296,28 @@ router.get("/:semester/export", async (req, res) => {
       return acc;
     }, {});
 
-    const days = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
+    // Get all unique days from the Timeslot collection
+    const days = await Timeslot.distinct("day");
 
-    const timeslots = [
-      ...new Set(
-        schedules
-          .filter((s) => s.timeslot && s.timeslot.day === days[0])
-          .map((s) => {
-            const start = parseTime(s.timeslot.startTime);
-            const end = start + s.totalDuration;
-            return `${s.timeslot.startTime}-${formatTime(end)}`;
-          })
-          .sort(
-            (a, b) => parseTime(a.split("-")[0]) - parseTime(b.split("-")[0])
-          )
-      ),
-    ];
+    // For each day, get sorted unique timeslots from the Timeslot collection
+    const allTimeslots = await Timeslot.find({ day: { $in: days } }).lean();
+    const dayTimeslots = {};
+    days.forEach((day) => {
+      dayTimeslots[day] = allTimeslots
+        .filter((ts) => ts.day === day)
+        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
+        .filter(
+          (ts, idx, arr) =>
+            arr.findIndex(
+              (t) =>
+                t.startTime === ts.startTime &&
+                t.endTime === ts.endTime &&
+                t.day === ts.day
+            ) === idx
+        );
+    });
 
+    // Build the Word document
     const doc = new Document({
       sections: [
         {
@@ -349,67 +346,137 @@ router.get("/:semester/export", async (req, res) => {
                 spacing: { after: 200 },
               });
 
+              // Build a cellMap for rowSpan logic
+              const cellMap = {};
+              entries.forEach((entry) => {
+                const slots = [...(entry.reservedTimeslots || [])].sort(
+                  (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
+                );
+                if (slots.length === 0) return;
+                const day = slots[0].day;
+                const firstSlotId = slots[0]._id.toString();
+                cellMap[`${day}-${firstSlotId}`] = {
+                  entry,
+                  span: slots.length,
+                };
+                for (let i = 1; i < slots.length; i++) {
+                  cellMap[`${day}-${slots[i]._id.toString()}`] = { skip: true };
+                }
+              });
+
+              // Find the max number of timeslots in any day
+              const maxRows = Math.max(
+                ...days.map((day) => dayTimeslots[day].length)
+              );
+
+              // Build the table rows
+              const tableRows = [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [new Paragraph("Time")],
+                    }),
+                    ...days.map(
+                      (day) =>
+                        new TableCell({
+                          children: [new Paragraph(day)],
+                        })
+                    ),
+                  ],
+                }),
+                ...Array.from({ length: maxRows }).map((_, rowIdx) => {
+                  return new TableRow({
+                    children: [
+                      // Time column: show the time for the first day that has this row
+                      new TableCell({
+                        children: [
+                          (() => {
+                            for (const day of days) {
+                              if (dayTimeslots[day][rowIdx]) {
+                                const ts = dayTimeslots[day][rowIdx];
+                                return new Paragraph(
+                                  `${ts.startTime}-${ts.endTime}`
+                                );
+                              }
+                            }
+                            return new Paragraph("");
+                          })(),
+                        ],
+                      }),
+                      ...days.map((day) => {
+                        const ts = dayTimeslots[day][rowIdx];
+                        if (!ts)
+                          return new TableCell({
+                            children: [new Paragraph("")],
+                          });
+                        const cellKey = `${day}-${ts._id.toString()}`;
+                        const cellInfo = cellMap[cellKey];
+                        if (cellInfo?.skip) return null;
+                        if (cellInfo?.entry) {
+                          const entry = cellInfo.entry;
+                          const slots = [
+                            ...(entry.reservedTimeslots || []),
+                          ].sort(
+                            (a, b) =>
+                              parseTime(a.startTime) - parseTime(b.startTime)
+                          );
+                          return new TableCell({
+                            rowSpan: cellInfo.span,
+                            children: [
+                              new Paragraph(
+                                `${
+                                  entry.activity?.course?.courseCode || "N/A"
+                                } - ${
+                                  entry.activity?.course?.name || "N/A"
+                                }\nLecture: ${
+                                  entry.activity?.lecture?.name || "N/A"
+                                }\nRoom: ${entry.room?.name || "N/A"}\nTime: ${
+                                  slots.length
+                                    ? `${slots[0].startTime} - ${
+                                        slots[slots.length - 1].endTime
+                                      }`
+                                    : "N/A"
+                                }`
+                              ),
+                            ],
+                          });
+                        }
+
+                        // No activity starts here: show a black dash
+                        return new TableCell({
+                          children: [
+                            new Paragraph({
+                              children: [
+                                new TextRun({
+                                  text: "-",
+                                  color: "000000",
+                                }),
+                              ],
+                            }),
+                          ],
+                        });
+                      }),
+                    ].filter(Boolean), // Remove nulls (skipped cells)
+                  });
+                }),
+              ];
+
+              // Add visible borders to the table
               const table = new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
-                rows: [
-                  new TableRow({
-                    children: [
-                      new TableCell({
-                        children: [new Paragraph("Time")],
-                        width: { size: 15, type: WidthType.PERCENTAGE },
-                      }),
-                      ...days.map(
-                        (day) =>
-                          new TableCell({
-                            children: [new Paragraph(day)],
-                            width: { size: 14.16, type: WidthType.PERCENTAGE },
-                          })
-                      ),
-                    ],
-                  }),
-                  ...timeslots.map((timeslot) => {
-                    const row = new TableRow({
-                      children: [
-                        new TableCell({
-                          children: [new Paragraph(timeslot)],
-                        }),
-                        ...days.map((day) => {
-                          const activities = entries.filter((entry) => {
-                            if (!entry.timeslot) return false;
-                            const start = parseTime(entry.timeslot.startTime);
-                            const end = start + entry.totalDuration;
-                            const slotStart = parseTime(timeslot.split("-")[0]);
-                            const slotEnd = parseTime(timeslot.split("-")[1]);
-                            return (
-                              entry.timeslot.day === day &&
-                              start < slotEnd &&
-                              end > slotStart
-                            );
-                          });
-                          const cellContent =
-                            activities.length > 0
-                              ? activities
-                                  .map(
-                                    (a) =>
-                                      `${
-                                        a.activity?.course?.courseCode || "N/A"
-                                      } - ${
-                                        a.activity?.course?.name || "N/A"
-                                      }\nLecture: ${
-                                        a.activity?.lecture?.name || "N/A"
-                                      }\nRoom: ${a.room?.name || "N/A"}`
-                                  )
-                                  .join("\n\n")
-                              : "-";
-                          return new TableCell({
-                            children: [new Paragraph(cellContent)],
-                          });
-                        }),
-                      ],
-                    });
-                    return row;
-                  }),
-                ],
+                borders: {
+                  top: { style: "single", size: 2, color: "000000" },
+                  bottom: { style: "single", size: 2, color: "000000" },
+                  left: { style: "single", size: 2, color: "000000" },
+                  right: { style: "single", size: 2, color: "000000" },
+                  insideHorizontal: {
+                    style: "single",
+                    size: 2,
+                    color: "000000",
+                  },
+                  insideVertical: { style: "single", size: 2, color: "000000" },
+                },
+                rows: tableRows,
               });
 
               return [title, table, new Paragraph({ spacing: { after: 400 } })];
@@ -423,7 +490,7 @@ router.get("/:semester/export", async (req, res) => {
     res.set({
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; Wfilename=Schedule_${decodedSemester.replace(
+      "Content-Disposition": `attachment; filename=Schedule_${decodedSemester.replace(
         /\s/g,
         "_"
       )}.docx`,
@@ -441,14 +508,6 @@ router.get("/:semester/export", async (req, res) => {
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);
-}
-
-function formatTime(minutes) {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours.toString().padStart(2, "0")}:${mins
-    .toString()
-    .padStart(2, "0")}`;
 }
 
 module.exports = router;

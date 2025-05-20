@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const Timeslot = require("../models/Timeslot");
-const { generateSchedule } = require("../services/scheduler");
 
 // Middleware to verify user authentication (simplified)
 const authMiddleware = (req, res, next) => {
@@ -73,18 +72,13 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Generate schedule
-router.post("/schedule", authMiddleware, async (req, res) => {
+// Get unique days from timeslots
+router.get("/days/unique", authMiddleware, async (req, res) => {
   try {
-    const { semester, sessionLength } = req.body;
-    const schedules = await generateSchedule(
-      semester,
-      req.user._id,
-      sessionLength
-    );
-    res.json(schedules);
+    const days = await Timeslot.distinct("day");
+    res.json(days);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Failed to fetch unique days" });
   }
 });
 
