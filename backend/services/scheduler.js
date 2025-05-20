@@ -262,9 +262,7 @@ async function isValidAssignment(
     return false;
   }
 
-  return selectedTimeslots.length > 1
-    ? [selectedTimeslots[0], selectedTimeslots[selectedTimeslots.length - 1]]
-    : selectedTimeslots;
+  return selectedTimeslots;
 }
 
 /*
