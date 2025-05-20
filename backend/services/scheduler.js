@@ -393,7 +393,7 @@ async function backtrackForwardChecking(
   const activity = activities[index];
   const sessionKey = `${activity.originalId || activity._id}`;
   const currentSessions = scheduledSessions.get(sessionKey) || 0;
-  const maxSessions = activity.originalActivity ? 1 : 1;
+  const maxSessions = activity.originalActivity ? 4 : 1;
   if (currentSessions >= maxSessions) {
     return await backtrackForwardChecking(
       activities,
@@ -694,21 +694,30 @@ async function generateSchedule(semester, userId) {
         .filter(
           (entry) =>
             entry.activityId &&
-            entry.timeslot &&
             entry.room &&
             entry.reservedTimeslots &&
             entry.reservedTimeslots.length > 0
         )
-        .map((entry) => ({
-          activity: entry.activityId,
-          timeslot: entry.timeslot,
-          reservedTimeslots: entry.reservedTimeslots,
-          totalDuration: entry.totalDuration,
-          room: entry.room,
-          studentGroup: entry.studentGroup?._id,
-          createdBy: userId,
-          semester,
-        }));
+        .map((entry) => {
+          // Populate and sort reservedTimeslots by start time
+          const populatedTimeslots = entry.reservedTimeslots
+            .map((tsId) =>
+              timeslots.find((ts) => ts._id.toString() === tsId.toString())
+            )
+            .filter(Boolean)
+            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
+            .map((ts) => ts._id);
+
+          return {
+            activity: entry.activityId,
+            reservedTimeslots: populatedTimeslots,
+            totalDuration: entry.totalDuration,
+            room: entry.room,
+            studentGroup: entry.studentGroup?._id,
+            createdBy: userId,
+            semester,
+          };
+        });
 
       try {
         console.log(schedule);
@@ -736,7 +745,6 @@ async function generateSchedule(semester, userId) {
           ],
         })
         .populate("room", "name capacity type building")
-        .populate("timeslot", "day startTime endTime duration preferenceScore")
         .populate("reservedTimeslots", "day startTime endTime duration")
         .populate("studentGroup", "department year section expectedEnrollment")
         .populate("createdBy", "username name")

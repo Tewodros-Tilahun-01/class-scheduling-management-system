@@ -79,7 +79,6 @@ router.get("/", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime duration")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
@@ -138,7 +137,6 @@ router.get("/:semester", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime duration")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
@@ -205,7 +203,6 @@ router.get("/group/:studentGroupId", async (req, res) => {
         ],
       })
       .populate("room", "name capacity type department")
-      .populate("timeslot", "day startTime endTime duration")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .populate("studentGroup", "department year section expectedEnrollment")
       .populate("createdBy", "username name")
@@ -275,7 +272,6 @@ router.get("/:semester/export", async (req, res) => {
         ],
       })
       .populate("room", "name")
-      .populate("timeslot", "day startTime endTime duration")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
 

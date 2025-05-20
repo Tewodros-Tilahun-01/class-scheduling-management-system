@@ -44,21 +44,17 @@ const ScheduleTable = () => {
   };
 
   // Get earliest start and latest end from reservedTimeslots
-  const getActivityTimeRange = (entry) => {
+  const getActivityTimeRange = (entry, timeslotMap) => {
     if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
       return null;
-    // reservedTimeslots may be array of IDs or populated objects
-    const slots = entry.reservedTimeslots.filter(
-      (ts) => ts && ts.startTime && ts.endTime && ts.day
-    );
-    if (slots.length === 0) return null;
-    const sorted = [...slots].sort(
-      (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
-    );
+    const slots = entry.reservedTimeslots
+      .map((tsId) => timeslotMap[tsId.toString()])
+      .filter(Boolean)
+      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
     return {
-      start: sorted[0].startTime,
-      end: sorted[sorted.length - 1].endTime,
-      day: sorted[0].day,
+      start: slots[0].startTime,
+      end: slots[slots.length - 1].endTime,
+      day: slots[0].day,
     };
   };
 
