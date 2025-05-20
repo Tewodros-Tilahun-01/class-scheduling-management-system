@@ -27,15 +27,6 @@ const ScheduleTable = () => {
   const [timeslotsError, setTimeslotsError] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
 
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-
   // Parse "HH:MM" to minutes
   const parseTime = (timeStr) => {
     if (!timeStr) return 0;
@@ -43,38 +34,26 @@ const ScheduleTable = () => {
     return hours * 60 + (minutes || 0);
   };
 
-  // Get earliest start and latest end from reservedTimeslots
-  const getActivityTimeRange = (entry, timeslotMap) => {
+  // Build a map for quick timeslot lookup by _id
+  const timeslotMap = React.useMemo(() => {
+    const map = {};
+    timeslots.forEach((ts) => {
+      map[ts._id?.toString()] = ts;
+    });
+    return map;
+  }, [timeslots]);
+
+  // Helper: get sorted reserved timeslots for an entry
+  const getSortedReservedTimeslots = (entry) => {
     if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
-      return null;
-    const slots = entry.reservedTimeslots
-      .map((tsId) => timeslotMap[tsId.toString()])
+      return [];
+    return [...entry.reservedTimeslots]
+      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
       .filter(Boolean)
       .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-    return {
-      start: slots[0].startTime,
-      end: slots[slots.length - 1].endTime,
-      day: slots[0].day,
-    };
   };
 
   // Find activities that overlap with a timeslot cell
-  const findActivities = (entries, timeslot, day) => {
-    if (!entries || !Array.isArray(entries)) return [];
-    const slotStart = parseTime(timeslot.startTime);
-    const slotEnd = parseTime(timeslot.endTime);
-
-    return entries.filter((entry) => {
-      if (!entry) return false;
-      // Use reservedTimeslots for accurate placement
-      const range = getActivityTimeRange(entry);
-      if (!range || range.day !== day) return false;
-      const activityStart = parseTime(range.start);
-      const activityEnd = parseTime(range.end);
-      // Overlap check
-      return activityStart < slotEnd && activityEnd > slotStart;
-    });
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,40 +138,6 @@ const ScheduleTable = () => {
     } finally {
       setExportLoading(false);
     }
-  };
-
-  // Build a map for quick timeslot lookup by _id
-  const timeslotMap = React.useMemo(() => {
-    const map = {};
-    timeslots.forEach((ts) => {
-      map[ts._id?.toString()] = ts;
-    });
-    return map;
-  }, [timeslots]);
-
-  // Helper: get sorted reserved timeslots for an entry
-  const getSortedReservedTimeslots = (entry) => {
-    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
-      return [];
-    return [...entry.reservedTimeslots]
-      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
-      .filter(Boolean)
-      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-  };
-
-  // Helper: get the row span for an activity in a given day and timeslot
-  const getRowSpan = (entry, day, timeSlotId) => {
-    const slots = getSortedReservedTimeslots(entry);
-    if (slots.length === 0) return 1;
-    // Only consider slots for the current day
-    const daySlots = slots.filter((ts) => ts.day === day);
-    if (daySlots.length === 0) return 1;
-    // If this timeslot is the first for this activity on this day, return the span
-    if (daySlots[0]._id.toString() === timeSlotId.toString()) {
-      return daySlots.length;
-    }
-    // Otherwise, don't render (will be covered by rowSpan)
-    return 0;
   };
 
   // Build a 2D array: rows = timeslots for the day, columns = days
