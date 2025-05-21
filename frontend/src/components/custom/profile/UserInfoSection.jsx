@@ -88,10 +88,8 @@ const UserInfoSection = ({
       return;
     }
     setIsLoading(true);
-
-    console.log("action", action, edited[action]);
     setInfo(action, edited[action]);
-    hanldeEditSubmit()
+    hanldeEditSubmit(action, edited[action])
       .then(() => {
         setEdited({
           contact_info: {
@@ -371,9 +369,7 @@ const UserInfoSection = ({
                   <div className="text-sm font-medium text-gray-900">
                     Full Name
                   </div>
-                  <div className="text-sm text-gray-600">
-                    {personalInfo.firstName} {personalInfo.lastName}
-                  </div>
+                  <div className="text-sm text-gray-600">{userInfo.name}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-4 p-3 rounded-lg bg-white border border-gray-100">
@@ -429,20 +425,6 @@ const UserInfoSection = ({
         <CardContent className="px-6 py-5">
           {isEditingProfessional ? (
             <form className="space-y-4">
-              <Input
-                label="Department"
-                defaultValue={professionalInfo.department}
-                leftIcon={<Building size={16} />}
-                onChange={(e) =>
-                  setEdited({
-                    ...edited,
-                    professional_info: {
-                      ...edited.professional_info,
-                      department: e.target.value,
-                    },
-                  })
-                }
-              />
               <Input
                 label="Position"
                 defaultValue={professionalInfo.position}
@@ -509,17 +491,6 @@ const UserInfoSection = ({
             </form>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center space-x-4 p-3 rounded-lg bg-white border border-gray-100">
-                <Building size={18} className="text-gray-500" />
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    Department
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {professionalInfo.department}
-                  </div>
-                </div>
-              </div>
               <div className="flex items-center space-x-4 p-3 rounded-lg bg-white border border-gray-100">
                 <User size={18} className="text-gray-500" />
                 <div>

@@ -15,6 +15,11 @@ const SecuritySection = () => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [password, setPassword] = React.useState({
+    current: "",
+    new: "",
+    confirm: "",
+  });
 
   const togglePasswordVisibility = (field) => {
     switch (field) {
@@ -51,6 +56,10 @@ const SecuritySection = () => {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, current: e.target.value })
+              }
+              value={password.current}
               placeholder="Enter your current password"
             />
 
@@ -67,6 +76,10 @@ const SecuritySection = () => {
                   {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, new: e.target.value })
+              }
+              value={password.new}
               placeholder="Enter your new password"
             />
 
@@ -87,6 +100,10 @@ const SecuritySection = () => {
                   )}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, confirm: e.target.value })
+              }
+              value={password.confirm}
               placeholder="Confirm your new password"
             />
           </form>
@@ -96,7 +113,7 @@ const SecuritySection = () => {
         </CardFooter>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Two-Factor Authentication</CardTitle>
         </CardHeader>
@@ -203,7 +220,7 @@ const SecuritySection = () => {
             Sign out of all devices
           </Button>
         </CardFooter>
-      </Card>
+      </Card> */}
     </div>
   );
 };
