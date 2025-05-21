@@ -789,4 +789,263 @@ async function generateSchedule(semester, userId) {
   );
 }
 
-module.exports = { generateSchedule };
+/*
+ * Reschedules specific activities while keeping other schedules unchanged.
+ * Useful for handling dropout scenarios or specific rescheduling needs.
+ * @param {string} semester - The semester identifier
+ * @param {string[]} activityIds - Array of activity IDs to reschedule
+ * @param {string} userId - The user ID performing the rescheduling
+ * @returns {Object} Grouped schedules with the rescheduled activities
+ */
+async function rescheduleSelectedActivities(semester, activityIds, userId) {
+  const MAX_RETRIES = 30;
+
+  if (!semester || !Array.isArray(activityIds) || activityIds.length === 0) {
+    throw new Error("Semester and activity IDs array are required");
+  }
+
+  // Fetch existing schedules that should remain unchanged
+  const existingSchedules = await Schedule.find({
+    semester,
+    activity: { $nin: activityIds },
+    isDeleted: false,
+  }).lean();
+
+  // Fetch activities to be rescheduled
+  const activitiesToReschedule = await Activity.find({
+    _id: { $in: activityIds },
+    semester,
+    isDeleted: false,
+  })
+    .populate("course lecture studentGroup")
+    .lean();
+
+  if (activitiesToReschedule.length === 0) {
+    throw new Error("No valid activities found for rescheduling");
+  }
+
+  // Expand activities into sessions (similar to generateSchedule)
+  const expandedActivities = [];
+  activitiesToReschedule.forEach((activity) => {
+    const sessions = Math.ceil(activity.totalDuration / activity.split);
+    for (let i = 0; i < sessions; i++) {
+      const remainingDuration = activity.totalDuration - i * activity.split;
+      if (remainingDuration <= 0) break;
+      let currentSessionDuration = Math.min(activity.split, remainingDuration);
+      if (
+        currentSessionDuration < activity.split &&
+        expandedActivities.length > 0
+      ) {
+        expandedActivities[expandedActivities.length - 1].sessionDuration =
+          expandedActivities[expandedActivities.length - 1].sessionDuration +
+          currentSessionDuration;
+        break;
+      }
+      if (currentSessionDuration > 0) {
+        expandedActivities.push({
+          ...activity,
+          _id: `${activity._id}_${i}`,
+          originalId: activity._id,
+          originalActivity: activity,
+          sessionDuration: currentSessionDuration,
+        });
+      }
+    }
+  });
+
+  // Fetch rooms and timeslots
+  const rooms = await Room.find({ active: true }).lean();
+  const timeslots = await Timeslot.find({ isDeleted: false }).lean();
+  const daysOrder = await getDynamicDays();
+
+  // Create initial schedule state from existing schedules
+  const initialSchedule = existingSchedules.map(schedule => ({
+    activityData: schedule.activity,
+    activityId: schedule.activity._id,
+    timeslot: schedule.reservedTimeslots[0],
+    reservedTimeslots: schedule.reservedTimeslots,
+    totalDuration: schedule.totalDuration,
+    room: schedule.room,
+    studentGroup: schedule.studentGroup,
+    createdBy: schedule.createdBy
+  }));
+
+  let attempt = 0;
+  let schedule = [...initialSchedule];
+
+  while (attempt < MAX_RETRIES) {
+    console.log(`Rescheduling attempt ${attempt + 1} of ${MAX_RETRIES}`);
+
+    const sortedActivities = await sortActivities(
+      expandedActivities,
+      rooms,
+      timeslots,
+      attempt > 0
+    );
+
+    schedule = [...initialSchedule]; // Reset to initial state but keep existing schedules
+    const lectureLoad = new Map();
+    const usedTimeslots = new Map();
+    const usedActivityTimeslots = new Map();
+    const scheduledSessions = new Map();
+
+    // Initialize constraints from existing schedules
+    initialSchedule.forEach(entry => {
+      entry.reservedTimeslots.forEach(tsId => {
+        usedTimeslots.set(`${tsId}-${entry.room}`, entry.activityId);
+        const key = `${entry.activityId}-${tsId}-${entry.studentGroup?._id || "N/A"}`;
+        usedActivityTimeslots.set(key, entry.room);
+      });
+      if (entry.activityData.lecture) {
+        const currentLoad = lectureLoad.get(entry.activityData.lecture._id.toString()) || 0;
+        lectureLoad.set(
+          entry.activityData.lecture._id.toString(),
+          currentLoad + (entry.activityData.sessionDuration || 0)
+        );
+      }
+    });
+
+    // Build domains for new activities
+    const domains = await buildDomains(
+      sortedActivities,
+      rooms,
+      timeslots,
+      schedule,
+      lectureLoad,
+      usedTimeslots,
+      usedActivityTimeslots
+    );
+
+    const found = await backtrackForwardChecking(
+      sortedActivities,
+      rooms,
+      timeslots,
+      schedule,
+      lectureLoad,
+      usedTimeslots,
+      usedActivityTimeslots,
+      scheduledSessions,
+      0,
+      userId,
+      domains
+    );
+
+    if (!found) {
+      console.log(`Attempt ${attempt + 1} failed: No valid schedule found`);
+      attempt++;
+      continue;
+    }
+
+    // Verify no conflicts with existing schedules
+    const allSchedules = [...initialSchedule, ...schedule.slice(initialSchedule.length)];
+    const timeslotGroups = {};
+    allSchedules.forEach((entry) => {
+      entry.reservedTimeslots.forEach((tsId) => {
+        const key = `${entry.studentGroup?._id || "N/A"}-${tsId}`;
+        if (!timeslotGroups[key]) timeslotGroups[key] = [];
+        timeslotGroups[key].push({
+          activityId: entry.activityId,
+          timeslot: entry.timeslot,
+          reservedTimeslots: entry.reservedTimeslots,
+          room: entry.room,
+          studentGroup: entry.studentGroup?._id,
+        });
+      });
+    });
+
+    const conflicts = Object.values(timeslotGroups)
+      .filter((group) => group.length > 1)
+      .map((group) => group);
+
+    if (conflicts.length === 0) {
+      // Save only the new schedules
+      const newSchedulesToSave = schedule
+        .slice(initialSchedule.length)
+        .filter(
+          (entry) =>
+            entry.activityId &&
+            entry.room &&
+            entry.reservedTimeslots &&
+            entry.reservedTimeslots.length > 0
+        )
+        .map((entry) => ({
+          activity: entry.activityId,
+          reservedTimeslots: entry.reservedTimeslots,
+          totalDuration: entry.totalDuration,
+          room: entry.room,
+          studentGroup: entry.studentGroup?._id,
+          createdBy: userId,
+          semester,
+        }));
+
+      try {
+        // Delete only the schedules for activities being rescheduled
+        await Schedule.deleteMany({
+          semester,
+          activity: { $in: activityIds },
+        });
+        
+        if (newSchedulesToSave.length > 0) {
+          await Schedule.insertMany(newSchedulesToSave, { ordered: false });
+        }
+        console.log("Selected activities rescheduled successfully");
+      } catch (error) {
+        console.error("Error saving rescheduled activities:", error.stack);
+        throw new Error(`Failed to save rescheduled activities: ${error.message}`);
+      }
+
+      // Return the complete updated schedule
+      const updatedSchedules = await Schedule.find({ semester })
+        .populate({
+          path: "activity",
+          populate: [
+            { path: "course", select: "courseCode name" },
+            { path: "lecture", select: "name maxLoad" },
+            {
+              path: "studentGroup",
+              select: "department year section expectedEnrollment",
+            },
+            { path: "createdBy", select: "username name" },
+          ],
+        })
+        .populate("room", "name capacity type building")
+        .populate("reservedTimeslots", "day startTime endTime duration")
+        .populate("studentGroup", "department year section expectedEnrollment")
+        .populate("createdBy", "username name")
+        .lean();
+
+      const groupedSchedules = updatedSchedules.reduce((acc, entry) => {
+        const groupId = entry.studentGroup?._id?.toString() || "unknown";
+        if (!acc[groupId]) {
+          acc[groupId] = {
+            studentGroup: entry.studentGroup || {
+              department: "Unknown",
+              year: 0,
+              section: "N/A",
+              expectedEnrollment: 0,
+            },
+            entries: [],
+          };
+        }
+        acc[groupId].entries.push({
+          ...entry,
+          activity: {
+            ...entry.activity,
+            semester: entry.semester || "Unknown",
+          },
+        });
+        return acc;
+      }, {});
+
+      return groupedSchedules;
+    }
+
+    attempt++;
+  }
+
+  throw new Error(
+    `Failed to reschedule activities after ${MAX_RETRIES} attempts. Conflicts detected.`
+  );
+}
+
+module.exports = { generateSchedule, rescheduleSelectedActivities };
