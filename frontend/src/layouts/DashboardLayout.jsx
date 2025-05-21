@@ -4,7 +4,7 @@ import React from "react";
 
 function DashboardLayout({ children }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] h-screen  max-h-screen:">
+    <div className="grid grid-cols-[auto_1fr] min-h-screen ">
       <SideBar className={"py-8"} />
       <div className="bg-gray-100">
         <Header className=" px-12 py-8" />
