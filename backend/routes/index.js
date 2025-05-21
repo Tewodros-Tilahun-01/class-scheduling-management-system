@@ -18,7 +18,6 @@ const authMiddleware = (req, res, next) => {
   req.user = {
     _id: "66f1a2b3c4d5e6f789012360",
     username: "john.doe",
-    role: "scheduler",
   };
   next();
 };
