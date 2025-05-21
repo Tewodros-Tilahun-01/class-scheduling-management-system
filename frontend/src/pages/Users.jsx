@@ -38,7 +38,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteUser, fetchUsers, updateUser } from "@/services/UserService";
+import {
+  addUser,
+  deleteUser,
+  fetchUsers,
+  updateUser,
+} from "@/services/UserService";
 
 export default function Users() {
   const [tableData, setTableData] = React.useState([]);
@@ -134,7 +139,12 @@ export default function Users() {
   };
 
   const handleAddRow = () => {
-    setNewRow({ name: "", maxLoad: "" });
+    setNewRow({
+      name: "",
+      role: "",
+      username: "",
+      password: "",
+    });
     setEditRowId(null);
     setIsModalOpen(true);
   };
@@ -169,11 +179,7 @@ export default function Users() {
           )
         );
       } else {
-        const newInstructor = await addInstructor({
-          name: newRow.name,
-          department: "",
-          maxLoad: Number(newRow.maxLoad),
-        });
+        const newInstructor = await addUser(newRow);
         setTableData((prev) => [newInstructor, ...prev]);
       }
       handleModalClose();
@@ -390,7 +396,7 @@ export default function Users() {
                     onChange={(e) =>
                       setNewRow({ ...newRow, name: e.target.value })
                     }
-                    placeholder="Instructor Name"
+                    placeholder="Name"
                     className={formErrors.name ? "border-red-500" : ""}
                     disabled={isSubmitting}
                   />
@@ -404,17 +410,19 @@ export default function Users() {
                   </label>
                   <Input
                     id="maxLoad"
-                    type="number"
-                    value={newRow.maxLoad}
+                    type="text"
+                    value={newRow.username}
                     onChange={(e) =>
-                      setNewRow({ ...newRow, maxLoad: e.target.value })
+                      setNewRow({ ...newRow, username: e.target.value })
                     }
                     placeholder="Username/Email"
-                    className={formErrors.maxLoad ? "border-red-500" : ""}
+                    className={formErrors.username ? "border-red-500" : ""}
                     disabled={isSubmitting}
                   />
-                  {formErrors.maxLoad && (
-                    <p className="text-red-500 text-sm">{formErrors.maxLoad}</p>
+                  {formErrors.username && (
+                    <p className="text-red-500 text-sm">
+                      {formErrors.username}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -434,8 +442,8 @@ export default function Users() {
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formErrors.maxLoad && (
-                    <p className="text-red-500 text-sm">{formErrors.maxLoad}</p>
+                  {formErrors.role && (
+                    <p className="text-red-500 text-sm">{formErrors.role}</p>
                   )}
                 </div>
 
@@ -446,16 +454,18 @@ export default function Users() {
                   <Input
                     id="maxLoad"
                     type="text"
-                    value={newRow.maxLoad}
+                    value={newRow.password}
                     onChange={(e) =>
-                      setNewRow({ ...newRow, maxLoad: e.target.value })
+                      setNewRow({ ...newRow, password: e.target.value })
                     }
                     placeholder="password"
-                    className={formErrors.maxLoad ? "border-red-500" : ""}
+                    className={formErrors.password ? "border-red-500" : ""}
                     disabled={isSubmitting}
                   />
-                  {formErrors.maxLoad && (
-                    <p className="text-red-500 text-sm">{formErrors.maxLoad}</p>
+                  {formErrors.password && (
+                    <p className="text-red-500 text-sm">
+                      {formErrors.password}
+                    </p>
                   )}
                 </div>
               </div>
@@ -686,7 +696,7 @@ export default function Users() {
                       colSpan={columns.length}
                       className="h-24 text-center"
                     >
-                      No instructors found.
+                      No users found.
                     </TableCell>
                   </TableRow>
                 )}
@@ -699,7 +709,7 @@ export default function Users() {
         <div className="flex items-center justify-end space-x-2 py-4">
           <div className="flex-1 text-sm text-muted-foreground">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} instructor(s) selected.
+            {table.getFilteredRowModel().rows.length} user(s) selected.
           </div>
           <div className="space-x-2">
             <Button

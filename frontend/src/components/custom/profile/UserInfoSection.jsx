@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../../ui/Card2";
 import Button from "../../ui/Button2";
 import Input from "../../ui/Input2";
@@ -12,6 +12,7 @@ import {
   Calendar,
   Languages,
 } from "lucide-react";
+import { set } from "react-hook-form";
 
 const UserInfoSection = ({
   contactInfo,
@@ -19,12 +20,106 @@ const UserInfoSection = ({
   professionalInfo,
   userInfo,
   setInfo,
-  info,
+  hanldeEditSubmit,
 }) => {
-  const [isEditingContact, setIsEditingContact] = React.useState(false);
-  const [isEditingPersonal, setIsEditingPersonal] = React.useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isEditingProfessional, setIsEditingProfessional] =
     React.useState(false);
+
+  const [edited, setEdited] = useState({
+    contact_info: {
+      email: "",
+      tel: "",
+      address: "",
+    },
+    personal_info: {
+      birth_date: "",
+      languages: [],
+      bio: "",
+    },
+    professional_info: {
+      position: "",
+      education: "",
+    },
+    user: "",
+  });
+
+  const actions = {
+    personal_info: setIsEditingPersonal,
+    contact_info: setIsEditingContact,
+    professional_info: setIsEditingProfessional,
+  };
+
+  const handleEdit = async (action) => {
+    hanldeEditSubmit()
+      .then(() => {})
+      .finally(() => {
+        (actions[action] || setIsEditingProfessional)(false);
+      });
+  };
+  const handleFormClose = (action) => {
+    setEdited({
+      contact_info: {
+        email: "",
+        tel: "",
+        address: "",
+      },
+      personal_info: {
+        birth_date: "",
+        languages: [],
+        bio: "",
+      },
+      professional_info: {
+        position: "",
+        education: "",
+      },
+    });
+    (actions[action] || setIsEditingProfessional)(false);
+  };
+  const handleSubmit = async (action) => {
+    if (
+      Object.values(edited[action]).some(
+        (value) => value === "" || (Array.isArray(value) && value.length === 0)
+      )
+    ) {
+      console.log("Please fill all fields");
+      return;
+    }
+    setIsLoading(true);
+
+    console.log("action", action, edited[action]);
+    setInfo(action, edited[action]);
+    hanldeEditSubmit()
+      .then(() => {
+        setEdited({
+          contact_info: {
+            email: "",
+            tel: "",
+            address: "",
+          },
+          personal_info: {
+            birth_date: "",
+            languages: [],
+            bio: "",
+          },
+          professional_info: {
+            position: "",
+            education: "",
+          },
+          user: "",
+        });
+      })
+      .catch((error) => {
+        console.error("Error updating information:", error);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+
+    (actions[action] || setIsEditingProfessional)(false);
+  };
 
   return (
     <div className="space-y-8">
@@ -50,33 +145,72 @@ const UserInfoSection = ({
                 leftIcon={<Mail size={16} />}
                 type="email"
                 onChange={(e) =>
-                  setInfo("contact_info", "email", e.target.value)
+                  setEdited({
+                    ...edited,
+                    contact_info: {
+                      ...edited.contact_info,
+                      email: e.target.value,
+                    },
+                  })
                 }
               />
               <Input
                 label="Phone Number"
                 defaultValue={contactInfo.tel}
                 leftIcon={<Phone size={16} />}
-                onChange={(e) => setInfo("contact_info", "tel", e.target.value)}
+                onChange={(e) =>
+                  setEdited({
+                    ...edited,
+                    contact_info: {
+                      ...edited.contact_info,
+                      tel: e.target.value,
+                    },
+                  })
+                }
               />
               <Input
                 label="Address"
                 defaultValue={contactInfo.address}
                 leftIcon={<MapPin size={16} />}
                 onChange={(e) =>
-                  setInfo("contact_info", "address", e.target.value)
+                  setEdited({
+                    ...edited,
+                    contact_info: {
+                      ...edited.contact_info,
+                      address: e.target.value,
+                    },
+                  })
                 }
               />
               <div className="flex justify-end space-x-2 pt-4">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditingContact(false)}
+                  onClick={() => handleFormClose("contact_info")}
                 >
                   Cancel
                 </Button>
-                <Button size="sm" onClick={() => setIsEditingContact(false)}>
-                  Save Changes
+                <Button size="sm" onClick={() => handleSubmit("contact_info")}>
+                  {isLoading ? (
+                    <span className="animate-spin">
+                      <svg
+                        className="w-4 h-4 mr-3 text-white animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z"
+                        />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
                 </Button>
               </div>
             </form>
@@ -136,7 +270,13 @@ const UserInfoSection = ({
                   defaultValue={personalInfo.firstName}
                   leftIcon={<User size={16} />}
                   onChange={(e) =>
-                    setInfo("personal_info", "name", e.target.value)
+                    setEdited({
+                      ...edited,
+                      personal_info: {
+                        ...edited.personal_info,
+                        firstName: e.target.value,
+                      },
+                    })
                   }
                 />
                 <Input
@@ -151,8 +291,30 @@ const UserInfoSection = ({
                 as="textarea"
                 rows={3}
                 onChange={(e) =>
-                  setInfo("personal_info", "bio", e, target.value)
+                  setEdited({
+                    ...edited,
+                    personal_info: {
+                      ...edited.personal_info,
+                      bio: e.target.value,
+                    },
+                  })
                 }
+              />
+              <Input
+                label="Languages"
+                defaultValue={personalInfo.bio}
+                as="textarea"
+                leftIcon={<Languages size={16} />}
+                rows={3}
+                onChange={(e) => {
+                  setEdited({
+                    ...edited,
+                    personal_info: {
+                      ...edited.personal_info,
+                      languages: e.target.value.split(","),
+                    },
+                  });
+                }}
               />
               <Input
                 label="Birth Date"
@@ -160,19 +322,44 @@ const UserInfoSection = ({
                 leftIcon={<Calendar size={16} />}
                 type="date"
                 onChange={(e) =>
-                  setInfo("personal_info", "birth_date", e.target.value)
+                  setEdited({
+                    ...edited,
+                    personal_info: {
+                      ...edited.personal_info,
+                      birth_date: e.target.value,
+                    },
+                  })
                 }
               />
               <div className="flex justify-end space-x-2 pt-4">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditingPersonal(false)}
+                  onClick={() => handleFormClose("personal_info")}
                 >
                   Cancel
                 </Button>
-                <Button size="sm" onClick={() => setIsEditingPersonal(false)}>
-                  Save Changes
+                <Button size="sm" onClick={() => handleSubmit("personal_info")}>
+                  {isLoading ? (
+                    <span className="animate-spin">
+                      <svg
+                        className="w-4 h-4 mr-3 text-white animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z"
+                        />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
                 </Button>
               </div>
             </form>
@@ -247,7 +434,13 @@ const UserInfoSection = ({
                 defaultValue={professionalInfo.department}
                 leftIcon={<Building size={16} />}
                 onChange={(e) =>
-                  setInfo("personal_info", "birth_date", e.target.value)
+                  setEdited({
+                    ...edited,
+                    professional_info: {
+                      ...edited.professional_info,
+                      department: e.target.value,
+                    },
+                  })
                 }
               />
               <Input
@@ -255,35 +448,62 @@ const UserInfoSection = ({
                 defaultValue={professionalInfo.position}
                 leftIcon={<User size={16} />}
                 onChange={(e) =>
-                  setInfo("professional_info", "position", e.target.value)
+                  setEdited({
+                    ...edited,
+                    professional_info: {
+                      ...edited.professional_info,
+                      position: e.target.value,
+                    },
+                  })
                 }
               />
-              <Input
-                label="Employee ID"
-                defaultValue={professionalInfo.employeeId}
-                leftIcon={<User size={16} />}
-              />
+
               <Input
                 label="Education"
                 defaultValue={professionalInfo.education}
                 leftIcon={<GraduationCap size={16} />}
                 onChange={(e) =>
-                  setInfo("professional_info", "education", e.target.value)
+                  setEdited({
+                    ...edited,
+                    professional_info: {
+                      ...edited.professional_info,
+                      education: e.target.value,
+                    },
+                  })
                 }
               />
               <div className="flex justify-end space-x-2 pt-4">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditingProfessional(false)}
+                  onClick={() => handleFormClose("professional_info")}
                 >
                   Cancel
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => setIsEditingProfessional(false)}
+                  onClick={() => handleSubmit("professional_info")}
                 >
-                  Save Changes
+                  {isLoading ? (
+                    <span className="animate-spin">
+                      <svg
+                        className="w-4 h-4 mr-3 text-white animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z"
+                        />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
                 </Button>
               </div>
             </form>

@@ -1,5 +1,5 @@
 // src/lib/AuthContext.jsx
-import { getMe, loginUser } from "@/services/authService";
+import { getMe, loginUser, logoutUser } from "@/services/authService";
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { redirect, useNavigate } from "react-router-dom";
 
@@ -34,11 +34,7 @@ export const AuthProvider = ({ children }) => {
 
   // Logout
   const signOut = async () => {
-    await fetch(`${API_URL}/api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-    setUser(null);
+    await logoutUser();
     navigate("/login");
   };
 

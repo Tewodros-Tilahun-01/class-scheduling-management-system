@@ -30,10 +30,11 @@ router.post("/addRepresentative", async (req, res) => {
 });
 router.put("/updateRepresentative/:id", async (req, res) => {
   const { name, department, year } = req.body;
+  const { id } = req.params;
 
   try {
-    const updatedRepresentative = await Representative.findByIdAndUpdate(
-      req.params.id,
+    await Representative.findByIdAndUpdate(
+      id,
       {
         name,
         department,

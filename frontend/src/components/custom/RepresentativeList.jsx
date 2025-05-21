@@ -26,7 +26,12 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { getRepresentatives } from "@/services/UserService";
+import {
+  deleteRepresentative,
+  getRepresentatives,
+} from "@/services/UserService";
+import { Dialog } from "@headlessui/react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function RepresentativeList({
   representatives: initialRepresentatives = [],
@@ -42,6 +47,8 @@ export default function RepresentativeList({
   const [editRowId, setEditRowId] = useState(null);
   const [newRow, setNewRow] = useState({ name: "", year: "", department: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchRepresentatives = async () => {
@@ -74,12 +81,26 @@ export default function RepresentativeList({
       });
   };
 
-  const handleDeleteRow = (id) => {
+  const handleDeleteRow = async () => {
+    setIsLoading(true);
+    try {
+      await deleteRepresentative(deleteRowId);
+      setTableData((prev) => {
+        const filteredData = prev.filter((data) => data._id !== deleteRowId);
+        return filteredData;
+      });
+    } catch (error) {
+    } finally {
+      setIsLoading(false);
+      setIsModalOpen(false);
+    }
+  };
+  const handleDeleteModalOpen = (id) => {
     setDeleteRowId(id);
-    setIsDeleteConfirmOpen(true);
-    // Mock deletion logic (replace with actual API call if needed)
-    setTableData((prev) => prev.filter((row) => row._id !== id));
-    console.log("hanlede");
+    setIsModalOpen(true);
+  };
+  const handleDeleteModalClose = () => {
+    setIsModalOpen(false);
   };
 
   const columns = [
@@ -170,13 +191,10 @@ export default function RepresentativeList({
         const rowData = row.original;
 
         const handleEdit = () => {
-          setNewRow({
-            name: rowData.name,
-            year: rowData.year,
-            department: rowData.department,
-          });
-          setEditRowId(rowData._id);
-          setIsModalOpen(true);
+          const params = new URLSearchParams(location.search);
+          params.set("edit", "true");
+          params.set("user", JSON.stringify(rowData));
+          navigate(`${location.pathname}?${params.toString()}`);
         };
 
         return (
@@ -196,7 +214,9 @@ export default function RepresentativeList({
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDeleteRow(rowData._id)}>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteModalOpen(rowData._id)}
+                >
                   Remove
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -233,6 +253,58 @@ export default function RepresentativeList({
 
   return (
     <div className="container mx-auto p-6">
+      <Dialog open={isModalOpen} onClose={handleDeleteModalClose}>
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg w-full max-w-md space-y-6 shadow-lg">
+            <h3 className="text-lg font-medium">Confirm Delete</h3>
+            <p className="text-sm text-gray-500">
+              Are you sure you want to delete this user? This action cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={handleDeleteModalClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteRow}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+                      />
+                    </svg>
+                    Deleting...
+                  </span>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
       <h1 className="text-2xl font-bold mb-6">Class Representatives</h1>
       <div className="rounded-md border">
         {isLoading ? (

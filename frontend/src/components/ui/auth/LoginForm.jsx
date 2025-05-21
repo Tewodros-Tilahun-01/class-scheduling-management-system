@@ -24,8 +24,8 @@ const LoginForm = () => {
       setError("Please enter a valid email address");
       return false;
     }
-    if (credentials.password.length !== 6) {
-      setError("PIN must be exactly 6 digits");
+    if (credentials.password.length < 6) {
+      setError("PIN must be greater that 6 digits");
       return false;
     }
     return true;
@@ -76,10 +76,9 @@ const LoginForm = () => {
         onChange={(e) =>
           setCredentials({
             ...credentials,
-            password: e.target.value.replace(/\D/g, "").slice(0, 6),
+            password: e.target.value,
           })
         }
-        maxLength={6}
       />
 
       <p className="text-sm text-gray-500 font-quicksand font-medium mb-4 text-center">

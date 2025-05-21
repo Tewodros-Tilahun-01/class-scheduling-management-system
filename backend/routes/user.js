@@ -32,7 +32,12 @@ router.post("/", async (req, res) => {
       role,
       name,
     });
+    const userInfo = new PersonalInformation({
+      user: newUser._id,
+    });
     await newUser.save();
+    await userInfo.save();
+
     res.status(201).json({ message: "ok" });
   } catch (err) {
     console.error(err);

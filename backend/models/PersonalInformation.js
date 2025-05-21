@@ -7,7 +7,6 @@ const PersonalInfoSchema = new mongoose.Schema({
       tel: { type: String, required: true, default: "" },
       address: { type: String, required: true, default: "" },
     },
-    required: true,
   },
   personal_info: {
     type: {
@@ -15,7 +14,6 @@ const PersonalInfoSchema = new mongoose.Schema({
       languages: { type: [String], required: true, default: [] },
       bio: { type: String, required: true, default: "" },
     },
-    required: true,
   },
   professional_info: {
     type: {

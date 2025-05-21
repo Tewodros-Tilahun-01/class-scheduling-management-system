@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,7 +39,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { addRepresentative } from "@/services/UserService";
+import {
+  addRepresentative,
+  updateRepresentativeInfo,
+} from "@/services/UserService";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 // Define departments and years arrays
 const departments = [
@@ -60,37 +64,60 @@ const formSchema = z.object({
 export default function RepresentativeManagement() {
   const [representatives, setRepresentatives] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [searchParams] = useSearchParams();
+  const [edit, setEdit] = useState(false);
+  const [user, setUser] = useState({});
+  const navigate = useNavigate();
+  const location = useLocation();
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      department: "",
-      year: 1,
-    },
+    defaultValues: edit
+      ? user
+      : {
+          name: "",
+          department: "",
+          year: 1,
+        },
   });
+  const { reset } = form;
+
+  useEffect(() => {
+    const edit = searchParams.get("edit") === "true";
+    const user = JSON.parse(searchParams.get("user"));
+
+    setEdit(edit);
+    setUser(() => (user !== undefined ? user : {}));
+
+    reset({
+      name: user ? user.name : "",
+      department: user ? user.department : "",
+      year: user ? user.year : "",
+    });
+  }, [searchParams]);
 
   const onSubmit = (data) => {
     setRepresentatives([...representatives, data]);
     form.reset();
 
-    // Optional: Add backend integration here
-    // Example: Send newRepresentative to backend using axios
     setIsLoading(true);
-    addRepresentative(data)
-      .then(() => console.log("handled"))
-      .catch(() => console.log("something is wrong!"))
-      .finally(() => {
-        setIsLoading(false);
-      });
-  };
+    if (edit) {
+      updateRepresentativeInfo(user._id, data)
+        .then(() => {
+          console.log("successfully updated!");
 
-  const handleDelete = (id) => {
-    setRepresentatives(representatives.filter((rep) => rep.id !== id));
-    try {
-      console.log("on the way!");
-    } catch (error) {
-      console.log("on the way");
+          navigate(`${location.pathname}`);
+        })
+        .catch(() => {})
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      addRepresentative(data)
+        .then(() => console.log("handled"))
+        .catch(() => console.log("something is wrong!"))
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
   };
 
@@ -99,7 +126,9 @@ export default function RepresentativeManagement() {
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Add Class Representative</CardTitle>
+            <CardTitle>
+              {edit ? "Edit " : "Add "} Class Representative
+            </CardTitle>
             <CardDescription>
               Enter the details of the new class representative
             </CardDescription>
@@ -132,7 +161,7 @@ export default function RepresentativeManagement() {
                       <FormLabel>Department</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -162,7 +191,7 @@ export default function RepresentativeManagement() {
                         onValueChange={(value) =>
                           field.onChange(parseInt(value))
                         }
-                        defaultValue={field.value.toString()}
+                        value={field.value.toString()}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -186,50 +215,12 @@ export default function RepresentativeManagement() {
                   className="bg-green-600 hover:bg-green-500 font-bold"
                   type="submit"
                 >
-                  Add Representative
+                  {edit ? "Edit" : "Add"} Representative
                 </Button>
               </form>
             </Form>
           </CardContent>
         </Card>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {representatives.map((rep) => (
-            <Card key={rep.id}>
-              <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                  {rep.name}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently
-                          delete the representative's data.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(rep.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </CardTitle>
-                <CardDescription>{rep.department}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">Year {rep.year}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
     </div>
   );

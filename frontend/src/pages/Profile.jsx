@@ -6,7 +6,11 @@ import UserInfoSection from "../components/custom/profile/UserInfoSection";
 import ActivitySection from "../components/custom/profile/ActiveSection";
 import SecuritySection from "../components/custom/profile/SecuritySection";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import { getPersonalInfo } from "@/services/UserService";
+import {
+  getPersonalInfo,
+  updatePersonalInfo,
+  updateUser,
+} from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
 
 const ProfilePage = () => {
@@ -35,7 +39,17 @@ const ProfilePage = () => {
       setLoading(true);
       try {
         const res = await getPersonalInfo(user.id);
-        setInfo(res);
+        console.log("from api service", res);
+        setInfo({
+          contact_info: res.contact_info ? res.contact_info : info.contact_info,
+          personal_info: res.personal_info
+            ? res.personal_info
+            : info.personal_info,
+          professional_info: res.professional_info
+            ? res.professional_info
+            : info.professional_info,
+          user: res.user,
+        });
       } catch (error) {
         setErrorMessage(error);
       } finally {
@@ -103,18 +117,29 @@ const ProfilePage = () => {
       timestamp: "2 weeks ago",
     },
   ];
+  const hanldeEditSubmit = async () => {
+    updatePersonalInfo(user.id, {
+      contact_info: info.contact_info,
+      personal_info: info.personal_info,
+      professional_info: info.professional_info,
+    })
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
 
   const handleAvatarChange = () => {
     console.log("Changing avatar");
   };
-  const handleInputChange = (section, field, value) => {
+  const handleInputChange = (section, value) => {
     setInfo((prev) => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
+      [section]: value,
     }));
+    console.log("Updated info:", section, value);
   };
 
   return (
@@ -140,6 +165,7 @@ const ProfilePage = () => {
               userInfo={userInfo}
               setInfo={handleInputChange}
               info={info}
+              hanldeEditSubmit={hanldeEditSubmit}
             />
           </TabContent>
 

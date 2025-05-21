@@ -19,6 +19,17 @@ export const loginUser = async (credentials) => {
     throw new Error(message);
   }
 };
+export const logoutUser = async () => {
+  try {
+    const response = await axios.post(`${API_URL}/api/auth/logout`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || "Logout failed";
+    throw new Error(message);
+  }
+};
 export const getMe = async () => {
   try {
     const response = await axios.get(`${API_URL}/api/auth/me`, {

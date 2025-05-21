@@ -4,9 +4,8 @@ import { useAuth } from "@/context/AuthContext";
 import { NavLink } from "react-router-dom";
 
 const ProfilePanel = ({ isOpen, onClose, panelRef }) => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
 
-  // Handle clicks outside to close panel
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (panelRef.current && !panelRef.current.contains(event.target)) {
@@ -57,7 +56,7 @@ const ProfilePanel = ({ isOpen, onClose, panelRef }) => {
           <span>Settings</span>
         </button>
         <button
-          onClick={logout}
+          onClick={signOut}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
         >
           <LogOut size={16} />
