@@ -45,17 +45,18 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 router.post("/logout", (req, res) => {
   res.clearCookie("token");
   res.status(200).json({ message: "Logged out" });
 });
+
 router.get("/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) {
     console.log("No token found");
     return res.status(401).json({ message: "Unauthorized" });
   }
-
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       console.log(err.message);
@@ -67,14 +68,12 @@ router.get("/me", (req, res) => {
           return res.status(404).json({ message: "User not found" });
         }
 
-        res
-          .status(200)
-          .json({
-            id: user._id,
-            username: user.username,
-            name: user.name,
-            role: user.role,
-          });
+        res.status(200).json({
+          id: user._id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+        });
       })
       .catch((error) => {
         res.status(500).json({ message: "Server error" });

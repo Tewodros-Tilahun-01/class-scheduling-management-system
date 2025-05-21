@@ -13,17 +13,6 @@ const authRoutes = require("./auth");
 const userRoutes = require("./user");
 const adminRoutes = require("./admin");
 
-// Mock authentication middleware (replace with real auth, e.g., JWT)
-const authMiddleware = (req, res, next) => {
-  req.user = {
-    _id: "66f1a2b3c4d5e6f789012360",
-    username: "john.doe",
-  };
-  next();
-};
-
-// Apply auth middleware to all routes
-router.use(authMiddleware);
 
 // Mount routes
 router.use("/activities", activityRoutes);

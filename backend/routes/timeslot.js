@@ -2,14 +2,8 @@ const express = require("express");
 const router = express.Router();
 const Timeslot = require("../models/Timeslot");
 
-// Middleware to verify user authentication (simplified)
-const authMiddleware = (req, res, next) => {
-  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  next();
-};
-
 // Get all timeslots
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const timeslots = await Timeslot.find().lean();
     res.json(timeslots);
@@ -19,7 +13,7 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // Add a new timeslot
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { day, startTime, endTime, preferenceScore } = req.body;
     const timeslot = new Timeslot({
@@ -37,7 +31,7 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // Update a timeslot
-router.put("/:id", authMiddleware, async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { day, startTime, endTime, preferenceScore } = req.body;
@@ -56,7 +50,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
 });
 
 // Delete a timeslot
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const timeslot = await Timeslot.findOneAndDelete({
@@ -73,7 +67,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 });
 
 // Get unique days from timeslots
-router.get("/days/unique", authMiddleware, async (req, res) => {
+router.get("/days/unique", async (req, res) => {
   try {
     const days = await Timeslot.distinct("day");
     res.json(days);
