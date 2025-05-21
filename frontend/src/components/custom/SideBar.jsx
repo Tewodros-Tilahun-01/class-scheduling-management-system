@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useRef, useState, useEffect } from "react";
 import SideBarCard from "./SideBarCard";
 import {
   Bolt,
@@ -9,12 +9,21 @@ import {
   LogOut,
   BookAIcon,
   SquareChevronDown,
+  Group,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";
+import ProfilePanel from "./ProfilePanel";
+import { useAuth } from "@/context/AuthContext";
 
 function SideBar({ className }) {
   const { toggleMenu, isOpen } = useContext(MenuContext);
+  const { user } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  const panelRef = useRef(null);
   const menus = [
     {
       link: "/",
@@ -34,21 +43,47 @@ function SideBar({ className }) {
     { link: "/course", text: "course", icon: <BookAIcon size={24} /> },
     {
       link: "/student-group",
-      text: "student group",
+      text: "Student Group",
       icon: <SquareChevronDown size={24} />,
+    },
+    {
+      link: "/user",
+      text: "Users",
+      icon: <User size={24} />,
+    },
+    {
+      link: "/manage-rips",
+      text: "Manage Rips",
+      icon: <Group size={24} />,
     },
     {
       link: "/activity",
-      text: "activity",
+      text: "Activity",
       icon: <SquareChevronDown size={24} />,
     },
-
-    {
-      link: "/logout",
-      text: "Logout",
-      icon: <LogOut size={24} />,
-    },
   ];
+  const filteredMenus = menus.filter((menu) => {
+    if (!user) return true;
+
+    if (
+      (menu.text === "Users" || menu.text === "Manage Rips") &&
+      (user.role === "apo" || user.role === "user")
+    ) {
+      return false;
+    }
+
+    if (
+      (menu.text === "Activity" || menu.text === "Student Group") &&
+      user.role === "admin"
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+  const toggleProfilePanel = () => {
+    setIsProfileOpen(!isProfileOpen);
+  };
 
   return (
     <div className={clsx(className, isOpen ? "flex   px-6" : " px-6")}>
@@ -63,15 +98,62 @@ function SideBar({ className }) {
             Dashboard
           </span>
         </h2>
-        <ul className="mt-10 flex flex-col gap-6">
-          {menus.map((menu) => {
+        <ul className="relative mt-10 flex flex-col gap-6">
+          {filteredMenus.map((menu) => {
             return (
               <li key={menu.text}>
                 <SideBarCard menu={menu} />
               </li>
             );
           })}
-        </ul>
+          <div className="fixed mx-0 bottom-4">
+            <div
+              // ref={profileRef}
+              onClick={toggleProfilePanel}
+              className={clsx(
+                "relative mt-2 flex cursor-pointer items-center gap-3 rounded-lg p-3 hover:bg-slate-100",
+                isProfileOpen && "bg-slate-100"
+              )}
+            >
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt="Profile"
+                  className="h-9 w-9 rounded-full object-cover border-2 border-white shadow-sm"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                  <User size={20} />
+                </div>
+              )}
+
+              {!isOpen && (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-700 truncate">
+                      {user?.name || "Guest"}
+                    </p>
+                    <p className="text-xs text-slate-500 capitalize truncate">
+                      {user?.role || "User"}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={`text-slate-400 transition-transform duration-200 ${
+                      isProfileOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+
+              <ProfilePanel
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                panelRef={panelRef}
+              />
+            </div>
+          </div>
+        </ul>{" "}
       </div>
     </div>
   );

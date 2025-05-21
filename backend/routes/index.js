@@ -9,6 +9,9 @@ const studentGroupRoutes = require("./studentGroup");
 const timeslotRoutes = require("./timeslot");
 const activityRoutes = require("./activity");
 const scheduleRoutes = require("./schedule");
+const authRoutes = require("./auth");
+const userRoutes = require("./user");
+const adminRoutes = require("./admin");
 
 // Mock authentication middleware (replace with real auth, e.g., JWT)
 const authMiddleware = (req, res, next) => {
@@ -31,5 +34,8 @@ router.use("/rooms", roomRoutes);
 router.use("/schedules", scheduleRoutes);
 router.use("/studentGroups", studentGroupRoutes);
 router.use("/timeslots", timeslotRoutes);
+router.use("/users", userRoutes);
+router.use("/admin", adminRoutes);
+router.use("/auth", authRoutes);
 
 module.exports = router;
