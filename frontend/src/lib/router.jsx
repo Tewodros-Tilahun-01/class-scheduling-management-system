@@ -8,7 +8,7 @@ import ActivityScheduler from "../components/custom/ActivityScheduler";
 import Room from "../pages/Room";
 import { StudentGroup } from "../pages/StudentGroup";
 import ScheduleTable from "../pages/ScheduleTable";
-import TeacherSchedule from "../pages/TeacherSchedule";
+import LectureSchedule from "../pages/LectureSchedule";
 import FreeRooms from "../pages/FreeRooms";
 import Login from "../pages/Login";
 import AppLayout from "@/layouts/AppLayout";
@@ -75,10 +75,10 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "schedules/:semester/teachers",
+    path: "schedules/:semester/lectures",
     element: (
       <AppLayout>
-        <TeacherSchedule />
+        <LectureSchedule />
       </AppLayout>
     ),
   },
@@ -129,7 +129,7 @@ const router = createBrowserRouter([
         <TimeslotManager />
       </AppLayout>
     ),
-  }, 
+  },
   {
     path: "profile",
     element: (

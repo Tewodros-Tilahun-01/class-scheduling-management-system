@@ -155,9 +155,9 @@ export const exportSchedule = async (semester) => {
   return response.data;
 };
 
-export const fetchTeacherSchedule = async (semester, teacherId) => {
+export const fetchSingleLectureSchedule = async (semester, lectureId) => {
   const response = await api.get(
-    `/schedules/${encodeURIComponent(semester)}/teacher/${teacherId}`
+    `/schedules/${encodeURIComponent(semester)}/lecture/${lectureId}`
   );
   return response.data;
 };
@@ -168,6 +168,13 @@ export const fetchFreeRooms = async (semester, day, timeslot) => {
     {
       params: { day, timeslot },
     }
+  );
+  return response.data;
+};
+
+export const fetchAllLectureSchedules = async (semester) => {
+  const response = await api.get(
+    `/schedules/${encodeURIComponent(semester)}/lectures/all`
   );
   return response.data;
 };

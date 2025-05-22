@@ -60,7 +60,10 @@ const SemesterList = () => {
         <CardContent>
           {loading ? (
             <div className="flex justify-center items-center h-24">
-              <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
+              <svg
+                className="animate-spin h-8 w-8 text-gray-500"
+                viewBox="0 0 24 24"
+              >
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -91,22 +94,36 @@ const SemesterList = () => {
                     <TableCell>
                       <div className="flex gap-4">
                         <Button asChild variant="link" size="sm">
-                          <Link to={`/schedules/${encodeURIComponent(semester)}`}>
+                          <Link
+                            to={`/schedules/${encodeURIComponent(semester)}`}
+                          >
                             Student Groups
                           </Link>
                         </Button>
                         <Button asChild variant="link" size="sm">
-                          <Link to={`/schedules/${encodeURIComponent(semester)}/teachers`}>
-                            Teachers
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/lectures`}
+                          >
+                            Lectures
                           </Link>
                         </Button>
                         <Button asChild variant="link" size="sm">
-                          <Link to={`/schedules/${encodeURIComponent(semester)}/reschedule`}>
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/reschedule`}
+                          >
                             Reschedule
                           </Link>
                         </Button>
                         <Button asChild variant="link" size="sm">
-                          <Link to={`/schedules/${encodeURIComponent(semester)}/free-rooms`}>
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/free-rooms`}
+                          >
                             Free Rooms
                           </Link>
                         </Button>

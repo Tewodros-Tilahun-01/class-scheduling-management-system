@@ -579,7 +579,7 @@ router.get("/:semester/export", async (req, res) => {
 router.post("/reschedule", async (req, res) => {
   try {
     const { semester, activityIds } = req.body;
-  
+
     if (!semester || !Array.isArray(activityIds) || activityIds.length === 0) {
       return res.status(400).json({
         error: "Semester and non-empty array of activity IDs are required",
@@ -623,22 +623,23 @@ router.post("/reschedule", async (req, res) => {
 });
 
 // Add new endpoint for teacher schedules
-router.get("/:semester/teacher/:teacherId", async (req, res) => {
+router.get("/:semester/lecture/:lectureId", async (req, res) => {
   try {
-    const { semester, teacherId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(teacherId)) {
-      return res.status(400).json({ error: "Invalid teacher ID" });
+    const { semester, lectureId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(lectureId)) {
+      return res.status(400).json({ error: "Invalid lecture ID" });
     }
 
     const schedules = await Schedule.find({
       semester: decodeURIComponent(semester),
-      "activity.lecture.teacher": teacherId,
+      "activity.lecture": lectureId,
+      isDeleted: false,
     })
       .populate({
         path: "activity",
         populate: [
           { path: "course", select: "courseCode name" },
-          { path: "lecture", select: "name maxLoad teacher" },
+          { path: "lecture", select: "name maxLoad isDeleted" },
           { path: "studentGroup", select: "department year section" },
         ],
       })
@@ -646,15 +647,20 @@ router.get("/:semester/teacher/:teacherId", async (req, res) => {
       .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
 
+    // Filter out schedules with deleted lectures
+    const filteredSchedules = schedules.filter(
+      (schedule) => !schedule.activity?.lecture?.isDeleted
+    );
+
     if (schedules.length === 0) {
       return res.status(404).json({
-        error: `No schedules found for teacher in semester: ${semester}`,
+        error: `No schedules found for lecture in semester: ${semester}`,
       });
     }
 
     res.json(schedules);
   } catch (err) {
-    console.error("Error fetching teacher schedules:", err);
+    console.error("Error fetching lecture schedules:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -671,7 +677,7 @@ router.get("/:semester/free-rooms", async (req, res) => {
     // Get occupied rooms for the given day and timeslot
     const occupiedRooms = await Schedule.find({
       semester: decodeURIComponent(semester),
-      "reservedTimeslots": timeslot,
+      reservedTimeslots: timeslot,
     }).distinct("room");
 
     // Filter out occupied rooms
@@ -682,6 +688,57 @@ router.get("/:semester/free-rooms", async (req, res) => {
     res.json(freeRooms);
   } catch (err) {
     console.error("Error fetching free rooms:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add endpoint for all teachers' schedules
+router.get("/:semester/lectures/all", async (req, res) => {
+  try {
+    const { semester } = req.params;
+
+    const schedules = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      isDeleted: false,
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad isDeleted" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name capacity type department")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    if (schedules.length === 0) {
+      return res.status(404).json({
+        error: `No schedules found for semester: ${semester}`,
+      });
+    }
+
+    // Group schedules by lecture
+    const lectureSchedules = schedules.reduce((acc, schedule) => {
+      const lectureId = schedule.activity?.lecture?._id?.toString();
+      const lecture = schedule.activity?.lecture;
+      if (lectureId && lecture && !lecture.isDeleted) {
+        if (!acc[lectureId]) {
+          acc[lectureId] = {
+            name: lecture.name,
+            maxLoad: lecture.maxLoad,
+            schedules: [],
+          };
+        }
+        acc[lectureId].schedules.push(schedule);
+      }
+      return acc;
+    }, {});
+
+    res.json(lectureSchedules);
+  } catch (err) {
+    console.error("Error fetching all lecture schedules:", err);
     res.status(500).json({ error: err.message });
   }
 });
