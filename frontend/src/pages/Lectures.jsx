@@ -65,7 +65,6 @@ export default function Lectures() {
       try {
         const lectures = await fetchLectures();
         setTableData(lectures);
-        toast.success("Lectures loaded successfully");
       } catch (err) {
         toast.error(err.response?.data?.error || "Failed to load lectures", {
           description: "Unable to fetch lectures from the server",
