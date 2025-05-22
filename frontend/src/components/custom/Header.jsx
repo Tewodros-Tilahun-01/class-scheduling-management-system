@@ -45,14 +45,14 @@ function Header({ className }) {
                 className="block size-6"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                strokeWidth="1.5"
                 stroke="currentColor"
-                aria-hidden="true"
-                data-slot="icon"
+                ariahidden="true"
+                dataslot="icon"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
                 />
               </svg>
@@ -65,14 +65,14 @@ function Header({ className }) {
                 className="hidden size-6"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                strokeWidth="1.5"
                 stroke="currentColor"
                 aria-hidden="true"
                 data-slot="icon"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   d="M6 18 18 6M6 6l12 12"
                 />
               </svg>
@@ -134,11 +134,11 @@ function Header({ className }) {
                   aria-labelledby="user-menu-button"
                   tabIndex="-1"
                 >
-                  <div class="px-4 py-3">
-                    <span class="block text-sm text-gray-900 dark:text-white">
+                  <div className="px-4 py-3">
+                    <span className="block text-sm text-gray-900 dark:text-white">
                       {user.name}
                     </span>
-                    <span class="block text-sm  text-gray-500 truncate dark:text-gray-400">
+                    <span className="block text-sm  text-gray-500 truncate dark:text-gray-400">
                       {user.username}
                     </span>
                   </div>
