@@ -75,3 +75,11 @@ export async function updatePersonalInfo(id, data) {
   });
   return res.data;
 }
+export async function changeUserPassword(params) {
+  const res = await axios.put(
+    `${API_Url}/api/users/changepassword/${params.id}`,
+    params,
+    { withCredentials: true }
+  );
+  return res.data;
+}

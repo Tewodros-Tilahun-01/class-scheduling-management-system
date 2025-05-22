@@ -24,7 +24,7 @@ const ProfileHeader = ({
           className="border-2 border-white shadow-md"
         />
         <button
-          onClick={onAvatarChange}
+          onClick={onAvatarChange} // Hash the new password
           className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
           aria-label="Change profile picture"
         >

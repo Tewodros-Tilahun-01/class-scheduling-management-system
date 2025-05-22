@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardHeader,
@@ -10,11 +10,23 @@ import Button from "../../ui/Button2";
 import Input from "../../ui/Input2";
 import Badge from "../../ui/Badge";
 import { Eye, EyeOff, Lock, Key, Shield } from "lucide-react";
+import { changeUserPassword } from "@/services/UserService";
+import ErrorMessage from "@/components/ui/auth/ErrorMessage";
+import { useAuth } from "@/context/AuthContext";
 
 const SecuritySection = () => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [password, setPassword] = React.useState({
+    current: "",
+    new: "",
+    confirm: "",
+    id: user.id,
+  });
+  const [error, setError] = React.useState("");
 
   const togglePasswordVisibility = (field) => {
     switch (field) {
@@ -30,6 +42,31 @@ const SecuritySection = () => {
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password.new !== password.confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (password.new.length < 6) {
+      setError("The password is too short. Make it > 6");
+      return;
+    }
+    setLoading(true);
+    setError("");
+
+    changeUserPassword(password)
+      .then((response) => {
+        setPassword({ current: "", new: "", confirm: "" });
+      })
+      .catch((error) => {
+        setError(error.response.data.message);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -37,6 +74,8 @@ const SecuritySection = () => {
           <CardTitle>Change Password</CardTitle>
         </CardHeader>
         <CardContent>
+          {error && <ErrorMessage message={error} />}
+
           <form className="space-y-4">
             <Input
               label="Current Password"
@@ -51,6 +90,10 @@ const SecuritySection = () => {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, current: e.target.value })
+              }
+              value={password.current}
               placeholder="Enter your current password"
             />
 
@@ -67,6 +110,10 @@ const SecuritySection = () => {
                   {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, new: e.target.value })
+              }
+              value={password.new}
               placeholder="Enter your new password"
             />
 
@@ -87,16 +134,22 @@ const SecuritySection = () => {
                   )}
                 </button>
               }
+              onChange={(e) =>
+                setPassword({ ...password, confirm: e.target.value })
+              }
+              value={password.confirm}
               placeholder="Confirm your new password"
             />
           </form>
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button>Update Password</Button>
+          <Button onClick={handleSubmit}>
+            {loading ? "Updating" : "Update Password"}
+          </Button>
         </CardFooter>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Two-Factor Authentication</CardTitle>
         </CardHeader>
@@ -203,7 +256,7 @@ const SecuritySection = () => {
             Sign out of all devices
           </Button>
         </CardFooter>
-      </Card>
+      </Card> */}
     </div>
   );
 };

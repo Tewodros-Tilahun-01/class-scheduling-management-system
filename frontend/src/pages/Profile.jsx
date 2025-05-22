@@ -117,12 +117,13 @@ const ProfilePage = () => {
       timestamp: "2 weeks ago",
     },
   ];
-  const hanldeEditSubmit = async () => {
-    updatePersonalInfo(user.id, {
-      contact_info: info.contact_info,
-      personal_info: info.personal_info,
-      professional_info: info.professional_info,
-    })
+  const hanldeEditSubmit = async (section, value) => {
+    const updatedInfo = {
+      ...info,
+      [section]: value,
+    };
+
+    updatePersonalInfo(user.id, updatedInfo)
       .then((res) => {
         console.log(res);
       })
@@ -134,6 +135,7 @@ const ProfilePage = () => {
   const handleAvatarChange = () => {
     console.log("Changing avatar");
   };
+
   const handleInputChange = (section, value) => {
     setInfo((prev) => ({
       ...prev,
@@ -141,16 +143,17 @@ const ProfilePage = () => {
     }));
     console.log("Updated info:", section, value);
   };
+  console.log("info", info.name);
 
   return (
     <DashboardLayout>
       <ProfileLayout>
         <ProfileHeader
-          name={userProfile.name}
-          role={userProfile.role}
+          name={userInfo.name}
+          role={userInfo.role}
           department={userProfile.department}
-          email={userProfile.email}
-          location={userProfile.location}
+          email={contactInfo.email}
+          location={contactInfo.address}
           joinedDate={userInfo.createdAt}
           avatarUrl={userProfile.avatarUrl}
           onAvatarChange={handleAvatarChange}
