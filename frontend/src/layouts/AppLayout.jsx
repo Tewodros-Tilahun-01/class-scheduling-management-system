@@ -1,6 +1,7 @@
 import LoadingOverlay from "../components/ui/LoadingOverlay";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { MenuProvider } from "../hooks/MenuProvider";
+import ThemeLayout from "./ThemeLayout";
 
 const AppLayoutContent = ({ children }) => {
   const { loading } = useAuth();
@@ -14,9 +15,11 @@ const AppLayoutContent = ({ children }) => {
 
 const AppLayout = ({ children }) => (
   <AuthProvider>
-    <MenuProvider>
-      <AppLayoutContent>{children}</AppLayoutContent>
-    </MenuProvider>
+    <ThemeLayout>
+      <MenuProvider>
+        <AppLayoutContent>{children}</AppLayoutContent>
+      </MenuProvider>
+    </ThemeLayout>
   </AuthProvider>
 );
 
