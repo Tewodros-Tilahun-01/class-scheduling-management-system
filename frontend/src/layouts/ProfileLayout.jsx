@@ -1,8 +1,6 @@
 import React from "react";
 import { Tabs, TabList, TabTrigger, TabContent } from "../components/ui/Tabs";
 import PageHeader from "./PageHeader";
-import Button from "../components/ui/Button2";
-import { Pencil } from "lucide-react";
 
 const ProfileLayout = ({ children }) => {
   return (
@@ -11,11 +9,6 @@ const ProfileLayout = ({ children }) => {
         <PageHeader
           title="Your Profile"
           description="View and edit your personal information"
-          actions={
-            <Button variant="outline" leftIcon={<Pencil size={16} />}>
-              Edit Profile
-            </Button>
-          }
         />
 
         <div className="mt-6">
