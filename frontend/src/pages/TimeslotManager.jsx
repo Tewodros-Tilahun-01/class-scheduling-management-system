@@ -4,232 +4,333 @@ import {
   addTimeslot,
   updateTimeslot,
   deleteTimeslot,
-} from "../services/api"; // Adjust the path to where your API file is located
+} from "../services/api";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "@/components/ui/sonner";
+import { Pencil, Trash2 } from "lucide-react";
 
 const TimeslotManager = () => {
   const [timeslots, setTimeslots] = useState([]);
-  const [form, setForm] = useState({
-    id: null,
-    day: "Monday",
-    startTime: "08:00",
-    endTime: "09:00",
+  const [loading, setLoading] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingTimeslot, setEditingTimeslot] = useState(null);
+  const [formData, setFormData] = useState({
+    day: "",
+    startTime: "",
+    endTime: "",
     preferenceScore: 10,
   });
-  const [error, setError] = useState(null);
 
-  // Fetch timeslots on mount
+  const days = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
   useEffect(() => {
-    fetchTimeslotsData();
+    loadTimeslots();
   }, []);
 
-  const fetchTimeslotsData = async () => {
+  const formatTime = (timeString) => {
+    if (!timeString) return "";
+    const [hours, minutes] = timeString.split(":");
+    return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+  };
+
+  const loadTimeslots = async () => {
     try {
+      setLoading(true);
       const data = await fetchTimeslots();
-      setTimeslots(data);
-      setError(null);
-    } catch (err) {
-      setError("Failed to fetch timeslots");
+      const sortedTimeslots = data.sort((a, b) => {
+        const dayOrder = days.indexOf(a.day) - days.indexOf(b.day);
+        if (dayOrder !== 0) return dayOrder;
+        return formatTime(a.startTime).localeCompare(formatTime(b.startTime));
+      });
+      setTimeslots(sortedTimeslots);
+    } catch (error) {
+      toast.error("Failed to load timeslots", {
+        description: error.message,
+      });
+      console.error("Error loading timeslots:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+  const handleInputChange = (name, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const validateForm = () => {
+    if (!formData.day || !formData.startTime || !formData.endTime) {
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields",
+      });
+      return false;
+    }
+
+    const [startHours, startMinutes] = formData.startTime.split(":").map(Number);
+    const [endHours, endMinutes] = formData.endTime.split(":").map(Number);
+    const start = startHours * 60 + startMinutes;
+    const end = endHours * 60 + endMinutes;
+
+    if (end <= start) {
+      toast.error("Validation Error", {
+        description: "End time must be after start time",
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     try {
-      if (form.id) {
-        // Update timeslot
-        await updateTimeslot(form.id, {
-          day: form.day,
-          startTime: form.startTime,
-          endTime: form.endTime,
-          preferenceScore: form.preferenceScore,
+      setLoading(true);
+      if (editingTimeslot) {
+        await updateTimeslot(editingTimeslot._id, formData);
+        toast.success("Success", {
+          description: "Timeslot updated successfully",
         });
       } else {
-        // Add new timeslot
-        await addTimeslot({
-          day: form.day,
-          startTime: form.startTime,
-          endTime: form.endTime,
-          preferenceScore: form.preferenceScore,
+        await addTimeslot(formData);
+        toast.success("Success", {
+          description: "Timeslot added successfully",
         });
       }
-      setForm({
-        id: null,
-        day: "Monday",
-        startTime: "08:00",
-        endTime: "09:00",
-        preferenceScore: 10,
+      handleCloseDialog();
+      loadTimeslots();
+    } catch (error) {
+      toast.error("Operation Failed", {
+        description: error.response?.data?.error || "Failed to save timeslot",
       });
-      fetchTimeslotsData();
-      setError(null);
-    } catch (err) {
-      setError(
-        form.id ? "Failed to update timeslot" : "Failed to add timeslot"
-      );
+      console.error("Error saving timeslot:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleEdit = (timeslot) => {
-    setForm({
-      id: timeslot._id,
+    setEditingTimeslot(timeslot);
+    setFormData({
       day: timeslot.day,
       startTime: timeslot.startTime,
       endTime: timeslot.endTime,
-      preferenceScore: timeslot.preferenceScore,
+      preferenceScore: timeslot.preferenceScore || 10,
     });
+    setOpenDialog(true);
   };
 
   const handleDelete = async (id) => {
-    try {
-      await deleteTimeslot(id);
-      fetchTimeslotsData();
-      setError(null);
-    } catch (err) {
-      setError("Failed to delete timeslot");
-    }
+    toast.promise(
+      async () => {
+        setLoading(true);
+        await deleteTimeslot(id);
+        await loadTimeslots();
+        setLoading(false);
+      },
+      {
+        loading: "Deleting timeslot...",
+        success: "Timeslot deleted successfully",
+        error: "Failed to delete timeslot",
+      }
+    );
+  };
+
+  const handleOpenDialog = () => {
+    setEditingTimeslot(null);
+    setFormData({
+      day: "",
+      startTime: "",
+      endTime: "",
+      preferenceScore: 10,
+    });
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingTimeslot(null);
+    setFormData({
+      day: "",
+      startTime: "",
+      endTime: "",
+      preferenceScore: 10,
+    });
   };
 
   return (
-    <div className="p-4">
-      {/* Timeslot Form */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <h2 className="text-xl font-semibold mb-2">
-          {form.id ? "Edit Timeslot" : "Add Timeslot"}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Day</label>
-            <select
-              name="day"
-              value={form.day}
-              onChange={handleInputChange}
-              className="mt-1 block w-full border rounded p-2"
-            >
-              {[
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-              ].map((day) => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              Start Time (HH:MM)
-            </label>
-            <input
-              type="text"
-              name="startTime"
-              value={form.startTime}
-              onChange={handleInputChange}
-              placeholder="08:00"
-              pattern="[0-2][0-9]:[0-5][0-9]"
-              className="mt-1 block w-full border rounded p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              End Time (HH:MM)
-            </label>
-            <input
-              type="text"
-              name="endTime"
-              value={form.endTime}
-              onChange={handleInputChange}
-              placeholder="09:00"
-              pattern="[0-2][0-9]:[0-5][0-9]"
-              className="mt-1 block w-full border rounded p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">
-              Preference Score
-            </label>
-            <input
-              type="number"
-              name="preferenceScore"
-              value={form.preferenceScore}
-              onChange={handleInputChange}
-              min="0"
-              className="mt-1 block w-full border rounded p-2"
-            />
-          </div>
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            {form.id ? "Update" : "Add"} Timeslot
-          </button>
-          {form.id && (
-            <button
-              type="button"
-              onClick={() =>
-                setForm({
-                  id: null,
-                  day: "Monday",
-                  startTime: "08:00",
-                  endTime: "09:00",
-                  preferenceScore: 10,
-                })
-              }
-              className="ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-          )}
-        </form>
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Timeslot Manager</h1>
+        <Button onClick={handleOpenDialog} disabled={loading}>
+          Add New Timeslot
+        </Button>
       </div>
 
-      {/* Timeslot Table */}
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="text-xl font-semibold mb-2">Timeslots</h2>
-        {error && <p className="text-red-500 mb-2">{error}</p>}
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Day</th>
-              <th className="border p-2">Start Time</th>
-              <th className="border p-2">End Time</th>
-              <th className="border p-2">Preference Score</th>
-              <th className="border p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Day</TableHead>
+              <TableHead>Start Time</TableHead>
+              <TableHead>End Time</TableHead>
+              <TableHead>Preference Score</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {timeslots.map((timeslot) => (
-              <tr key={timeslot._id} className="hover:bg-gray-100">
-                <td className="border p-2">{timeslot.day}</td>
-                <td className="border p-2">{timeslot.startTime}</td>
-                <td className="border p-2">{timeslot.endTime}</td>
-                <td className="border p-2">{timeslot.preferenceScore}</td>
-                <td className="border p-2">
-                  <button
-                    onClick={() => handleEdit(timeslot)}
-                    className="bg-yellow-500 text-white px-2 py-1 rounded mr-2 hover:bg-yellow-600"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(timeslot._id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
+              <TableRow key={timeslot._id}>
+                <TableCell>{timeslot.day}</TableCell>
+                <TableCell>{formatTime(timeslot.startTime)}</TableCell>
+                <TableCell>{formatTime(timeslot.endTime)}</TableCell>
+                <TableCell>{timeslot.preferenceScore}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(timeslot)}
+                      disabled={loading}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(timeslot._id)}
+                      disabled={loading}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
+
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingTimeslot ? "Edit Timeslot" : "Add New Timeslot"}
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the details for the timeslot. Use 24-hour format.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Day</label>
+                <Select
+                  value={formData.day}
+                  onValueChange={(value) => handleInputChange("day", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {days.map((day) => (
+                      <SelectItem key={day} value={day}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Time (24h)</label>
+                  <Input
+                    type="time"
+                    value={formatTime(formData.startTime)}
+                    onChange={(e) =>
+                      handleInputChange("startTime", e.target.value)
+                    }
+                    required
+                    step="1800"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Time (24h)</label>
+                  <Input
+                    type="time"
+                    value={formatTime(formData.endTime)}
+                    onChange={(e) => handleInputChange("endTime", e.target.value)}
+                    required
+                    step="1800"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Preference Score</label>
+                <Input
+                  type="number"
+                  value={formData.preferenceScore}
+                  onChange={(e) =>
+                    handleInputChange("preferenceScore", e.target.value)
+                  }
+                  min="0"
+                  max="10"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseDialog}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {editingTimeslot ? "Update" : "Add"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

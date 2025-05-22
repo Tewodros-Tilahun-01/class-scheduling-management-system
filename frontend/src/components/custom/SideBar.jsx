@@ -5,13 +5,12 @@ import {
   Home,
   Book,
   DoorOpen,
-  HelpCircle,
-  LogOut,
   BookAIcon,
   SquareChevronDown,
   Group,
   User,
   ChevronDown,
+  Clock2Icon,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";
@@ -60,6 +59,11 @@ function SideBar({ className }) {
       link: "/activity",
       text: "Activity",
       icon: <SquareChevronDown size={24} />,
+    },
+    {
+      link: "/timeslot-manager",
+      text: "Timeslot Manager",
+      icon: <Clock2Icon size={24} />,
     },
   ];
   const filteredMenus = menus.filter((menu) => {
