@@ -32,6 +32,7 @@ import {
 } from "@/services/UserService";
 import { Dialog } from "@headlessui/react";
 import { useLocation, useNavigate } from "react-router-dom";
+import CopyInstallCommand from "./CopyInstall";
 
 export default function RepresentativeList({
   representatives: initialRepresentatives = [],
@@ -42,11 +43,9 @@ export default function RepresentativeList({
   const [columnVisibility, setColumnVisibility] = useState({});
   const [rowSelection, setRowSelection] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteRowId, setDeleteRowId] = useState(null);
-  const [editRowId, setEditRowId] = useState(null);
-  const [newRow, setNewRow] = useState({ name: "", year: "", department: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerateLinkModalOpen, setIsGenerateLinkModalOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -220,7 +219,7 @@ export default function RepresentativeList({
                   Remove
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => handleGenerateLink(rowData._id)}
+                  onClick={() => setIsGenerateLinkModalOpen(true)}
                 >
                   Generate Link
                 </DropdownMenuItem>
@@ -253,6 +252,12 @@ export default function RepresentativeList({
 
   return (
     <div className="container mx-auto p-6">
+      <Dialog
+        open={isGenerateLinkModalOpen}
+        onClose={() => setIsGenerateLinkModalOpen(false)}
+      >
+        <CopyInstallCommand />
+      </Dialog>
       <Dialog open={isModalOpen} onClose={handleDeleteModalClose}>
         <div className="fixed inset-0 bg-black/30" />
         <div className="fixed inset-0 flex items-center justify-center">
