@@ -3,7 +3,6 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const routes = require("./routes");
 const cookieParser = require("cookie-parser");
-
 const app = express();
 
 // Connect to the database

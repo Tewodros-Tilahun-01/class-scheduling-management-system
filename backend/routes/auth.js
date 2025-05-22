@@ -8,7 +8,7 @@ const JWT_SECRET = "your-secret-key";
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  // console.log(username, password);
+
   if (!username || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
