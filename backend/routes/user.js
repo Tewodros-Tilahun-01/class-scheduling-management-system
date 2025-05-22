@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const { default: mongoose } = require("mongoose");
 const PersonalInformation = require("../models/PersonalInformation");
 const Representative = require("../models/Representative");
 const User = require("../models/User");
@@ -78,25 +79,25 @@ router.delete("/:id", async (req, res) => {
   }
 });
 router.put("/changepassword/:id", async (req, res) => {
-  const { password, newPassword } = req.body;
+  const { current, new: newPassword } = req.body;
   const { id } = req.params;
   try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if the old password matches
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(current, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Incorrect password" });
     }
 
-    // Hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update the user's password
     user.password = hashedPassword;
     await user.save();
 
