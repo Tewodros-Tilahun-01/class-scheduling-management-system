@@ -24,7 +24,7 @@ const ProfileHeader = ({
           className="border-2 border-white shadow-md"
         />
         <button
-          onClick={onAvatarChange}
+          onClick={onAvatarChange} // Hash the new password
           className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
           aria-label="Change profile picture"
         >
@@ -35,12 +35,13 @@ const ProfileHeader = ({
       <div className="flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <h2 className="text-xl font-bold text-gray-900">{name}</h2>
+          <Badge variant="secondary" className="w-fit">
+            {role}
+          </Badge>
         </div>
 
-        {role && (
-          <p className="text-sm font-medium text-gray-500 mt-1 capitalize">
-            {role}
-          </p>
+        {department && (
+          <p className="text-sm font-medium text-gray-500 mt-1">{department}</p>
         )}
 
         <div className="mt-3 flex flex-col sm:flex-row gap-3 sm:gap-6 text-sm text-gray-500">

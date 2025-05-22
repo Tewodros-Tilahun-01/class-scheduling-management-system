@@ -20,6 +20,7 @@ const SecuritySection = () => {
     new: "",
     confirm: "",
   });
+  const [error, setError] = React.useState("");
 
   const togglePasswordVisibility = (field) => {
     switch (field) {
@@ -35,6 +36,14 @@ const SecuritySection = () => {
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password.new !== password.confirm || password.new.length < 6) {
+      alert("Passwords do not match or are too short");
+      return;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -42,7 +51,7 @@ const SecuritySection = () => {
           <CardTitle>Change Password</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Current Password"
               type={showPassword ? "text" : "password"}
