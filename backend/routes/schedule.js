@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { generateSchedule } = require("../services/scheduler");
+const {
+  generateSchedule,
+  rescheduleSelectedActivities,
+} = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
 const Timeslot = require("../models/Timeslot"); // Add this import at the top if not present
 const mongoose = require("mongoose");
@@ -21,11 +24,12 @@ router.post("/generate", async (req, res) => {
     if (!semester) {
       return res.status(400).json({ error: "Semester is required" });
     }
-    if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+    console.log("user", req.user);
+    if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
 
-    const schedules = await generateSchedule(semester, req.user._id.toString());
+    const schedules = await generateSchedule(semester, req.user.id.toString());
     if (!schedules || Object.keys(schedules).length === 0) {
       return res.status(404).json({
         error:
@@ -60,10 +64,10 @@ router.get("/", async (req, res) => {
     const query = {};
     if (semester) query.semester = semester;
     if (own === "true") {
-      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+      if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
       }
-      query.createdBy = req.user._id;
+      query.createdBy = req.user.id;
     }
 
     const schedules = await Schedule.find(query)
@@ -117,10 +121,10 @@ router.get("/:semester", async (req, res) => {
     const { own } = req.query;
     const query = { semester: decodeURIComponent(semester) };
     if (own === "true") {
-      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+      if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
       }
-      query.createdBy = req.user._id;
+      query.createdBy = req.user.id;
     }
 
     const schedules = await Schedule.find(query)
@@ -182,10 +186,10 @@ router.get("/group/:studentGroupId", async (req, res) => {
     const query = { studentGroup: studentGroupId };
     if (semester) query.semester = semester;
     if (own === "true") {
-      if (!req.user?._id || !mongoose.Types.ObjectId.isValid(req.user._id)) {
+      if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
         return res.status(401).json({ error: "Valid user ID is required" });
       }
-      query.createdBy = req.user._id;
+      query.createdBy = req.user.id;
     }
 
     const schedules = await Schedule.find(query)
@@ -569,6 +573,52 @@ router.get("/:semester/export", async (req, res) => {
     res
       .status(500)
       .json({ error: `Failed to export schedule: ${error.message}` });
+  }
+});
+
+router.post("/reschedule", async (req, res) => {
+  try {
+    const { semester, activityIds } = req.body;
+  
+    if (!semester || !Array.isArray(activityIds) || activityIds.length === 0) {
+      return res.status(400).json({
+        error: "Semester and non-empty array of activity IDs are required",
+      });
+    }
+
+    // Validate that all activityIds are valid MongoDB ObjectIds
+    const invalidIds = activityIds.filter(
+      (id) => !mongoose.Types.ObjectId.isValid(id)
+    );
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        error: `Invalid activity IDs: ${invalidIds.join(", ")}`,
+      });
+    }
+
+    if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
+      return res.status(401).json({ error: "Valid user ID is required" });
+    }
+
+    const schedules = await rescheduleSelectedActivities(
+      semester,
+      activityIds,
+      req.user.id.toString()
+    );
+
+    if (!schedules || Object.keys(schedules).length === 0) {
+      return res.status(404).json({
+        error:
+          "No schedules generated. Ensure activities exist and are valid for rescheduling.",
+      });
+    }
+
+    res.json(schedules);
+  } catch (err) {
+    console.error("Error rescheduling activities:", err);
+    res.status(500).json({
+      error: err.message || "Failed to reschedule activities",
+    });
   }
 });
 

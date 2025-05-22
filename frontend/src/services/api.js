@@ -4,7 +4,6 @@ const api = axios.create({
   baseURL: "http://localhost:5000/api",
   headers: { "Content-Type": "application/json" },
   withCredentials: true, // Add this
-  timeout: 8000, // And this
 });
 
 // Existing API functions (schedules, semesters, courses, etc.) remain unchanged

@@ -21,7 +21,7 @@ router.post("/", async (req, res) => {
       startTime,
       endTime,
       preferenceScore: preferenceScore || 10,
-      createdBy: req.user._id,
+      createdBy: req.user.id,
     });
     await timeslot.save();
     res.status(201).json(timeslot);
@@ -36,7 +36,7 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { day, startTime, endTime, preferenceScore } = req.body;
     const timeslot = await Timeslot.findOneAndUpdate(
-      { _id: id, createdBy: req.user._id },
+      { _id: id, createdBy: req.user.id },
       { day, startTime, endTime, preferenceScore },
       { new: true, runValidators: true }
     );
@@ -55,7 +55,7 @@ router.delete("/:id", async (req, res) => {
     const { id } = req.params;
     const timeslot = await Timeslot.findOneAndDelete({
       _id: id,
-      createdBy: req.user._id,
+      createdBy: req.user.id,
     });
     if (!timeslot) {
       return res.status(404).json({ error: "Timeslot not found" });

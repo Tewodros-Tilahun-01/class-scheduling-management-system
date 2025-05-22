@@ -55,7 +55,7 @@ router.post("/", async (req, res) => {
       roomRequirement,
       totalDuration,
       split,
-      createdBy: req.user._id,
+      createdBy: req.user.id,
     });
 
     await activity.save();

@@ -121,15 +121,22 @@ async function isValidAssignmentSingleTimeslot(
     ) {
       return false;
     }
+    
+    // Check lecturer conflicts with proper null checks
+    const entryLectureId = entry.activityData.lecture?._id?.toString();
+    const activityLectureId = activity.lecture?._id?.toString();
     if (
-      entry.activityData.lecture._id.toString() ===
-        activity.lecture._id.toString() &&
+      entryLectureId &&
+      activityLectureId &&
+      entryLectureId === activityLectureId &&
       entry.reservedTimeslots.some(
         (tsId) => tsId.toString() === timeslot._id.toString()
       )
     ) {
       return false;
     }
+
+    // Check student group conflicts
     if (
       activity.studentGroup?._id &&
       entry.activityData.studentGroup?._id &&
@@ -809,19 +816,40 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
     semester,
     activity: { $nin: activityIds },
     isDeleted: false,
-  }).lean();
+  })
+    .populate({
+      path: "activity",
+      populate: [
+        { path: "course" },
+        { path: "lecture" },
+        { path: "studentGroup" },
+      ],
+    })
+    .lean();
 
-  // Fetch activities to be rescheduled
+  // Fetch activities to be rescheduled with proper population
   const activitiesToReschedule = await Activity.find({
     _id: { $in: activityIds },
     semester,
     isDeleted: false,
   })
-    .populate("course lecture studentGroup")
+    .populate("course")
+    .populate("lecture")
+    .populate("studentGroup")
     .lean();
 
-  if (activitiesToReschedule.length === 0) {
+  if (!activitiesToReschedule.length) {
     throw new Error("No valid activities found for rescheduling");
+  }
+
+  // Validate that all activities have required fields
+  for (const activity of activitiesToReschedule) {
+    if (!activity.lecture?._id) {
+      throw new Error(`Activity ${activity._id} is missing lecture information`);
+    }
+    if (!activity.studentGroup?._id) {
+      throw new Error(`Activity ${activity._id} is missing student group information`);
+    }
   }
 
   // Expand activities into sessions (similar to generateSchedule)
