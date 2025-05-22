@@ -5,7 +5,7 @@ const Button = React.forwardRef(
   (
     {
       className,
-      variant = "primary",
+      variant = "secondary",
       size = "md",
       isLoading = false,
       leftIcon,

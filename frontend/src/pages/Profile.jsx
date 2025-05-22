@@ -12,6 +12,7 @@ import {
   updateUser,
 } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
+import NotificationsSection from "@/components/custom/profile/NotificationSection";
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -177,7 +178,8 @@ const ProfilePage = () => {
           </TabContent>
 
           <TabContent value="activity">
-            <ActivitySection activities={recentActivities} />
+            {/* <ActivitySection activities={recentActivities} /> */}
+            <NotificationsSection />
           </TabContent>
         </div>
       </ProfileLayout>

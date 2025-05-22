@@ -143,7 +143,7 @@ const SecuritySection = () => {
           </form>
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button onClick={handleSubmit}>
+          <Button isLoading={loading} onClick={handleSubmit}>
             {loading ? "Updating" : "Update Password"}
           </Button>
         </CardFooter>
