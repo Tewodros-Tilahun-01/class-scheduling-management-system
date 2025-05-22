@@ -67,9 +67,10 @@ const ActivityList = ({
     );
 
     return (
-      <TableRow key={index}>
-        <TableCell>
-          {course ? `${course.courseCode} - ${course.name}` : "N/A"}
+      <div>
+        <TableRow key={index}>
+          <TableCell>
+            {course ? `${course.courseCode} - ${course.name}` : "N/A"}
         </TableCell>
         <TableCell>{lecture ? lecture.name : "N/A"}</TableCell>
         <TableCell>
@@ -114,8 +115,9 @@ const ActivityList = ({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </TableCell>
-      </TableRow>
+          </TableCell>
+        </TableRow>
+      </div>
     );
   };
 
@@ -400,7 +402,7 @@ const ActivityScheduler = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="container mx-auto  space-y-8 w-full px-8 py-6">
       {/* Semester Dropdown and Generate Button */}
       <Card>
         <CardHeader>

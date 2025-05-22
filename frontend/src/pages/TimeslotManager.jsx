@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Pencil, Trash2 } from "lucide-react";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 const TimeslotManager = () => {
   const [timeslots, setTimeslots] = useState([]);
@@ -193,7 +194,8 @@ const TimeslotManager = () => {
   };
 
   return (
-    <div className="container mx-auto py-10">
+    <DashboardLayout>
+    <div className="container  p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Timeslot Manager</h1>
         <Button onClick={handleOpenDialog} disabled={loading}>
@@ -332,6 +334,7 @@ const TimeslotManager = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </DashboardLayout>
   );
 };
 

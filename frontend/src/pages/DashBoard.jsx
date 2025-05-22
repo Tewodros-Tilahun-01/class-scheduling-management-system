@@ -29,7 +29,7 @@ function DashBoard() {
 
   return (
     <DashboardLayout>
-      <div className="px-14">
+      <div className="p-8 w-full">
         <ul className="w-full bg-white flex gap-6 px-4 py-6 rounded-md shadow-sm">
           {stats.map((state) => (
             <li key={state.label} className="flex-1">

@@ -6,7 +6,7 @@ import { Pencil } from "lucide-react";
 
 const ProfileLayout = ({ children }) => {
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen w-full p-8 ">
       <div className="max-w-5xl  px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
           title="Your Profile"

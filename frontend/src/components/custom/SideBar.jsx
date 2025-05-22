@@ -61,8 +61,8 @@ function SideBar({ className }) {
       icon: <SquareChevronDown size={24} />,
     },
     {
-      link: "/timeslot-manager",
-      text: "Timeslot Manager",
+      link: "/timeslotmanager",
+      text: "Timeslot",
       icon: <Clock2Icon size={24} />,
     },
   ];
@@ -85,13 +85,11 @@ function SideBar({ className }) {
 
     return true;
   });
-  const toggleProfilePanel = () => {
-    setIsProfileOpen(!isProfileOpen);
-  };
+ 
 
   return (
     <div className={clsx(className, "flex flex-col min-h-screen px-6")}>
-      <div className="">
+      <div className="sticky top-8">
         <h2 className="flex flex-row items-center justify-between gap-3 text-3xl px-2 py-2">
           <Bolt size={30} onClick={() => toggleMenu(!isOpen)} />
           <span

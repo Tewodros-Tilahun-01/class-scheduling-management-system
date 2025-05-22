@@ -94,8 +94,7 @@ const router = createBrowserRouter([
         <Users />
       </AppLayout>
     ),
-  },
-  {
+  }, {
     path: "TimeslotManager",
     element: (
       <AppLayout>
@@ -103,6 +102,7 @@ const router = createBrowserRouter([
       </AppLayout>
     ),
   },
+ 
   {
     path: "profile",
     element: (

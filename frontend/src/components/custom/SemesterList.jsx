@@ -45,7 +45,7 @@ const SemesterList = () => {
   }, []);
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container px-8">
       <Card>
         <CardHeader>
           <CardTitle>Available Semesters</CardTitle>
