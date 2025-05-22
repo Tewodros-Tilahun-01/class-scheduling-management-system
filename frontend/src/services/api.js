@@ -155,4 +155,21 @@ export const exportSchedule = async (semester) => {
   return response.data;
 };
 
+export const fetchTeacherSchedule = async (semester, teacherId) => {
+  const response = await api.get(
+    `/schedules/${encodeURIComponent(semester)}/teacher/${teacherId}`
+  );
+  return response.data;
+};
+
+export const fetchFreeRooms = async (semester, day, timeslot) => {
+  const response = await api.get(
+    `/schedules/${encodeURIComponent(semester)}/free-rooms`,
+    {
+      params: { day, timeslot },
+    }
+  );
+  return response.data;
+};
+
 export default api;

@@ -622,6 +622,70 @@ router.post("/reschedule", async (req, res) => {
   }
 });
 
+// Add new endpoint for teacher schedules
+router.get("/:semester/teacher/:teacherId", async (req, res) => {
+  try {
+    const { semester, teacherId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(teacherId)) {
+      return res.status(400).json({ error: "Invalid teacher ID" });
+    }
+
+    const schedules = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      "activity.lecture.teacher": teacherId,
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad teacher" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name capacity type department")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    if (schedules.length === 0) {
+      return res.status(404).json({
+        error: `No schedules found for teacher in semester: ${semester}`,
+      });
+    }
+
+    res.json(schedules);
+  } catch (err) {
+    console.error("Error fetching teacher schedules:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//  for free rooms
+router.get("/:semester/free-rooms", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { day, timeslot } = req.query;
+
+    // Get all rooms
+    const rooms = await mongoose.model("Room").find().lean();
+
+    // Get occupied rooms for the given day and timeslot
+    const occupiedRooms = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      "reservedTimeslots": timeslot,
+    }).distinct("room");
+
+    // Filter out occupied rooms
+    const freeRooms = rooms.filter(
+      (room) => !occupiedRooms.includes(room._id.toString())
+    );
+
+    res.json(freeRooms);
+  } catch (err) {
+    console.error("Error fetching free rooms:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);

@@ -4,9 +4,12 @@ import DashBoard from "../pages/DashBoard";
 import Lectures from "../pages/Lectures";
 import Course from "../pages/Course";
 import Activity from "../pages/Activity";
+import ActivityScheduler from "../components/custom/ActivityScheduler";
 import Room from "../pages/Room";
 import { StudentGroup } from "../pages/StudentGroup";
 import ScheduleTable from "../pages/ScheduleTable";
+import TeacherSchedule from "../pages/TeacherSchedule";
+import FreeRooms from "../pages/FreeRooms";
 import Login from "../pages/Login";
 import AppLayout from "@/layouts/AppLayout";
 import ManagerRips from "@/pages/ManagerRips";
@@ -72,6 +75,30 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "schedules/:semester/teachers",
+    element: (
+      <AppLayout>
+        <TeacherSchedule />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "schedules/:semester/free-rooms",
+    element: (
+      <AppLayout>
+        <FreeRooms />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "schedules/:semester/reschedule",
+    element: (
+      <AppLayout>
+        <ActivityScheduler />
+      </AppLayout>
+    ),
+  },
+  {
     path: "login",
     element: (
       <AppLayout>
@@ -94,15 +121,15 @@ const router = createBrowserRouter([
         <Users />
       </AppLayout>
     ),
-  }, {
+  },
+  {
     path: "TimeslotManager",
     element: (
       <AppLayout>
         <TimeslotManager />
       </AppLayout>
     ),
-  },
- 
+  }, 
   {
     path: "profile",
     element: (

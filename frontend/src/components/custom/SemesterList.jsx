@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { fetchSemesters } from "@/services/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const SemesterList = () => {
   const [semesters, setSemesters] = useState([]);
@@ -69,15 +77,45 @@ const SemesterList = () => {
               </svg>
             </div>
           ) : semesters.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {semesters.map((semester) => (
-                <Button key={semester} asChild className="w-full">
-                  <Link to={`/schedules/${encodeURIComponent(semester)}`}>
-                    {semester}
-                  </Link>
-                </Button>
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Semester</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {semesters.map((semester) => (
+                  <TableRow key={semester}>
+                    <TableCell className="font-medium">{semester}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-4">
+                        <Button asChild variant="link" size="sm">
+                          <Link to={`/schedules/${encodeURIComponent(semester)}`}>
+                            Student Groups
+                          </Link>
+                        </Button>
+                        <Button asChild variant="link" size="sm">
+                          <Link to={`/schedules/${encodeURIComponent(semester)}/teachers`}>
+                            Teachers
+                          </Link>
+                        </Button>
+                        <Button asChild variant="link" size="sm">
+                          <Link to={`/schedules/${encodeURIComponent(semester)}/reschedule`}>
+                            Reschedule
+                          </Link>
+                        </Button>
+                        <Button asChild variant="link" size="sm">
+                          <Link to={`/schedules/${encodeURIComponent(semester)}/free-rooms`}>
+                            Free Rooms
+                          </Link>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <p className="text-muted-foreground">No semesters available.</p>
           )}
