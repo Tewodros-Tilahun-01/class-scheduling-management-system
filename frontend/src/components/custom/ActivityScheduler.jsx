@@ -522,7 +522,7 @@ const ActivityScheduler = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="split">Number of Splits</Label>
+                <Label htmlFor="split">Hour of Split</Label>
                 <Input
                   type="number"
                   name="split"

@@ -12,7 +12,6 @@ import {
   Calendar,
   Languages,
 } from "lucide-react";
-import { set } from "react-hook-form";
 
 const UserInfoSection = ({
   contactInfo,

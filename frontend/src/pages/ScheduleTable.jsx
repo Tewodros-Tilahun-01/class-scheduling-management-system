@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchSchedules } from "@/services/api";
+import { fetchSchedules, fetchTimeslots, exportSchedule } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,67 +13,46 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { saveAs } from "file-saver";
 
 const ScheduleTable = () => {
   const { semester } = useParams();
   const decodedSemester = decodeURIComponent(semester);
   const [allSchedules, setAllSchedules] = useState(null);
+  const [timeslots, setTimeslots] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [timeslotsLoading, setTimeslotsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [timeslotsError, setTimeslotsError] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-
-  const timeSlots = [
-    "8:00-9:00",
-    "9:00-10:00",
-    "10:00-11:00",
-    "11:00-12:00",
-    "12:00-1:00",
-    "1:00-2:00",
-    "2:00-3:00",
-    "3:00-4:00",
-  ];
-
-  // Parse time to minutes since midnight, assuming 24-hour format
+  // Parse "HH:MM" to minutes
   const parseTime = (timeStr) => {
-    let [hours, minutes] = timeStr.split(":").map(Number);
-    return hours * 60 + minutes;
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return hours * 60 + (minutes || 0);
   };
 
-  // Find all activities that overlap with the fixed time slot on the given day
-  const findActivities = (entries, timeSlot, day) => {
-    if (!entries || !Array.isArray(entries)) return [];
-    const [slotStart, slotEnd] = timeSlot.split("-").map(parseTime);
-    const activities = entries.filter((entry) => {
-      if (
-        !entry ||
-        !entry.timeslot ||
-        !entry.timeslot.startTime ||
-        !entry.timeslot.endTime
-      ) {
-        console.warn("Invalid entry:", entry);
-        return false;
-      }
-      if (entry.timeslot.day !== day) return false;
-      const scheduleStart = parseTime(entry.timeslot.startTime);
-      const scheduleEnd = parseTime(entry.timeslot.endTime);
-      const overlaps = scheduleStart < slotEnd && scheduleEnd > slotStart;
-      if (!overlaps) {
-        console.debug(
-          `Entry ${entry._id} does not overlap: ${entry.timeslot.startTime}-${entry.timeslot.endTime} vs ${timeSlot} on ${day}`
-        );
-      }
-      return overlaps;
+  // Build a map for quick timeslot lookup by _id
+  const timeslotMap = React.useMemo(() => {
+    const map = {};
+    timeslots.forEach((ts) => {
+      map[ts._id?.toString()] = ts;
     });
-    return activities;
+    return map;
+  }, [timeslots]);
+
+  // Helper: get sorted reserved timeslots for an entry
+  const getSortedReservedTimeslots = (entry) => {
+    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
+      return [];
+    return [...entry.reservedTimeslots]
+      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
+      .filter(Boolean)
+      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
   };
+
+  // Find activities that overlap with a timeslot cell
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,43 +62,104 @@ const ScheduleTable = () => {
         const schedulesData = await fetchSchedules({
           semester: decodedSemester,
         });
-        if (
-          schedulesData &&
-          typeof schedulesData === "object" &&
-          Object.keys(schedulesData).length > 0
-        ) {
+        if (schedulesData && typeof schedulesData === "object") {
           setAllSchedules(schedulesData);
           toast.success("Schedules loaded successfully", {
             description: `Fetched schedules for ${decodedSemester}`,
           });
-          console.log("Fetched schedules:", schedulesData);
         } else {
           setAllSchedules(null);
           toast.error("No schedules found", {
             description: `No schedules available for ${decodedSemester}`,
           });
-          console.warn("No schedules returned for semester:", decodedSemester);
         }
       } catch (err) {
-        setError(
-          `Error fetching schedules: ${
-            err.response?.data?.error || err.message
-          }`
-        );
-        toast.error(err.response?.data?.error || "Failed to load schedules", {
+        setError(`Error fetching schedules: ${err.message}`);
+        toast.error("Failed to load schedules", {
           description: "Unable to fetch schedules from the server",
         });
-        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
+
+    const fetchTimeslotsData = async () => {
+      try {
+        setTimeslotsLoading(true);
+        setTimeslotsError(null);
+        const timeslotsData = await fetchTimeslots();
+        if (timeslotsData && Array.isArray(timeslotsData)) {
+          const filteredTimeslots = timeslotsData
+            .filter((ts) => !ts.isDeleted)
+            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+          setTimeslots(filteredTimeslots);
+          toast.success("Timeslots loaded successfully");
+        } else {
+          setTimeslots([]);
+          toast.error("No timeslots found");
+        }
+      } catch (err) {
+        setTimeslotsError(`Error fetching timeslots: ${err.message}`);
+        toast.error("Failed to load timeslots", {
+          description: "Unable to fetch timeslots from the server",
+        });
+      } finally {
+        setTimeslotsLoading(false);
+      }
+    };
+
     fetchData();
+    fetchTimeslotsData();
   }, [decodedSemester]);
 
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const data = await exportSchedule(decodedSemester);
+      const blob = new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      saveAs(blob, `Schedule_${decodedSemester.replace(/\s/g, "_")}.docx`);
+      toast.success("Schedule exported successfully", {
+        description: `Downloaded schedule for ${decodedSemester}`,
+      });
+    } catch (err) {
+      toast.error("Failed to export schedule", {
+        description: err.message,
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Build a 2D array: rows = timeslots for the day, columns = days
   const renderTimetable = (groupData) => {
     const studentGroup = groupData.studentGroup || {};
     const entries = Array.isArray(groupData.entries) ? groupData.entries : [];
+
+    // Get all unique days and all timeslots for each day
+    const uniqueDays = [...new Set(timeslots.map((ts) => ts.day))];
+    // For each day, get sorted timeslots
+    const dayTimeslots = {};
+    uniqueDays.forEach((day) => {
+      dayTimeslots[day] = timeslots
+        .filter((ts) => ts.day === day)
+        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+    });
+
+    // Build a lookup: for each [day][timeslotId], which entry (if any) starts here
+    const cellMap = {};
+    entries.forEach((entry) => {
+      const slots = getSortedReservedTimeslots(entry);
+      if (slots.length === 0) return;
+      const day = slots[0].day;
+      const firstSlotId = slots[0]._id.toString();
+      cellMap[`${day}-${firstSlotId}`] = { entry, span: slots.length };
+      // Mark all slots covered by this entry so we can skip them later
+      for (let i = 1; i < slots.length; i++) {
+        cellMap[`${day}-${slots[i]._id.toString()}`] = { skip: true };
+      }
+    });
 
     return (
       <Card key={studentGroup._id || "unknown"}>
@@ -132,48 +172,96 @@ const ScheduleTable = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <Table>
+          <Table className="border border-black ">
             <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                {days.map((day) => (
-                  <TableHead key={day}>{day}</TableHead>
+              <TableRow className="border border-black  ">
+                <TableHead className="border border-black ">Time</TableHead>
+                {uniqueDays.map((day) => (
+                  <TableHead key={day} className="border border-black ">
+                    {day}
+                  </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timeSlots.map((timeSlot) => (
-                <TableRow key={timeSlot}>
-                  <TableCell>{timeSlot}</TableCell>
-                  {days.map((day) => {
-                    const activities = findActivities(entries, timeSlot, day);
-                    return (
-                      <TableCell key={`${day}-${timeSlot}`}>
-                        {activities.length > 0 ? (
-                          <div className="space-y-2">
-                            {activities.map((entry, index) => (
-                              <div key={entry._id || index}>
-                                <div>
-                                  {entry.activity?.course
-                                    ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
-                                    : "Course N/A"}
-                                </div>
-                                <div>
-                                  lecture:{" "}
-                                  {entry.activity?.lecture?.name || "N/A"}
-                                </div>
-                                <div>Room: {entry.room?.name || "N/A"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+              {/* For each row (timeslot index) */}
+              {(() => {
+                // Find the max number of timeslots in any day
+                const maxRows = Math.max(
+                  ...uniqueDays.map((day) => dayTimeslots[day].length)
+                );
+                return Array.from({ length: maxRows }).map((_, rowIdx) => (
+                  <TableRow
+                    key={`row-${rowIdx}`}
+                    className="border border-black "
+                  >
+                    {/* Time column: show the time for the first day that has this row */}
+                    <TableCell className="border border-black ">
+                      {(() => {
+                        for (const day of uniqueDays) {
+                          if (dayTimeslots[day][rowIdx]) {
+                            const ts = dayTimeslots[day][rowIdx];
+                            return `${ts.startTime}-${ts.endTime}`;
+                          }
+                        }
+                        return "";
+                      })()}
+                    </TableCell>
+                    {/* For each day, render the cell */}
+                    {uniqueDays.map((day) => {
+                      const ts = dayTimeslots[day][rowIdx];
+                      if (!ts)
+                        return (
+                          <TableCell
+                            key={day}
+                            className="border border-black "
+                          />
+                        );
+                      const cellKey = `${day}-${ts._id.toString()}`;
+                      const cellInfo = cellMap[cellKey];
+                      if (cellInfo?.skip) return null;
+                      if (cellInfo?.entry) {
+                        const entry = cellInfo.entry;
+                        return (
+                          <TableCell
+                            key={day}
+                            rowSpan={cellInfo.span}
+                            className="border border-black "
+                          >
+                            <div>
+                              {entry.activity?.course
+                                ? `${entry.activity.course.courseCode} - ${entry.activity.course.name}`
+                                : "Course N/A"}
+                            </div>
+                            <div>{entry.activity?.lecture?.name || "N/A"}</div>
+                            <div>Room: {entry.room?.name || "N/A"}</div>
+                            <div>
+                              {entry.activity?.roomRequirement || "N/A"}
+                            </div>
+                            <div>
+                              Time:{" "}
+                              {(() => {
+                                const slots = getSortedReservedTimeslots(entry);
+                                return slots.length
+                                  ? `${slots[0].startTime} - ${
+                                      slots[slots.length - 1].endTime
+                                    }`
+                                  : "N/A";
+                              })()}
+                            </div>
+                          </TableCell>
+                        );
+                      }
+                      // No activity starts here
+                      return (
+                        <TableCell key={day} className="border border-black ">
+                          <span className=" flex justify-center">-</span>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ));
+              })()}
             </TableBody>
           </Table>
         </CardContent>
@@ -187,18 +275,40 @@ const ScheduleTable = () => {
         <CardHeader>
           <CardTitle>Schedules for {decodedSemester}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex space-x-4">
           <Button asChild variant="link">
             <Link to="/">Back to Semesters</Link>
+          </Button>
+          <Button
+            onClick={handleExport}
+            disabled={
+              exportLoading || !allSchedules || loading || timeslotsLoading
+            }
+            className="ml-auto"
+          >
+            {exportLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              "Export Schedule"
+            )}
           </Button>
         </CardContent>
       </Card>
 
-      {loading ? (
+      {loading || timeslotsLoading ? (
         <div className="flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      ) : allSchedules ? (
+      ) : error || timeslotsError ? (
+        <Card>
+          <CardContent>
+            <p className="text-destructive">{error || timeslotsError}</p>
+          </CardContent>
+        </Card>
+      ) : allSchedules && timeslots.length > 0 ? (
         Object.values(allSchedules).length > 0 ? (
           Object.values(allSchedules)
             .filter(
@@ -218,7 +328,7 @@ const ScheduleTable = () => {
         <Card>
           <CardContent>
             <p className="text-muted-foreground">
-              Failed to load schedules for {decodedSemester}.
+              Failed to load schedules or timeslots for {decodedSemester}.
             </p>
           </CardContent>
         </Card>
