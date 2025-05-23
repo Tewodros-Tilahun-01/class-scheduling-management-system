@@ -155,11 +155,35 @@ export const exportSchedule = async (semester) => {
   return response.data;
 };
 
-export const fetchSingleLectureSchedule = async (semester, lectureId) => {
-  const response = await api.get(
-    `/schedules/${encodeURIComponent(semester)}/lecture/${lectureId}`
-  );
-  return response.data;
+export const exportLectureSchedule = async (semester, lectureId) => {
+  if (!semester || !lectureId) {
+    throw new Error("Semester and lecture ID are required");
+  }
+
+  try {
+    const response = await api.get(
+      `/schedules/${encodeURIComponent(semester)}/lecture/${lectureId}/export`,
+      {
+        responseType: "blob",
+        headers: {
+          Accept:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.error || "Export failed");
+      } catch (e) {
+        throw new Error("Failed to export schedule");
+      }
+    }
+    throw error;
+  }
 };
 
 export const fetchFreeRooms = async (semester, day, timeslot) => {
@@ -177,6 +201,23 @@ export const fetchAllLectureSchedules = async (semester) => {
     `/schedules/${encodeURIComponent(semester)}/lectures/all`
   );
   return response.data;
+};
+
+export const searchLecturesByName = async (semester, name) => {
+  try {
+    const response = await api.get(
+      `/schedules/${encodeURIComponent(semester)}/lectures/search`,
+      { params: { name } }
+    );
+    return response.data;
+  } catch (error) {
+    // If the error has a response with data, use that error message
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    // Otherwise, throw the original error
+    throw error;
+  }
 };
 
 export default api;

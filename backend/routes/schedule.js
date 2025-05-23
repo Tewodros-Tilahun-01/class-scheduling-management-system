@@ -5,7 +5,9 @@ const {
   rescheduleSelectedActivities,
 } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
-const Timeslot = require("../models/Timeslot"); // Add this import at the top if not present
+const Timeslot = require("../models/Timeslot");
+const Lecture = require("../models/Lectures");
+const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
 const {
   Document,
@@ -24,7 +26,7 @@ router.post("/generate", async (req, res) => {
     if (!semester) {
       return res.status(400).json({ error: "Semester is required" });
     }
-    console.log("user", req.user);
+
     if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
@@ -622,49 +624,6 @@ router.post("/reschedule", async (req, res) => {
   }
 });
 
-// Add new endpoint for teacher schedules
-router.get("/:semester/lecture/:lectureId", async (req, res) => {
-  try {
-    const { semester, lectureId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(lectureId)) {
-      return res.status(400).json({ error: "Invalid lecture ID" });
-    }
-
-    const schedules = await Schedule.find({
-      semester: decodeURIComponent(semester),
-      "activity.lecture": lectureId,
-      isDeleted: false,
-    })
-      .populate({
-        path: "activity",
-        populate: [
-          { path: "course", select: "courseCode name" },
-          { path: "lecture", select: "name maxLoad isDeleted" },
-          { path: "studentGroup", select: "department year section" },
-        ],
-      })
-      .populate("room", "name capacity type department")
-      .populate("reservedTimeslots", "day startTime endTime duration")
-      .lean();
-
-    // Filter out schedules with deleted lectures
-    const filteredSchedules = schedules.filter(
-      (schedule) => !schedule.activity?.lecture?.isDeleted
-    );
-
-    if (schedules.length === 0) {
-      return res.status(404).json({
-        error: `No schedules found for lecture in semester: ${semester}`,
-      });
-    }
-
-    res.json(schedules);
-  } catch (err) {
-    console.error("Error fetching lecture schedules:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 //  for free rooms
 router.get("/:semester/free-rooms", async (req, res) => {
   try {
@@ -743,9 +702,450 @@ router.get("/:semester/lectures/all", async (req, res) => {
   }
 });
 
+router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
+  try {
+    const { semester, lectureId } = req.params;
+    if (!semester || !lectureId) {
+      return res
+        .status(400)
+        .json({ error: "Semester and lecture ID are required" });
+    }
+
+    const decodedSemester = decodeURIComponent(semester);
+
+    const schedules = await Schedule.find({
+      semester: decodedSemester,
+      "activity.lecture": lectureId,
+      isDeleted: false,
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad isDeleted" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    if (!schedules.length) {
+      return res.status(404).json({
+        error: `No schedules found for lecture in ${decodedSemester}`,
+      });
+    }
+
+    // Sort schedules by day and time
+    const dayOrder = {
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+      Sunday: 7,
+    };
+
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const getEarliestTime = (schedule) => {
+      if (
+        !schedule.reservedTimeslots ||
+        schedule.reservedTimeslots.length === 0
+      ) {
+        return Infinity;
+      }
+      return Math.min(
+        ...schedule.reservedTimeslots.map((ts) => timeToMinutes(ts.startTime))
+      );
+    };
+
+    const sortedSchedules = [...schedules].sort((a, b) => {
+      // First sort by day
+      const dayA = a.reservedTimeslots[0]?.day;
+      const dayB = b.reservedTimeslots[0]?.day;
+      const dayDiff = (dayOrder[dayA] || 0) - (dayOrder[dayB] || 0);
+
+      if (dayDiff !== 0) return dayDiff;
+
+      // Then sort by time
+      return getEarliestTime(a) - getEarliestTime(b);
+    });
+
+    // Get all unique days from the Timeslot collection
+    let days = await Timeslot.distinct("day");
+
+    // Sort days in the desired order
+    const dayOrderArray = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    days = dayOrderArray.filter((d) => days.includes(d));
+
+    // For each day, get sorted unique timeslots from the Timeslot collection
+    const allTimeslots = await Timeslot.find({ day: { $in: days } }).lean();
+    const dayTimeslots = {};
+    days.forEach((day) => {
+      dayTimeslots[day] = allTimeslots
+        .filter((ts) => ts.day === day)
+        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
+        .filter(
+          (ts, idx, arr) =>
+            arr.findIndex(
+              (t) =>
+                t.startTime === ts.startTime &&
+                t.endTime === ts.endTime &&
+                t.day === ts.day
+            ) === idx
+        );
+    });
+
+    // Build the Word document
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Lecture Schedule for ${decodedSemester}`,
+                  bold: true,
+                  size: 28,
+                }),
+              ],
+              spacing: { after: 400 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Lecture: ${sortedSchedules[0].activity.lecture.name}`,
+                  bold: true,
+                  size: 24,
+                }),
+              ],
+              spacing: { after: 200 },
+            }),
+            // Build the table with sorted schedules
+            (() => {
+              // Find the max number of timeslots in any day
+              const maxRows = Math.max(
+                ...days.map((day) => dayTimeslots[day].length)
+              );
+
+              // Example margin object for padding (all sides)
+              const cellMargin = {
+                top: 200,
+                bottom: 200,
+                left: 170,
+                right: 170,
+              };
+
+              const numDays = days.length;
+              const timeColWidth = 20; // percent
+              const dayColWidth = Math.floor((100 - timeColWidth) / numDays); // percent
+
+              // Build a cellMap for rowSpan logic
+              const cellMap = {};
+              sortedSchedules.forEach((entry) => {
+                const slots = [...(entry.reservedTimeslots || [])].sort(
+                  (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
+                );
+                if (slots.length === 0) return;
+                const day = slots[0].day;
+                const firstSlotId = slots[0]._id.toString();
+                cellMap[`${day}-${firstSlotId}`] = {
+                  entry,
+                  span: slots.length,
+                };
+                for (let i = 1; i < slots.length; i++) {
+                  cellMap[`${day}-${slots[i]._id.toString()}`] = {
+                    skip: true,
+                  };
+                }
+              });
+
+              // Build the table rows
+              const tableRows = [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [new Paragraph("Time")],
+                      margins: cellMargin,
+                      width: {
+                        size: timeColWidth,
+                        type: WidthType.PERCENTAGE,
+                      },
+                    }),
+                    ...days.map(
+                      (day) =>
+                        new TableCell({
+                          children: [new Paragraph(day)],
+                          margins: cellMargin,
+                          width: {
+                            size: dayColWidth,
+                            type: WidthType.PERCENTAGE,
+                          },
+                        })
+                    ),
+                  ],
+                }),
+                ...Array.from({ length: maxRows }).map((_, rowIdx) => {
+                  return new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [
+                          (() => {
+                            for (const day of days) {
+                              if (dayTimeslots[day][rowIdx]) {
+                                const ts = dayTimeslots[day][rowIdx];
+                                return new Paragraph(
+                                  `${ts.startTime}-${ts.endTime}`
+                                );
+                              }
+                            }
+                            return new Paragraph("");
+                          })(),
+                        ],
+                        margins: cellMargin,
+                        width: {
+                          size: timeColWidth,
+                          type: WidthType.PERCENTAGE,
+                        },
+                      }),
+                      ...days.map((day) => {
+                        const ts = dayTimeslots[day][rowIdx];
+                        if (!ts)
+                          return new TableCell({
+                            children: [new Paragraph("")],
+                            margins: cellMargin,
+                            width: {
+                              size: dayColWidth,
+                              type: WidthType.PERCENTAGE,
+                            },
+                          });
+                        const cellKey = `${day}-${ts._id.toString()}`;
+                        const cellInfo = cellMap[cellKey];
+                        if (cellInfo?.skip) return null;
+                        if (cellInfo?.entry) {
+                          const entry = cellInfo.entry;
+                          const slots = [
+                            ...(entry.reservedTimeslots || []),
+                          ].sort(
+                            (a, b) =>
+                              parseTime(a.startTime) - parseTime(b.startTime)
+                          );
+                          return new TableCell({
+                            rowSpan: cellInfo.span,
+                            children: [
+                              new Paragraph(
+                                `${
+                                  entry.activity?.course?.courseCode || "N/A"
+                                }\n${entry.room?.name || "N/A"}\n${
+                                  entry.activity?.studentGroup?.department ||
+                                  "N/A"
+                                } Year ${
+                                  entry.activity?.studentGroup?.year || "N/A"
+                                } Section ${
+                                  entry.activity?.studentGroup?.section || "N/A"
+                                }\n${getScheduleTimeRange(entry)}`
+                              ),
+                            ],
+                            margins: cellMargin,
+                            width: {
+                              size: dayColWidth,
+                              type: WidthType.PERCENTAGE,
+                            },
+                          });
+                        }
+                        // No activity starts here: show a black dash
+                        return new TableCell({
+                          children: [
+                            new Paragraph({
+                              children: [
+                                new TextRun({
+                                  text: "-",
+                                  color: "000000",
+                                }),
+                              ],
+                            }),
+                          ],
+                          margins: cellMargin,
+                          width: {
+                            size: dayColWidth,
+                            type: WidthType.PERCENTAGE,
+                          },
+                        });
+                      }),
+                    ].filter(Boolean), // Remove nulls (skipped cells)
+                  });
+                }),
+              ];
+
+              // Add visible borders to the table
+              return new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                  top: { style: "single", size: 2, color: "000000" },
+                  bottom: { style: "single", size: 2, color: "000000" },
+                  left: { style: "single", size: 2, color: "000000" },
+                  right: { style: "single", size: 2, color: "000000" },
+                  insideHorizontal: {
+                    style: "single",
+                    size: 2,
+                    color: "000000",
+                  },
+                  insideVertical: {
+                    style: "single",
+                    size: 2,
+                    color: "000000",
+                  },
+                },
+                rows: tableRows,
+              });
+            })(),
+          ],
+        },
+      ],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+
+    // Set proper headers for the Word document
+    res.set({
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename=Schedule_${decodedSemester.replace(
+        /\s/g,
+        "_"
+      )}_${sortedSchedules[0].activity.lecture.name.replace(/\s/g, "_")}.docx`,
+      "Content-Length": buffer.length,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      Expires: "0",
+    });
+
+    return res.send(buffer);
+  } catch (error) {
+    console.error("Error exporting lecture schedule:", error);
+    return res.status(500).json({
+      error: `Failed to export lecture schedule: ${error.message}`,
+      details: error.stack,
+    });
+  }
+});
+
+// Add this new endpoint before the export endpoint
+router.get("/:semester/lectures/search", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { name } = req.query;
+    const decodedSemester = decodeURIComponent(semester);
+
+    if (!name) {
+      return res.status(400).json({ error: "Name parameter is required" });
+    }
+
+    const trimmedName = name.trim(); // Remove leading/trailing whitespace
+
+    const lectures = await Lecture.find({
+      name: { $regex: trimmedName, $options: "i" },
+      isDeleted: false,
+    }).lean();
+
+    if (!lectures || lectures.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No lectures found matching the name" });
+    }
+
+    // Find activities for these lectures
+    const activities = await Activity.find({
+      lecture: { $in: lectures.map((l) => l._id) },
+      isDeleted: false,
+    }).lean();
+
+    if (!activities || activities.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No activities found for these lectures" });
+    }
+
+    // Find schedules with case-insensitive semester matching
+    const schedules = await Schedule.find({
+      semester: { $regex: `^${decodedSemester}$`, $options: "i" }, // Case-insensitive semester match
+      activity: { $in: activities.map((a) => a._id) },
+      isDeleted: false,
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    // Group schedules by lecture
+    const lectureSchedules = schedules.reduce((acc, schedule) => {
+      const lectureId = schedule.activity?.lecture?._id?.toString();
+      const lecture = schedule.activity?.lecture;
+
+      if (lectureId && lecture && !lecture.isDeleted) {
+        if (!acc[lectureId]) {
+          acc[lectureId] = {
+            name: lecture.name,
+            maxLoad: lecture.maxLoad,
+            schedules: [],
+          };
+        }
+        acc[lectureId].schedules.push(schedule);
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(lectureSchedules).length === 0) {
+      return res.status(404).json({
+        error: `No schedules found for matching lectures in ${decodedSemester}`,
+      });
+    }
+
+    res.json(lectureSchedules);
+  } catch (err) {
+    console.error("Error searching lectures:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);
+}
+
+function getScheduleTimeRange(schedule) {
+  if (!schedule.reservedTimeslots || schedule.reservedTimeslots.length === 0) {
+    return "No time slots";
+  }
+
+  const sortedSlots = [...schedule.reservedTimeslots].sort(
+    (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
+  );
+
+  const firstSlot = sortedSlots[0];
+  const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+  return `${firstSlot.day} ${firstSlot.startTime}-${lastSlot.endTime}`;
 }
 
 module.exports = router;
