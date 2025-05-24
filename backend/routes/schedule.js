@@ -247,13 +247,6 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Schedule not found" });
     }
 
-    await mongoose
-      .model("Timeslot")
-      .updateMany(
-        { _id: { $in: schedule.reservedTimeslots } },
-        { isReserved: false }
-      );
-
     await Schedule.findByIdAndDelete(id);
     res.json({ message: "Schedule deleted successfully" });
   } catch (err) {
@@ -651,14 +644,13 @@ router.get("/:semester/free-rooms", async (req, res) => {
   }
 });
 
-// Add endpoint for all teachers' schedules
+// Add endpoint for all lectures' schedules
 router.get("/:semester/lectures/all", async (req, res) => {
   try {
     const { semester } = req.params;
 
     const schedules = await Schedule.find({
       semester: decodeURIComponent(semester),
-      isDeleted: false,
     })
       .populate({
         path: "activity",
@@ -713,9 +705,16 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
 
     const decodedSemester = decodeURIComponent(semester);
 
+    const activities = await Activity.find({
+      lecture: lectureId,
+      semester: decodedSemester,
+    }).select("_id");
+
+    const activityIds = activities.map((activity) => activity._id);
+
     const schedules = await Schedule.find({
       semester: decodedSemester,
-      "activity.lecture": lectureId,
+      activity: { $in: activityIds },
       isDeleted: false,
     })
       .populate({
@@ -729,7 +728,7 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
       .populate("room", "name")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
-
+    console.log("schedules", schedules.length);
     if (!schedules.length) {
       return res.status(404).json({
         error: `No schedules found for lecture in ${decodedSemester}`,
@@ -764,6 +763,24 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
       );
     };
 
+    const getTimeRange = (schedule) => {
+      if (
+        !schedule.reservedTimeslots ||
+        schedule.reservedTimeslots.length === 0
+      ) {
+        return "No time slots";
+      }
+
+      const sortedSlots = [...schedule.reservedTimeslots].sort(
+        (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      );
+
+      const firstSlot = sortedSlots[0];
+      const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+      return `${firstSlot.day} ${firstSlot.startTime}-${lastSlot.endTime}`;
+    };
+
     const sortedSchedules = [...schedules].sort((a, b) => {
       // First sort by day
       const dayA = a.reservedTimeslots[0]?.day;
@@ -776,38 +793,6 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
       return getEarliestTime(a) - getEarliestTime(b);
     });
 
-    // Get all unique days from the Timeslot collection
-    let days = await Timeslot.distinct("day");
-
-    // Sort days in the desired order
-    const dayOrderArray = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    days = dayOrderArray.filter((d) => days.includes(d));
-
-    // For each day, get sorted unique timeslots from the Timeslot collection
-    const allTimeslots = await Timeslot.find({ day: { $in: days } }).lean();
-    const dayTimeslots = {};
-    days.forEach((day) => {
-      dayTimeslots[day] = allTimeslots
-        .filter((ts) => ts.day === day)
-        .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
-        .filter(
-          (ts, idx, arr) =>
-            arr.findIndex(
-              (t) =>
-                t.startTime === ts.startTime &&
-                t.endTime === ts.endTime &&
-                t.day === ts.day
-            ) === idx
-        );
-    });
-
     // Build the Word document
     const doc = new Document({
       sections: [
@@ -817,201 +802,84 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `Lecture Schedule for ${decodedSemester}`,
+                  text: `Schedule for ${decodedSemester}`,
                   bold: true,
                   size: 28,
                 }),
               ],
               spacing: { after: 400 },
             }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `Lecture: ${sortedSchedules[0].activity.lecture.name}`,
-                  bold: true,
-                  size: 24,
-                }),
-              ],
-              spacing: { after: 200 },
-            }),
-            // Build the table with sorted schedules
-            (() => {
-              // Find the max number of timeslots in any day
-              const maxRows = Math.max(
-                ...days.map((day) => dayTimeslots[day].length)
-              );
-
-              // Example margin object for padding (all sides)
-              const cellMargin = {
-                top: 200,
-                bottom: 200,
-                left: 170,
-                right: 170,
-              };
-
-              const numDays = days.length;
-              const timeColWidth = 20; // percent
-              const dayColWidth = Math.floor((100 - timeColWidth) / numDays); // percent
-
-              // Build a cellMap for rowSpan logic
-              const cellMap = {};
-              sortedSchedules.forEach((entry) => {
-                const slots = [...(entry.reservedTimeslots || [])].sort(
-                  (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
-                );
-                if (slots.length === 0) return;
-                const day = slots[0].day;
-                const firstSlotId = slots[0]._id.toString();
-                cellMap[`${day}-${firstSlotId}`] = {
-                  entry,
-                  span: slots.length,
-                };
-                for (let i = 1; i < slots.length; i++) {
-                  cellMap[`${day}-${slots[i]._id.toString()}`] = {
-                    skip: true,
-                  };
-                }
-              });
-
-              // Build the table rows
-              const tableRows = [
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: "single", size: 1, color: "000000" },
+                bottom: { style: "single", size: 1, color: "000000" },
+                left: { style: "single", size: 1, color: "000000" },
+                right: { style: "single", size: 1, color: "000000" },
+                insideHorizontal: { style: "single", size: 1, color: "000000" },
+                insideVertical: { style: "single", size: 1, color: "000000" },
+              },
+              rows: [
+                // Header row
                 new TableRow({
                   children: [
                     new TableCell({
-                      children: [new Paragraph("Time")],
-                      margins: cellMargin,
-                      width: {
-                        size: timeColWidth,
-                        type: WidthType.PERCENTAGE,
-                      },
+                      children: [new Paragraph("Course")],
+                      width: { size: 25, type: WidthType.PERCENTAGE },
                     }),
-                    ...days.map(
-                      (day) =>
-                        new TableCell({
-                          children: [new Paragraph(day)],
-                          margins: cellMargin,
-                          width: {
-                            size: dayColWidth,
-                            type: WidthType.PERCENTAGE,
-                          },
-                        })
-                    ),
+                    new TableCell({
+                      children: [new Paragraph("Lecture")],
+                      width: { size: 15, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Student Group")],
+                      width: { size: 25, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Room")],
+                      width: { size: 15, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Time")],
+                      width: { size: 20, type: WidthType.PERCENTAGE },
+                    }),
                   ],
                 }),
-                ...Array.from({ length: maxRows }).map((_, rowIdx) => {
-                  return new TableRow({
-                    children: [
-                      new TableCell({
-                        children: [
-                          (() => {
-                            for (const day of days) {
-                              if (dayTimeslots[day][rowIdx]) {
-                                const ts = dayTimeslots[day][rowIdx];
-                                return new Paragraph(
-                                  `${ts.startTime}-${ts.endTime}`
-                                );
-                              }
-                            }
-                            return new Paragraph("");
-                          })(),
-                        ],
-                        margins: cellMargin,
-                        width: {
-                          size: timeColWidth,
-                          type: WidthType.PERCENTAGE,
-                        },
-                      }),
-                      ...days.map((day) => {
-                        const ts = dayTimeslots[day][rowIdx];
-                        if (!ts)
-                          return new TableCell({
-                            children: [new Paragraph("")],
-                            margins: cellMargin,
-                            width: {
-                              size: dayColWidth,
-                              type: WidthType.PERCENTAGE,
-                            },
-                          });
-                        const cellKey = `${day}-${ts._id.toString()}`;
-                        const cellInfo = cellMap[cellKey];
-                        if (cellInfo?.skip) return null;
-                        if (cellInfo?.entry) {
-                          const entry = cellInfo.entry;
-                          const slots = [
-                            ...(entry.reservedTimeslots || []),
-                          ].sort(
-                            (a, b) =>
-                              parseTime(a.startTime) - parseTime(b.startTime)
-                          );
-                          return new TableCell({
-                            rowSpan: cellInfo.span,
-                            children: [
-                              new Paragraph(
-                                `${
-                                  entry.activity?.course?.courseCode || "N/A"
-                                }\n${entry.room?.name || "N/A"}\n${
-                                  entry.activity?.studentGroup?.department ||
-                                  "N/A"
-                                } Year ${
-                                  entry.activity?.studentGroup?.year || "N/A"
-                                } Section ${
-                                  entry.activity?.studentGroup?.section || "N/A"
-                                }\n${getScheduleTimeRange(entry)}`
-                              ),
-                            ],
-                            margins: cellMargin,
-                            width: {
-                              size: dayColWidth,
-                              type: WidthType.PERCENTAGE,
-                            },
-                          });
-                        }
-                        // No activity starts here: show a black dash
-                        return new TableCell({
+                // Data rows
+                ...sortedSchedules.map(
+                  (schedule) =>
+                    new TableRow({
+                      children: [
+                        new TableCell({
                           children: [
-                            new Paragraph({
-                              children: [
-                                new TextRun({
-                                  text: "-",
-                                  color: "000000",
-                                }),
-                              ],
-                            }),
+                            new Paragraph(
+                              `${schedule.activity.course.courseCode} - ${schedule.activity.course.name}`
+                            ),
                           ],
-                          margins: cellMargin,
-                          width: {
-                            size: dayColWidth,
-                            type: WidthType.PERCENTAGE,
-                          },
-                        });
-                      }),
-                    ].filter(Boolean), // Remove nulls (skipped cells)
-                  });
-                }),
-              ];
-
-              // Add visible borders to the table
-              return new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: {
-                  top: { style: "single", size: 2, color: "000000" },
-                  bottom: { style: "single", size: 2, color: "000000" },
-                  left: { style: "single", size: 2, color: "000000" },
-                  right: { style: "single", size: 2, color: "000000" },
-                  insideHorizontal: {
-                    style: "single",
-                    size: 2,
-                    color: "000000",
-                  },
-                  insideVertical: {
-                    style: "single",
-                    size: 2,
-                    color: "000000",
-                  },
-                },
-                rows: tableRows,
-              });
-            })(),
+                        }),
+                        new TableCell({
+                          children: [
+                            new Paragraph(schedule.activity.lecture.name),
+                          ],
+                        }),
+                        new TableCell({
+                          children: [
+                            new Paragraph(
+                              `${schedule.activity.studentGroup.department} Year ${schedule.activity.studentGroup.year} Section ${schedule.activity.studentGroup.section}`
+                            ),
+                          ],
+                        }),
+                        new TableCell({
+                          children: [new Paragraph(schedule.room.name)],
+                        }),
+                        new TableCell({
+                          children: [new Paragraph(getTimeRange(schedule))],
+                        }),
+                      ],
+                    })
+                ),
+              ],
+            }),
           ],
         },
       ],
