@@ -51,11 +51,15 @@ const ActivityList = ({
   onDeleteActivity,
   loading,
 }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
+
   const handleDeleteActivity = async (id) => {
     try {
       await onDeleteActivity(id);
+      setDialogOpen(false);
     } catch (err) {
-      // Error handling is managed by the parent component
+      console.log(err);
     }
   };
 
@@ -82,9 +86,14 @@ const ActivityList = ({
         <TableCell>{activity.split || "N/A"} split</TableCell>
         <TableCell>{activity.semester || "N/A"}</TableCell>
         <TableCell>
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={loading}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={loading}
+                onClick={() => setSelectedActivityId(activity._id)}
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </DialogTrigger>
@@ -97,12 +106,16 @@ const ActivityList = ({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => {}} disabled={loading}>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={loading}
+                >
                   No
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => handleDeleteActivity(activity._id)}
+                  onClick={() => handleDeleteActivity(selectedActivityId)}
                   disabled={loading}
                 >
                   {loading ? (
