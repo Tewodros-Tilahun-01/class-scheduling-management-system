@@ -121,7 +121,7 @@ async function isValidAssignmentSingleTimeslot(
     ) {
       return false;
     }
-    
+
     // Check lecturer conflicts with proper null checks
     const entryLectureId = entry.activityData.lecture?._id?.toString();
     const activityLectureId = activity.lecture?._id?.toString();
@@ -800,11 +800,11 @@ async function generateSchedule(semester, userId) {
  * Reschedules specific activities while keeping other schedules unchanged.
  * Useful for handling dropout scenarios or specific rescheduling needs.
  * @param {string} semester - The semester identifier
- * @param {string[]} activityIds - Array of activity IDs to reschedule
+ * @param {string[]} activityIds - Array of activity IDs to regenerateSchedule
  * @param {string} userId - The user ID performing the rescheduling
  * @returns {Object} Grouped schedules with the rescheduled activities
  */
-async function rescheduleSelectedActivities(semester, activityIds, userId) {
+async function regenerateSchedule(semester, activityIds, userId) {
   const MAX_RETRIES = 30;
 
   if (!semester || !Array.isArray(activityIds) || activityIds.length === 0) {
@@ -845,10 +845,14 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
   // Validate that all activities have required fields
   for (const activity of activitiesToReschedule) {
     if (!activity.lecture?._id) {
-      throw new Error(`Activity ${activity._id} is missing lecture information`);
+      throw new Error(
+        `Activity ${activity._id} is missing lecture information`
+      );
     }
     if (!activity.studentGroup?._id) {
-      throw new Error(`Activity ${activity._id} is missing student group information`);
+      throw new Error(
+        `Activity ${activity._id} is missing student group information`
+      );
     }
   }
 
@@ -887,7 +891,7 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
   const daysOrder = await getDynamicDays();
 
   // Create initial schedule state from existing schedules
-  const initialSchedule = existingSchedules.map(schedule => ({
+  const initialSchedule = existingSchedules.map((schedule) => ({
     activityData: schedule.activity,
     activityId: schedule.activity._id,
     timeslot: schedule.reservedTimeslots[0],
@@ -895,7 +899,7 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
     totalDuration: schedule.totalDuration,
     room: schedule.room,
     studentGroup: schedule.studentGroup,
-    createdBy: schedule.createdBy
+    createdBy: schedule.createdBy,
   }));
 
   let attempt = 0;
@@ -918,14 +922,17 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
     const scheduledSessions = new Map();
 
     // Initialize constraints from existing schedules
-    initialSchedule.forEach(entry => {
-      entry.reservedTimeslots.forEach(tsId => {
+    initialSchedule.forEach((entry) => {
+      entry.reservedTimeslots.forEach((tsId) => {
         usedTimeslots.set(`${tsId}-${entry.room}`, entry.activityId);
-        const key = `${entry.activityId}-${tsId}-${entry.studentGroup?._id || "N/A"}`;
+        const key = `${entry.activityId}-${tsId}-${
+          entry.studentGroup?._id || "N/A"
+        }`;
         usedActivityTimeslots.set(key, entry.room);
       });
       if (entry.activityData.lecture) {
-        const currentLoad = lectureLoad.get(entry.activityData.lecture._id.toString()) || 0;
+        const currentLoad =
+          lectureLoad.get(entry.activityData.lecture._id.toString()) || 0;
         lectureLoad.set(
           entry.activityData.lecture._id.toString(),
           currentLoad + (entry.activityData.sessionDuration || 0)
@@ -965,7 +972,10 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
     }
 
     // Verify no conflicts with existing schedules
-    const allSchedules = [...initialSchedule, ...schedule.slice(initialSchedule.length)];
+    const allSchedules = [
+      ...initialSchedule,
+      ...schedule.slice(initialSchedule.length),
+    ];
     const timeslotGroups = {};
     allSchedules.forEach((entry) => {
       entry.reservedTimeslots.forEach((tsId) => {
@@ -1012,14 +1022,16 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
           semester,
           activity: { $in: activityIds },
         });
-        
+
         if (newSchedulesToSave.length > 0) {
           await Schedule.insertMany(newSchedulesToSave, { ordered: false });
         }
         console.log("Selected activities rescheduled successfully");
       } catch (error) {
         console.error("Error saving rescheduled activities:", error.stack);
-        throw new Error(`Failed to save rescheduled activities: ${error.message}`);
+        throw new Error(
+          `Failed to save rescheduled activities: ${error.message}`
+        );
       }
 
       // Return the complete updated schedule
@@ -1072,8 +1084,8 @@ async function rescheduleSelectedActivities(semester, activityIds, userId) {
   }
 
   throw new Error(
-    `Failed to reschedule activities after ${MAX_RETRIES} attempts. Conflicts detected.`
+    `Failed to regenerateSchedule activities after ${MAX_RETRIES} attempts. Conflicts detected.`
   );
 }
 
-module.exports = { generateSchedule, rescheduleSelectedActivities };
+module.exports = { generateSchedule, regenerateSchedule };

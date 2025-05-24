@@ -148,5 +148,30 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to delete room" });
   }
 });
+//  for free rooms
+router.get("/:semester/free-rooms", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { day, timeslot } = req.query;
 
+    // Get all rooms
+    const rooms = await mongoose.model("Room").find().lean();
+
+    // Get occupied rooms for the given day and timeslot
+    const occupiedRooms = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      reservedTimeslots: timeslot,
+    }).distinct("room");
+
+    // Filter out occupied rooms
+    const freeRooms = rooms.filter(
+      (room) => !occupiedRooms.includes(room._id.toString())
+    );
+
+    res.json(freeRooms);
+  } catch (err) {
+    console.error("Error fetching free rooms:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;

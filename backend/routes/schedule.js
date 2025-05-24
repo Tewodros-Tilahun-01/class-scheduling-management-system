@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   generateSchedule,
-  rescheduleSelectedActivities,
+  regenerateSchedule,
 } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
 const Timeslot = require("../models/Timeslot");
@@ -578,7 +578,7 @@ router.get("/:semester/export", async (req, res) => {
   }
 });
 
-router.post("/reschedule", async (req, res) => {
+router.post("/regenerateSchedule", async (req, res) => {
   try {
     const { semester, activityIds } = req.body;
 
@@ -602,7 +602,7 @@ router.post("/reschedule", async (req, res) => {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
 
-    const schedules = await rescheduleSelectedActivities(
+    const schedules = await regenerateSchedule(
       semester,
       activityIds,
       req.user.id.toString()

@@ -188,7 +188,7 @@ export const exportLectureSchedule = async (semester, lectureId) => {
 
 export const fetchFreeRooms = async (semester, day, timeslot) => {
   const response = await api.get(
-    `/schedules/${encodeURIComponent(semester)}/free-rooms`,
+    `/rooms/${encodeURIComponent(semester)}/free-rooms`,
     {
       params: { day, timeslot },
     }
@@ -216,6 +216,21 @@ export const searchLecturesByName = async (semester, name) => {
       throw new Error(error.response.data.error);
     }
     // Otherwise, throw the original error
+    throw error;
+  }
+};
+
+export const regenerateSchedule = async (semester, activityIds) => {
+  try {
+    const response = await api.post(`/schedules/regenerateSchedule`, {
+      activityIds,
+      semester,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
     throw error;
   }
 };

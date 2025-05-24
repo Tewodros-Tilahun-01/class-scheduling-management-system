@@ -113,7 +113,7 @@ const SemesterList = () => {
                           <Link
                             to={`/schedules/${encodeURIComponent(
                               semester
-                            )}/reschedule`}
+                            )}/regenerateSchedule`}
                           >
                             Reschedule
                           </Link>

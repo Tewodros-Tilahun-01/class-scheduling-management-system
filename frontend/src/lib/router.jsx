@@ -5,6 +5,7 @@ import Lectures from "../pages/Lectures";
 import Course from "../pages/Course";
 import Activity from "../pages/Activity";
 import ActivityScheduler from "../components/custom/ActivityScheduler";
+import RescheduleActivities from "../components/custom/RescheduleActivities";
 import Room from "../pages/Room";
 import { StudentGroup } from "../pages/StudentGroup";
 import ScheduleTable from "../pages/ScheduleTable";
@@ -91,10 +92,10 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "schedules/:semester/reschedule",
+    path: "schedules/:semesterid/regenerateSchedule",
     element: (
       <AppLayout>
-        <ActivityScheduler />
+        <RescheduleActivities />
       </AppLayout>
     ),
   },

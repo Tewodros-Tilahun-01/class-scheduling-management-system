@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { saveAs } from "file-saver";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 const ScheduleTable = () => {
   const { semester } = useParams();
@@ -270,70 +271,72 @@ const ScheduleTable = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedules for {decodedSemester}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex space-x-4">
-          <Button asChild variant="link">
-            <Link to="/">Back to Semesters</Link>
-          </Button>
-          <Button
-            onClick={handleExport}
-            disabled={
-              exportLoading || !allSchedules || loading || timeslotsLoading
-            }
-            className="ml-auto"
-          >
-            {exportLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              "Export Schedule"
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {loading || timeslotsLoading ? (
-        <div className="flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      ) : error || timeslotsError ? (
+    <DashboardLayout>
+      <div className="container mx-auto p-6 space-y-8">
         <Card>
-          <CardContent>
-            <p className="text-destructive">{error || timeslotsError}</p>
+          <CardHeader>
+            <CardTitle>Schedules for {decodedSemester}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex space-x-4">
+            <Button asChild variant="link">
+              <Link to="/">Back to Semesters</Link>
+            </Button>
+            <Button
+              onClick={handleExport}
+              disabled={
+                exportLoading || !allSchedules || loading || timeslotsLoading
+              }
+              className="ml-auto"
+            >
+              {exportLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                "Export Schedule"
+              )}
+            </Button>
           </CardContent>
         </Card>
-      ) : allSchedules && timeslots.length > 0 ? (
-        Object.values(allSchedules).length > 0 ? (
-          Object.values(allSchedules)
-            .filter(
-              (groupData) => groupData && Array.isArray(groupData.entries)
-            )
-            .map((groupData) => renderTimetable(groupData))
+
+        {loading || timeslotsLoading ? (
+          <div className="flex justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : error || timeslotsError ? (
+          <Card>
+            <CardContent>
+              <p className="text-destructive">{error || timeslotsError}</p>
+            </CardContent>
+          </Card>
+        ) : allSchedules && timeslots.length > 0 ? (
+          Object.values(allSchedules).length > 0 ? (
+            Object.values(allSchedules)
+              .filter(
+                (groupData) => groupData && Array.isArray(groupData.entries)
+              )
+              .map((groupData) => renderTimetable(groupData))
+          ) : (
+            <Card>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  No schedules found for {decodedSemester}.
+                </p>
+              </CardContent>
+            </Card>
+          )
         ) : (
           <Card>
             <CardContent>
               <p className="text-muted-foreground">
-                No schedules found for {decodedSemester}.
+                Failed to load schedules or timeslots for {decodedSemester}.
               </p>
             </CardContent>
           </Card>
-        )
-      ) : (
-        <Card>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Failed to load schedules or timeslots for {decodedSemester}.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+        )}
+      </div>
+    </DashboardLayout>
   );
 };
 
