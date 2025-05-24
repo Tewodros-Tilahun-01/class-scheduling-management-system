@@ -177,7 +177,7 @@ const ProfilePage = () => {
             <SecuritySection />
           </TabContent>
 
-          <TabContent value="activity">
+          <TabContent value="notification">
             {/* <ActivitySection activities={recentActivities} /> */}
             <NotificationsSection />
           </TabContent>

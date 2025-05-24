@@ -33,6 +33,7 @@ import {
 import { Dialog } from "@headlessui/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import CopyInstallCommand from "./CopyInstall";
+import { toast } from "sonner";
 
 export default function RepresentativeList({
   representatives: initialRepresentatives = [],
@@ -46,6 +47,7 @@ export default function RepresentativeList({
   const [deleteRowId, setDeleteRowId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerateLinkModalOpen, setIsGenerateLinkModalOpen] = useState(false);
+  const [repId, setRepId] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -54,9 +56,13 @@ export default function RepresentativeList({
       try {
         setIsLoading(true);
         const response = await getRepresentatives();
+        console.log(response);
         setTableData(response);
       } catch (error) {
         console.error("Error fetching representatives:", error);
+        toast.error(
+          error.response.data.message || "Failed to fetch representatives"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -69,15 +75,8 @@ export default function RepresentativeList({
   }, []);
 
   const handleGenerateLink = (id) => {
-    const link = `${window.location.origin}/representative/${id}`;
-    navigator.clipboard
-      .writeText(link)
-      .then(() => {
-        console.log("generated!");
-      })
-      .catch(() => {
-        console.log("Error");
-      });
+    setIsGenerateLinkModalOpen(true);
+    setRepId(id);
   };
 
   const handleDeleteRow = async () => {
@@ -89,6 +88,7 @@ export default function RepresentativeList({
         return filteredData;
       });
     } catch (error) {
+      toast.error(error.response.data.message);
     } finally {
       setIsLoading(false);
       setIsModalOpen(false);
@@ -101,6 +101,9 @@ export default function RepresentativeList({
   const handleDeleteModalClose = () => {
     setIsModalOpen(false);
   };
+  // const handleGenerateLink = () => {
+  //   setIsGenerateLinkModalOpen(true);
+  // };
 
   const columns = [
     {
@@ -219,7 +222,7 @@ export default function RepresentativeList({
                   Remove
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setIsGenerateLinkModalOpen(true)}
+                  onClick={() => handleGenerateLink(rowData._id)}
                 >
                   Generate Link
                 </DropdownMenuItem>
@@ -256,7 +259,12 @@ export default function RepresentativeList({
         open={isGenerateLinkModalOpen}
         onClose={() => setIsGenerateLinkModalOpen(false)}
       >
-        <CopyInstallCommand />
+        <div className="fixed inset-0 bg-black/30" />
+
+        <CopyInstallCommand
+          repId={repId}
+          setModalClose={setIsGenerateLinkModalOpen}
+        />
       </Dialog>
       <Dialog open={isModalOpen} onClose={handleDeleteModalClose}>
         <div className="fixed inset-0 bg-black/30" />

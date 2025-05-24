@@ -2,11 +2,17 @@ import { useAuth } from "@/context/AuthContext";
 import { LogOut, Settings, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import LoadingOverlay from "../ui/LoadingOverlay";
 
 function Header({ className }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   const { user, signOut } = useAuth();
   const dropdownRef = useRef(null);
+
+  if (!user) {
+    return <LoadingOverlay />;
+  }
 
   // Handle outside click
   useEffect(() => {
@@ -45,14 +51,14 @@ function Header({ className }) {
                 className="block size-6"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                strokeWidth="1.5"
                 stroke="currentColor"
                 aria-hidden="true"
                 data-slot="icon"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
                 />
               </svg>
@@ -65,14 +71,14 @@ function Header({ className }) {
                 className="hidden size-6"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                strokeWidth="1.5"
                 stroke="currentColor"
                 aria-hidden="true"
                 data-slot="icon"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   d="M6 18 18 6M6 6l12 12"
                 />
               </svg>

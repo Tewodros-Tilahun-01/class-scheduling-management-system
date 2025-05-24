@@ -43,6 +43,8 @@ import {
   updateRepresentativeInfo,
 } from "@/services/UserService";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import ErrorMessage from "../ui/auth/ErrorMessage";
+import { toast } from "sonner";
 
 // Define departments and years arrays
 const departments = [
@@ -58,6 +60,7 @@ const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   department: z.string().min(1, "Please select a department"),
   year: z.number().min(1, "Please select a year"),
+  section: z.string().min(1, "Please select a section"),
 });
 
 export default function RepresentativeManagement() {
@@ -66,6 +69,7 @@ export default function RepresentativeManagement() {
   const [searchParams] = useSearchParams();
   const [edit, setEdit] = useState(false);
   const [user, setUser] = useState({});
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const form = useForm({
@@ -76,6 +80,7 @@ export default function RepresentativeManagement() {
           name: "",
           department: "",
           year: 1,
+          section: "",
         },
   });
   const { reset } = form;
@@ -91,6 +96,7 @@ export default function RepresentativeManagement() {
       name: user ? user.name : "",
       department: user ? user.department : "",
       year: user ? user.year : "",
+      section: user ? user.section : "",
     });
   }, [searchParams]);
 
@@ -106,14 +112,21 @@ export default function RepresentativeManagement() {
 
           navigate(`${location.pathname}`);
         })
-        .catch(() => {})
+        .catch((err) => {
+          setError(err.response.data.message);
+        })
         .finally(() => {
           setIsLoading(false);
         });
     } else {
       addRepresentative(data)
-        .then(() => console.log("handled"))
-        .catch(() => console.log("something is wrong!"))
+        .then(() => {
+          toast.success("Representative added successfully");
+          // navigate(`${location.pathname}`);
+        })
+        .catch((err) => {
+          setError(err.response.data.message);
+        })
         .finally(() => {
           setIsLoading(false);
         });
@@ -123,6 +136,7 @@ export default function RepresentativeManagement() {
   return (
     <div className="container mx-auto p-6">
       <div className="grid gap-6">
+        {error && <ErrorMessage message={error} />}
         <Card>
           <CardHeader>
             <CardTitle>
@@ -205,6 +219,19 @@ export default function RepresentativeManagement() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="section"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Section</FormLabel>
+                      <FormControl>
+                        <Input placeholder="section" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
