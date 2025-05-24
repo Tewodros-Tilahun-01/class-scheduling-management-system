@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const router = Router();
-const JWT_SECRET = "your-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -80,5 +80,17 @@ router.get("/me", (req, res) => {
       });
   });
 });
-
+router.post("/verify", async (req, res) => {
+  const { token } = req.body;
+  console.log("Iam here!");
+  if (!token) {
+    return res.status(400).json({ message: "Token is required" });
+  }
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    res.status(200).json({ user: decoded });
+  });
+});
 module.exports = router;

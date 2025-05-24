@@ -32,6 +32,8 @@ import {
 } from "@/services/UserService";
 import { Dialog } from "@headlessui/react";
 import { useLocation, useNavigate } from "react-router-dom";
+import CopyInstallCommand from "./CopyInstall";
+import { toast } from "sonner";
 
 export default function RepresentativeList({
   representatives: initialRepresentatives = [],
@@ -42,11 +44,10 @@ export default function RepresentativeList({
   const [columnVisibility, setColumnVisibility] = useState({});
   const [rowSelection, setRowSelection] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteRowId, setDeleteRowId] = useState(null);
-  const [editRowId, setEditRowId] = useState(null);
-  const [newRow, setNewRow] = useState({ name: "", year: "", department: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerateLinkModalOpen, setIsGenerateLinkModalOpen] = useState(false);
+  const [repId, setRepId] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,9 +56,13 @@ export default function RepresentativeList({
       try {
         setIsLoading(true);
         const response = await getRepresentatives();
+        console.log(response);
         setTableData(response);
       } catch (error) {
         console.error("Error fetching representatives:", error);
+        toast.error(
+          error.response.data.message || "Failed to fetch representatives"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -70,15 +75,8 @@ export default function RepresentativeList({
   }, []);
 
   const handleGenerateLink = (id) => {
-    const link = `${window.location.origin}/representative/${id}`;
-    navigator.clipboard
-      .writeText(link)
-      .then(() => {
-        console.log("generated!");
-      })
-      .catch(() => {
-        console.log("Error");
-      });
+    setIsGenerateLinkModalOpen(true);
+    setRepId(id);
   };
 
   const handleDeleteRow = async () => {
@@ -90,6 +88,7 @@ export default function RepresentativeList({
         return filteredData;
       });
     } catch (error) {
+      toast.error(error.response.data.message);
     } finally {
       setIsLoading(false);
       setIsModalOpen(false);
@@ -102,6 +101,9 @@ export default function RepresentativeList({
   const handleDeleteModalClose = () => {
     setIsModalOpen(false);
   };
+  // const handleGenerateLink = () => {
+  //   setIsGenerateLinkModalOpen(true);
+  // };
 
   const columns = [
     {
@@ -253,6 +255,17 @@ export default function RepresentativeList({
 
   return (
     <div className="container mx-auto p-6">
+      <Dialog
+        open={isGenerateLinkModalOpen}
+        onClose={() => setIsGenerateLinkModalOpen(false)}
+      >
+        <div className="fixed inset-0 bg-black/30" />
+
+        <CopyInstallCommand
+          repId={repId}
+          setModalClose={setIsGenerateLinkModalOpen}
+        />
+      </Dialog>
       <Dialog open={isModalOpen} onClose={handleDeleteModalClose}>
         <div className="fixed inset-0 bg-black/30" />
         <div className="fixed inset-0 flex items-center justify-center">
