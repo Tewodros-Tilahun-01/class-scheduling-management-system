@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import {
   fetchAllLectureSchedules,
   exportLectureSchedule,
-  searchLecturesByName,
+  searchLecturesSchduleByName,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +68,7 @@ const LectureSchedule = () => {
 
     try {
       setLoading(true);
-      const results = await searchLecturesByName(semester, searchTerm);
+      const results = await searchLecturesSchduleByName(semester, searchTerm);
 
       // Convert the object format to array format for easier rendering
       const resultsArray = Object.entries(results).map(([id, data]) => ({

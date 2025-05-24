@@ -203,7 +203,7 @@ export const fetchAllLectureSchedules = async (semester) => {
   return response.data;
 };
 
-export const searchLecturesByName = async (semester, name) => {
+export const searchLecturesSchduleByName = async (semester, name) => {
   try {
     const response = await api.get(
       `/schedules/${encodeURIComponent(semester)}/lectures/search`,

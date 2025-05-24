@@ -815,7 +815,6 @@ async function regenerateSchedule(semester, activityIds, userId) {
   const existingSchedules = await Schedule.find({
     semester,
     activity: { $nin: activityIds },
-    isDeleted: false,
   })
     .populate({
       path: "activity",
