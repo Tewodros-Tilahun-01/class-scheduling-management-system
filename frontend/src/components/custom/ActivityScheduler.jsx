@@ -397,7 +397,10 @@ const ActivityScheduler = () => {
     <div className="container mx-auto  space-y-8 w-full px-8 py-6">
       {loadingData ? (
         <div className="flex justify-center items-center h-24">
-          <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
+          <svg
+            className="animate-spin h-8 w-8 text-gray-500"
+            viewBox="0 0 24 24"
+          >
             <circle
               className="opacity-25"
               cx="12"
@@ -521,7 +524,9 @@ const ActivityScheduler = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="total-duration">Total Duration (hours/week)</Label>
+                    <Label htmlFor="total-duration">
+                      Total Duration (hours/week)
+                    </Label>
                     <Input
                       id="total-duration"
                       type="number"

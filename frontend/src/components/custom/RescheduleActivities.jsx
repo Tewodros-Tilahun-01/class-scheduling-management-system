@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { fetchScheduledActivities, regenerateSchedule } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
   CardTitle,
   CardContent,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,6 +30,9 @@ import {
   Home,
   Clock,
   Split,
+  ArrowLeft,
+  RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
@@ -167,45 +171,80 @@ const RescheduleActivities = () => {
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6 space-y-6">
-        <Card>
-          <CardHeader>
+        {/* Navigation Links */}
+        <nav className="flex items-center space-x-4 mb-6">
+          <Link
+            to={`/schedules/${semesterid}`}
+            className="flex items-center text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Schedule
+          </Link>
+          <Separator orientation="vertical" className="h-4" />
+          <Link
+            to={`/schedules/${semesterid}/lectures`}
+            className="flex items-center text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Users className="h-4 w-4 mr-1" />
+            Lecture Schedules
+          </Link>
+          <Separator orientation="vertical" className="h-4" />
+          <Link
+            to={`/schedules/${semesterid}/free-rooms`}
+            className="flex items-center text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Home className="h-4 w-4 mr-1" />
+            Free Rooms
+          </Link>
+        </nav>
+
+        <Card className="border-t-4 border-t-primary shadow-lg">
+          <CardHeader className="space-y-1">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">
+              <div className="space-y-1">
+                <CardTitle className="text-2xl font-bold">
                   Reschedule Activities
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-base">
                   <Calendar className="inline-block w-4 h-4 mr-2" />
-                  Semester: {semesterid}
+                  <span className="font-medium text-primary">{semesterid}</span>
                 </CardDescription>
               </div>
               <Button
                 onClick={handleRegenerateSchedule}
                 disabled={selectedActivities.length === 0}
-                className="bg-primary"
+                className="bg-primary hover:bg-primary/90 text-white shadow-md transition-all duration-200 hover:shadow-lg"
               >
-                <Calendar className="h-4 w-4 mr-2" />
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
                 Regenerate Selected ({selectedActivities.length})
               </Button>
             </div>
           </CardHeader>
+
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by student group..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 border-primary/20 focus:border-primary transition-colors"
                   />
                 </div>
+                <Badge variant="outline" className="py-1.5">
+                  {getFilteredActivities().length} Activities
+                </Badge>
               </div>
-              <Separator />
-              <ScrollArea className="h-[600px] rounded-md border">
+
+              <ScrollArea className="h-[600px] rounded-md border border-primary/20">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background">
+                  <TableHeader className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                     <TableRow>
                       <TableHead className="w-[50px]">
                         <Checkbox
@@ -231,7 +270,10 @@ const RescheduleActivities = () => {
                   </TableHeader>
                   <TableBody>
                     {getFilteredActivities().map((activity) => (
-                      <TableRow key={activity._id}>
+                      <TableRow
+                        key={activity._id}
+                        className="hover:bg-muted/50 transition-colors"
+                      >
                         <TableCell>
                           <Checkbox
                             checked={selectedActivities.includes(activity._id)}
@@ -242,7 +284,7 @@ const RescheduleActivities = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                            <BookOpen className="h-4 w-4 text-primary" />
                             <div>
                               <div className="font-medium">
                                 {activity.course?.courseCode}
@@ -255,12 +297,17 @@ const RescheduleActivities = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                            <span>{activity.lecture?.name}</span>
+                            <Users className="h-4 w-4 text-primary" />
+                            <span className="font-medium">
+                              {activity.lecture?.name}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
+                          <Badge
+                            variant="outline"
+                            className="border-primary/50 text-primary"
+                          >
                             {activity.studentGroup
                               ? `${activity.studentGroup.department} Year ${activity.studentGroup.year} Section ${activity.studentGroup.section}`
                               : "N/A"}
@@ -268,7 +315,7 @@ const RescheduleActivities = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Home className="h-4 w-4 text-muted-foreground" />
+                            <Home className="h-4 w-4 text-primary" />
                             <Badge variant="secondary">
                               {activity.roomRequirement}
                             </Badge>
@@ -276,17 +323,21 @@ const RescheduleActivities = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <Clock className="h-4 w-4 text-primary" />
                             <span>{activity.totalDuration} hours</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Split className="h-4 w-4 text-muted-foreground" />
+                            <Split className="h-4 w-4 text-primary" />
                             <span>{activity.split}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{activity.semester}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-medium">
+                            {activity.semester}
+                          </Badge>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -294,6 +345,24 @@ const RescheduleActivities = () => {
               </ScrollArea>
             </div>
           </CardContent>
+
+          <CardFooter className="bg-muted/50 mt-4">
+            <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Current Semester: {semesterid}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-normal">
+                  {selectedActivities.length} Selected
+                </Badge>
+                <ChevronRight className="h-4 w-4" />
+                <Badge variant="outline" className="font-normal">
+                  {getFilteredActivities().length} Total
+                </Badge>
+              </div>
+            </div>
+          </CardFooter>
         </Card>
       </div>
     </DashboardLayout>

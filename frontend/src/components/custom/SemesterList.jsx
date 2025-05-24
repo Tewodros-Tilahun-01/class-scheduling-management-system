@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Users, BookOpen, RefreshCw, DoorOpen } from "lucide-react";
 
 const SemesterList = () => {
   const [semesters, setSemesters] = useState([]);
@@ -92,38 +93,62 @@ const SemesterList = () => {
                   <TableRow key={semester}>
                     <TableCell className="font-medium">{semester}</TableCell>
                     <TableCell>
-                      <div className="flex gap-4">
-                        <Button asChild variant="link" size="sm">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
                           <Link
                             to={`/schedules/${encodeURIComponent(semester)}`}
                           >
+                            <Users className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                             Student Groups
                           </Link>
                         </Button>
-                        <Button asChild variant="link" size="sm">
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
                           <Link
                             to={`/schedules/${encodeURIComponent(
                               semester
                             )}/lectures`}
                           >
+                            <BookOpen className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                             Lectures
                           </Link>
                         </Button>
-                        <Button asChild variant="link" size="sm">
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
                           <Link
                             to={`/schedules/${encodeURIComponent(
                               semester
                             )}/regenerateSchedule`}
                           >
+                            <RefreshCw className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                             Reschedule
                           </Link>
                         </Button>
-                        <Button asChild variant="link" size="sm">
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
                           <Link
                             to={`/schedules/${encodeURIComponent(
                               semester
                             )}/free-rooms`}
                           >
+                            <DoorOpen className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                             Free Rooms
                           </Link>
                         </Button>
