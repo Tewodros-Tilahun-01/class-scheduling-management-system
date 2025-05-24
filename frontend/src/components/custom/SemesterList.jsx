@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { fetchSemesters } from "@/services/api";
+import { fetchSemesters, deleteSchedule } from "@/services/api";
 import {
   Table,
   TableBody,
@@ -12,12 +12,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, BookOpen, RefreshCw, DoorOpen } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  RefreshCw,
+  DoorOpen,
+  Trash2,
+  Loader2,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const SemesterList = () => {
   const [semesters, setSemesters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSemester, setSelectedSemester] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,6 +71,26 @@ const SemesterList = () => {
     fetchData();
   }, []);
 
+  const handleDeleteSchedule = async (semester) => {
+    try {
+      setDeleteLoading(true);
+      await deleteSchedule(semester);
+      // Refresh the semesters list
+      const updatedSemesters = semesters.filter((sem) => sem !== semester);
+      setSemesters(updatedSemesters);
+      toast.success("Schedule deleted successfully", {
+        description: `Schedule for ${semester} has been deleted`,
+      });
+      setDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete schedule", {
+        description: "Unable to delete the schedule",
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="container px-8">
       <Card>
@@ -85,6 +124,7 @@ const SemesterList = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Semester</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -151,6 +191,50 @@ const SemesterList = () => {
                             Free Rooms
                           </Link>
                         </Button>
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setSelectedSemester(semester)}
+                              className="group"
+                            >
+                              <Trash2 className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete Schedule</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete the schedule for{" "}
+                                {selectedSemester}? This action cannot be
+                                undone.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setDialogOpen(false)}
+                                disabled={deleteLoading}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() =>
+                                  handleDeleteSchedule(selectedSemester)
+                                }
+                                disabled={deleteLoading}
+                              >
+                                {deleteLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Delete"
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </TableCell>
                   </TableRow>

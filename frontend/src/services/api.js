@@ -261,4 +261,16 @@ export const fetchDashboardStats = async () => {
   }
 };
 
+export const deleteSchedule = async (scheduleId) => {
+  try {
+    const response = await api.delete(`/schedules/${scheduleId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
+};
+
 export default api;
