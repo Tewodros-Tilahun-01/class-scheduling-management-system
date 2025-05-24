@@ -85,7 +85,6 @@ const SemesterList = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Semester</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -93,7 +92,7 @@ const SemesterList = () => {
                   <TableRow key={semester}>
                     <TableCell className="font-medium">{semester}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 justify-end">
                         <Button
                           asChild
                           variant="green-link"
