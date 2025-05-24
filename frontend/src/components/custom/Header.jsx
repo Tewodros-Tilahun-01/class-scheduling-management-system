@@ -2,11 +2,17 @@ import { useAuth } from "@/context/AuthContext";
 import { LogOut, Settings, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import LoadingOverlay from "../ui/LoadingOverlay";
 
 function Header({ className }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   const { user, signOut } = useAuth();
   const dropdownRef = useRef(null);
+
+  if (!user) {
+    return <LoadingOverlay />;
+  }
 
   // Handle outside click
   useEffect(() => {

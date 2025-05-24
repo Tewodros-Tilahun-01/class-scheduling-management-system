@@ -1,3 +1,4 @@
+const { Schema } = require("mongoose");
 const { default: mongoose } = require("mongoose");
 
 const RepresentativeSchema = new mongoose.Schema({
@@ -6,16 +7,9 @@ const RepresentativeSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  department: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  year: {
-    type: Number,
-    required: true,
-    min: 1,
-    max: 4,
+  studentGroup: {
+    type: Schema.Types.ObjectId,
+    ref: "StudentGroup",
   },
   isDeleted: { type: Boolean, default: false, index: true },
   createdAt: {

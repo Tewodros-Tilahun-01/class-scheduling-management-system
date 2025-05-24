@@ -83,3 +83,10 @@ export async function changeUserPassword(params) {
   );
   return res.data;
 }
+export async function generateLoginTokenForReps(id) {
+  const res = await axios.get(
+    `${API_Url}/api/admin/generateLinkForReps/${id}`,
+    { withCredentials: true }
+  );
+  return res.data;
+}
