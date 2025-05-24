@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { fetchFreeRooms, fetchTimeslots } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import { Clock, Users, Calendar } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 const FreeRooms = () => {
@@ -65,7 +66,11 @@ const FreeRooms = () => {
 
     try {
       setLoading(true);
-      const data = await fetchFreeRooms(semester, selectedDay, selectedTimeslot);
+      const data = await fetchFreeRooms(
+        semester,
+        selectedDay,
+        selectedTimeslot
+      );
       setFreeRooms(data);
       toast.success("Free rooms loaded successfully");
     } catch (error) {
@@ -83,6 +88,41 @@ const FreeRooms = () => {
   return (
     <DashboardLayout>
       <div className="container p-8">
+        {/* Navigation Links */}
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50 mb-6">
+          <div className="flex items-center gap-6">
+            <Link
+              to={`/schedules/${semester}`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <span className="font-medium"> Schedule</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${semester}/lectures`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Users className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Lecture Schedules</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${semester}/regenerateSchedule`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Clock className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Reschedule</span>
+            </Link>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Free Rooms - {decodeURIComponent(semester)}</CardTitle>
@@ -133,7 +173,10 @@ const FreeRooms = () => {
 
             {loading ? (
               <div className="flex justify-center items-center h-24">
-                <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
+                <svg
+                  className="animate-spin h-8 w-8 text-gray-500"
+                  viewBox="0 0 24 24"
+                >
                   <circle
                     className="opacity-25"
                     cx="12"
@@ -180,4 +223,4 @@ const FreeRooms = () => {
   );
 };
 
-export default FreeRooms; 
+export default FreeRooms;

@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users, Home, RefreshCw, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { saveAs } from "file-saver";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -273,20 +273,53 @@ const ScheduleTable = () => {
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6 space-y-8">
+        {/* Navigation Links */}
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50">
+          <div className="flex items-center gap-6">
+            <Link
+              to={`/schedules/${encodeURIComponent(semester)}/lectures`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Users className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Lecture Schedules</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${encodeURIComponent(semester)}/free-rooms`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Home className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Free Rooms</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${encodeURIComponent(
+                semester
+              )}/regenerateSchedule`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <RefreshCw className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Reschedule Activities</span>
+            </Link>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Schedules for {decodedSemester}</CardTitle>
           </CardHeader>
-          <CardContent className="flex space-x-4">
-            <Button asChild variant="link">
-              <Link to="/">Back to Semesters</Link>
-            </Button>
+          <CardContent className="flex space-x-4 justify-between">
             <Button
               onClick={handleExport}
               disabled={
                 exportLoading || !allSchedules || loading || timeslotsLoading
               }
-              className="ml-auto"
             >
               {exportLoading ? (
                 <>

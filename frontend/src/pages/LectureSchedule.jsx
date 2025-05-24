@@ -19,8 +19,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 import { saveAs } from "file-saver";
+import { Clock, Users, Home, ArrowLeft } from "lucide-react";
 
 const LectureSchedule = () => {
   const { semester } = useParams();
@@ -282,14 +283,46 @@ const LectureSchedule = () => {
   return (
     <DashboardLayout>
       <div className="container p-8">
+        {/* Navigation Links */}
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50 mb-6">
+          <div className="flex items-center gap-6">
+            <Link
+              to={`/schedules/${semester}`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Schedule</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${semester}/free-rooms`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Home className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Free Rooms</span>
+            </Link>
+            <div className="h-8 w-px bg-border/50" />
+            <Link
+              to={`/schedules/${semester}/regenerateSchedule`}
+              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
+                <Clock className="h-4 w-4" />
+              </div>
+              <span className="font-medium">Reschedule</span>
+            </Link>
+          </div>
+        </div>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-">
             <CardTitle>
               Lecture Schedules - {decodeURIComponent(semester)}
             </CardTitle>
-            <Button asChild variant="link">
-              <Link to="/">Back to Semesters</Link>
-            </Button>
           </CardHeader>
           <CardContent>
             <Tabs

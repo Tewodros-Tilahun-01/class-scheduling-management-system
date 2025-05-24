@@ -9,7 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 bg-green-500",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -21,6 +22,7 @@ const buttonVariants = cva(
         "green-link":
           "px-4 py-2 rounded-lg bg-white/50 border border-emerald-100 shadow-sm hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 hover:shadow-md transition-all duration-200 [&_svg]:text-emerald-600",
       },
+
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",

@@ -30,7 +30,6 @@ import {
   Home,
   Clock,
   Split,
-  ArrowLeft,
   RefreshCw,
   ChevronRight,
 } from "lucide-react";
@@ -177,8 +176,8 @@ const RescheduleActivities = () => {
             to={`/schedules/${semesterid}`}
             className="flex items-center text-muted-foreground hover:text-primary transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Schedule
+            <Calendar className="h-4 w-4 mr-1" />
+            Schedule
           </Link>
           <Separator orientation="vertical" className="h-4" />
           <Link
@@ -213,7 +212,7 @@ const RescheduleActivities = () => {
               <Button
                 onClick={handleRegenerateSchedule}
                 disabled={selectedActivities.length === 0}
-                className="bg-primary hover:bg-primary/90 text-white shadow-md transition-all duration-200 hover:shadow-lg"
+                className="bg-primary hover:bg-primary/90 text-white shadow-md transition-all duration-200 hover:shadow-lg bg-green-500"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
