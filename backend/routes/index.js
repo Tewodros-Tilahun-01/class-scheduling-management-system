@@ -12,6 +12,7 @@ const scheduleRoutes = require("./schedule");
 const authRoutes = require("./auth");
 const userRoutes = require("./user");
 const adminRoutes = require("./admin");
+const generalRoutes = require("./general");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Public auth routes
@@ -29,5 +30,6 @@ router.use("/studentGroups", studentGroupRoutes);
 router.use("/timeslots", timeslotRoutes);
 router.use("/users", userRoutes);
 router.use("/admin", adminRoutes);
+router.use("/general", generalRoutes);
 
 module.exports = router;

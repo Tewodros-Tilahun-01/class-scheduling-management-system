@@ -249,4 +249,16 @@ export const fetchScheduledActivities = async (semester) => {
   }
 };
 
+export const fetchDashboardStats = async () => {
+  try {
+    const response = await api.get("/general/stats");
+    return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
+};
+
 export default api;

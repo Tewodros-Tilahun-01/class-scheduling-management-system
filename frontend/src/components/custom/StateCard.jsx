@@ -1,16 +1,58 @@
-import formatNumber from "@/lib/FormatNumber";
 import React from "react";
+import { motion } from "framer-motion";
+import { useCountAnimation } from "@/hooks/useCountAnimation";
 
-function StateCard({ state }) {
+const AnimatedNumber = ({ value }) => {
+  const displayValue = useCountAnimation(value);
+
   return (
-    <div className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-4 ">
-      <span className="row-span-full flex items-center p-3 rounded-full bg-green-100">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+      className="relative"
+    >
+      <motion.span
+        key={displayValue}
+        className="absolute"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3 }}
+      >
+        {displayValue.toLocaleString()}
+      </motion.span>
+    </motion.div>
+  );
+};
+
+const StateCard = ({ state }) => {
+  return (
+    <div className="flex items-start gap-4 p-4 rounded-lg bg-white border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 hover:bg-primary/5">
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.1 }}
+        transition={{ duration: 0.3, type: "spring" }}
+        className="p-3 rounded-full bg-primary/10"
+      >
         {state.icon}
-      </span>
-      <p className="text-gray-400 text-nowrap">{state.label}</p>
-      <p className=" font-bold text-xl">{formatNumber(state.value)}</p>
+      </motion.div>
+      <div>
+        <motion.p
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-sm font-medium text-muted-foreground"
+        >
+          {state.label}
+        </motion.p>
+        <h3 className="text-2xl font-bold tracking-tight ml-1">
+          <AnimatedNumber value={state.value} />
+        </h3>
+      </div>
     </div>
   );
-}
+};
 
 export default StateCard;
