@@ -1128,6 +1128,44 @@ router.get("/:semester/lectures/search", async (req, res) => {
   }
 });
 
+router.get("/:semester/scheduled-activities", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const decodedSemester = decodeURIComponent(semester);
+
+    // First get all schedules for the semester
+    const schedules = await Schedule.find({
+      semester: decodedSemester,
+      isDeleted: false,
+    }).select("activity");
+
+    // Get the activity IDs from the schedules
+    const scheduledActivityIds = schedules.map((schedule) => schedule.activity);
+
+    // Then fetch only those activities that are scheduled
+    const activities = await Activity.find({
+      _id: { $in: scheduledActivityIds },
+      isDeleted: false,
+    })
+      .populate("course", "courseCode name")
+      .populate("lecture", "name maxLoad")
+      .populate("studentGroup", "department year section expectedEnrollment")
+      .populate("createdBy", "username name")
+      .lean();
+
+    if (!activities || activities.length === 0) {
+      return res.status(404).json({
+        error: `No scheduled activities found for semester: ${decodedSemester}`,
+      });
+    }
+
+    res.json(activities);
+  } catch (err) {
+    console.error("Error fetching scheduled activities for semester:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);

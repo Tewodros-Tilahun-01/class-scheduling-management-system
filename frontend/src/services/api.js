@@ -235,4 +235,18 @@ export const regenerateSchedule = async (semester, activityIds) => {
   }
 };
 
+export const fetchScheduledActivities = async (semester) => {
+  try {
+    const response = await api.get(
+      `/schedules/${encodeURIComponent(semester)}/scheduled-activities`
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
+};
+
 export default api;
