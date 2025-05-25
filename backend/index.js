@@ -8,9 +8,18 @@ const app = express();
 // Connect to the database
 connectDB();
 
+const allowedOrigins = ["http://localhost:8081", "http://localhost:5173"];
 app.use(
   cors({
-    origin: "http://localhost:8081",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );

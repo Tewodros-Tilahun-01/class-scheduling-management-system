@@ -2,17 +2,13 @@ import { useAuth } from "@/context/AuthContext";
 import { LogOut, Settings, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import LoadingOverlay from "../ui/LoadingOverlay";
 
 function Header({ className }) {
+  const { user, signOut } = useAuth();
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const { user, signOut } = useAuth();
   const dropdownRef = useRef(null);
-
-  if (!user) {
-    return <LoadingOverlay />;
-  }
 
   // Handle outside click
   useEffect(() => {
@@ -84,7 +80,9 @@ function Header({ className }) {
               </svg>
             </button>
           </div>
-          <h2 className="text-2xl capitalize">hello {user.name} 👋</h2>
+          <h2 className="text-2xl capitalize">
+            hello {user?.name || "here"} 👋
+          </h2>
           <div
             ref={dropdownRef}
             className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0"

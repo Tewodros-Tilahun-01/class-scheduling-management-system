@@ -2,8 +2,6 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 export const loginUser = async (credentials) => {
-  console.log("Logging in with credentials:", credentials);
-
   try {
     const response = await axios.post(
       `${API_URL}/api/auth/login`,
@@ -19,6 +17,7 @@ export const loginUser = async (credentials) => {
     throw new Error(message);
   }
 };
+
 export const logoutUser = async () => {
   try {
     const response = await axios.post(`${API_URL}/api/auth/logout`, {
@@ -30,6 +29,7 @@ export const logoutUser = async () => {
     throw new Error(message);
   }
 };
+
 export const getMe = async () => {
   try {
     const response = await axios.get(`${API_URL}/api/auth/me`, {

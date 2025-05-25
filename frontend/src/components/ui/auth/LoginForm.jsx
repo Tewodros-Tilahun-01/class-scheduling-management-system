@@ -39,7 +39,6 @@ const LoginForm = () => {
       setIsLoading(true);
       try {
         const data = await signIn(credentials);
-        console.log("Logged in:", credentials); // Redirect or store token here
       } catch (err) {
         setError(err.message); // Show custom error from API
       } finally {
