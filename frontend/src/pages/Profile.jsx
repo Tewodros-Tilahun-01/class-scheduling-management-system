@@ -3,14 +3,9 @@ import { TabContent } from "../components/ui/Tabs";
 import ProfileLayout from "../layouts/ProfileLayout";
 import ProfileHeader from "../components/custom/profile/ProfileHeader";
 import UserInfoSection from "../components/custom/profile/UserInfoSection";
-import ActivitySection from "../components/custom/profile/ActiveSection";
 import SecuritySection from "../components/custom/profile/SecuritySection";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import {
-  getPersonalInfo,
-  updatePersonalInfo,
-  updateUser,
-} from "@/services/UserService";
+import { getPersonalInfo, updatePersonalInfo } from "@/services/UserService";
 import { useAuth } from "@/context/AuthContext";
 import NotificationsSection from "@/components/custom/profile/NotificationSection";
 
@@ -80,44 +75,6 @@ const ProfilePage = () => {
   const professionalInfo = info.professional_info;
   const userInfo = info.user;
 
-  const recentActivities = [
-    {
-      id: "1",
-      type: "login",
-      title: "Account Login",
-      description: "You logged in from a new device",
-      timestamp: "2 hours ago",
-      status: "success",
-    },
-    {
-      id: "2",
-      type: "update",
-      title: "Profile Updated",
-      description: "You updated your profile information",
-      timestamp: "Yesterday",
-    },
-    {
-      id: "3",
-      type: "class",
-      title: "Class Representative Added",
-      description: "Added John Doe as Class Representative for CS101",
-      timestamp: "3 days ago",
-    },
-    {
-      id: "4",
-      type: "meeting",
-      title: "Department Meeting",
-      description: "Scheduled a department meeting for next Monday",
-      timestamp: "Last week",
-    },
-    {
-      id: "5",
-      type: "report",
-      title: "Attendance Report Generated",
-      description: "Generated monthly attendance report for all classes",
-      timestamp: "2 weeks ago",
-    },
-  ];
   const hanldeEditSubmit = async (section, value) => {
     const updatedInfo = {
       ...info,
