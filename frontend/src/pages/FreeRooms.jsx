@@ -71,7 +71,7 @@ const FreeRooms = () => {
         selectedDay,
         selectedTimeslot
       );
-      setFreeRooms(data);
+      setFreeRooms(data.rooms);
       toast.success("Free rooms loaded successfully");
     } catch (error) {
       toast.error("Failed to load free rooms", {
@@ -199,7 +199,7 @@ const FreeRooms = () => {
                     <TableHead>Room Name</TableHead>
                     <TableHead>Capacity</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>Building</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -208,7 +208,7 @@ const FreeRooms = () => {
                       <TableCell>{room.name}</TableCell>
                       <TableCell>{room.capacity}</TableCell>
                       <TableCell>{room.type}</TableCell>
-                      <TableCell>{room.department}</TableCell>
+                      <TableCell>{room.building}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
