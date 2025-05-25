@@ -125,7 +125,7 @@ router.delete("/:id", async (req, res) => {
     }
 
     // Check if room is referenced by any schedules
-    const schedule = await Schedule.findOne({ room: id, isDeleted: false });
+    const schedule = await Schedule.findOne({ room: id });
     if (schedule) {
       return res.status(400).json({ error: "Room is linked to a schedule" });
     }
@@ -146,6 +146,73 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     console.error("Error deleting room:", err);
     res.status(500).json({ error: err.message || "Failed to delete room" });
+  }
+});
+
+//  for free rooms
+router.get("/:semester/free-rooms", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { day, timeslot } = req.query;
+
+    if (!day || !timeslot) {
+      return res.status(400).json({
+        error: "Both day and timeslot are required parameters",
+      });
+    }
+
+    // Get all active rooms
+    const rooms = await Room.find({
+      isDeleted: false,
+      active: true,
+    }).lean();
+
+    // First get the timeslot details
+    const timeslotDetails = await mongoose
+      .model("Timeslot")
+      .findById(timeslot)
+      .lean();
+
+    if (!timeslotDetails) {
+      return res.status(404).json({
+        error: "Timeslot not found",
+      });
+    }
+
+    // Get occupied rooms for the given day and timeslot
+    const occupiedRooms = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      reservedTimeslots: timeslot,
+      "reservedTimeslots.day": day,
+    }).distinct("room");
+
+    // Filter out occupied rooms and format the response
+    const freeRooms = rooms
+      .filter((room) => !occupiedRooms.includes(room._id.toString()))
+      .map((room) => ({
+        _id: room._id,
+        name: room.name,
+        capacity: room.capacity,
+        type: room.type,
+        building: room.building,
+      }));
+
+    // Sort rooms by name for consistency
+    freeRooms.sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json({
+      day,
+      timeSlot: {
+        startTime: timeslotDetails.startTime,
+        endTime: timeslotDetails.endTime,
+      },
+      rooms: freeRooms,
+    });
+  } catch (err) {
+    console.error("Error fetching free rooms:", err);
+    res.status(500).json({
+      error: err.message || "Failed to fetch free rooms",
+    });
   }
 });
 

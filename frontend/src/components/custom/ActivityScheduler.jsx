@@ -28,9 +28,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Loader2, Trash2 } from "lucide-react";
+import { BarChart3, Loader2, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -51,11 +51,15 @@ const ActivityList = ({
   onDeleteActivity,
   loading,
 }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
+
   const handleDeleteActivity = async (id) => {
     try {
       await onDeleteActivity(id);
+      setDialogOpen(false);
     } catch (err) {
-      // Error handling is managed by the parent component
+      console.log(err);
     }
   };
 
@@ -67,7 +71,7 @@ const ActivityList = ({
     );
 
     return (
-      <TableRow key={index}>
+      <TableRow key={activity._id || index}>
         <TableCell>
           {course ? `${course.courseCode} - ${course.name}` : "N/A"}
         </TableCell>
@@ -82,9 +86,14 @@ const ActivityList = ({
         <TableCell>{activity.split || "N/A"} split</TableCell>
         <TableCell>{activity.semester || "N/A"}</TableCell>
         <TableCell>
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={loading}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={loading}
+                onClick={() => setSelectedActivityId(activity._id)}
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </DialogTrigger>
@@ -97,12 +106,16 @@ const ActivityList = ({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => {}} disabled={loading}>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={loading}
+                >
                   No
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => handleDeleteActivity(activity._id)}
+                  onClick={() => handleDeleteActivity(selectedActivityId)}
                   disabled={loading}
                 >
                   {loading ? (
@@ -192,7 +205,7 @@ const ActivityScheduler = () => {
             fetchCourses(),
             fetchLectures(),
             fetchRoomTypes(),
-            fetchStudentGroups().catch(() => []),
+            fetchStudentGroups(),
           ]);
 
         setCourses(Array.isArray(coursesData) ? coursesData : []);
@@ -201,16 +214,10 @@ const ActivityScheduler = () => {
         setStudentGroups(
           Array.isArray(studentGroupsData) ? studentGroupsData : []
         );
-        toast.success("Data loaded successfully", {
-          description:
-            "Courses, lectures, room types, and student groups fetched",
-        });
+        toast.success("Data loaded successfully");
       } catch (err) {
         toast.error(
-          err.response?.data?.error || err.message || "Failed to fetch data",
-          {
-            description: "Ensure backend is running at http://localhost:5000",
-          }
+          err.response?.data?.error || err.message || "Failed to fetch data"
         );
       } finally {
         setLoadingData(false);
@@ -400,231 +407,270 @@ const ActivityScheduler = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Semester Dropdown and Generate Button */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Semester</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2 max-w-xs">
-              <Label htmlFor="semester">Semester</Label>
-              <Select
-                value={semester}
-                onValueChange={(value) => setSemester(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {semesters.map((sem) => (
-                    <SelectItem key={sem} value={sem}>
-                      {sem}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              onClick={handleGenerateSchedule}
-              className="bg-green-500 hover:bg-green-600 w-full md:w-auto"
-              disabled={formLoading}
-            >
-              {formLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Generate Schedule"
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Activity Creation Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddActivity} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="courseId">Course</Label>
-                <Select
-                  name="courseId"
-                  value={activityForm.courseId}
-                  onValueChange={(value) =>
-                    handleActivityChange("courseId", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No courses available
-                      </SelectItem>
-                    ) : (
-                      courses.map((course) => (
-                        <SelectItem key={course._id} value={course._id}>
-                          {course.courseCode} - {course.name}
+    <div className="container mx-auto  space-y-8 w-full px-8 py-6">
+      {loadingData ? (
+        <div className="flex justify-center items-center h-24">
+          <svg
+            className="animate-spin h-8 w-8 text-gray-500"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+            />
+          </svg>
+        </div>
+      ) : (
+        <>
+          {/* Semester Dropdown and Generate Button */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Semester</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2 max-w-xs">
+                  <Label htmlFor="semester-select">Semester</Label>
+                  <Select
+                    value={semester}
+                    onValueChange={(value) => setSemester(value)}
+                    disabled={loadingData}
+                  >
+                    <SelectTrigger id="semester-select">
+                      <SelectValue placeholder="Select Semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {semesters.map((sem) => (
+                        <SelectItem key={sem} value={sem}>
+                          {sem}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lectureId">lecture</Label>
-                <Select
-                  name="lectureId"
-                  value={activityForm.lectureId}
-                  onValueChange={(value) =>
-                    handleActivityChange("lectureId", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select lecture" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lectures.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No lectures available
-                      </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Button
+                    onClick={handleGenerateSchedule}
+                    className="bg-green-500 hover:bg-green-600 w-full md:w-auto"
+                    disabled={formLoading || loadingData}
+                  >
+                    {formLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      lectures.map((lecture) => (
-                        <SelectItem key={lecture._id} value={lecture._id}>
-                          {lecture.name}
-                        </SelectItem>
-                      ))
+                      "Generate Schedule"
                     )}
-                  </SelectContent>
-                </Select>
+                  </Button>
+                  {semester && (
+                    <Link
+                      to={`/activity/schedule-stats/${semester}`}
+                      className="flex items-center shadow-md px-2 py-2 rounded-md bg-green-500 text-white"
+                    >
+                      <BarChart3 className="h-4 w-4 text-white" />
+                      <p className="ml-2 capitalize text-white">statistics</p>
+                    </Link>
+                  )}
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="totalDuration">
-                  Total Duration (hours/week)
-                </Label>
-                <Input
-                  type="number"
-                  name="totalDuration"
-                  value={activityForm.totalDuration}
-                  onChange={(e) =>
-                    handleActivityChange("totalDuration", e.target.value)
-                  }
-                  min="1"
-                  step="1"
-                />
-              </div>
+          {/* Activity Creation Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddActivity} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="course-select">Course</Label>
+                    <Select
+                      name="courseId"
+                      value={activityForm.courseId}
+                      onValueChange={(value) =>
+                        handleActivityChange("courseId", value)
+                      }
+                    >
+                      <SelectTrigger id="course-select">
+                        <SelectValue placeholder="Select Course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No courses available
+                          </SelectItem>
+                        ) : (
+                          courses.map((course) => (
+                            <SelectItem key={course._id} value={course._id}>
+                              {course.courseCode} - {course.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="split">Hour of Split</Label>
-                <Input
-                  type="number"
-                  name="split"
-                  value={activityForm.split}
-                  onChange={(e) =>
-                    handleActivityChange("split", e.target.value)
-                  }
-                  min="1"
-                  step="1"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lecture-select">Lecture</Label>
+                    <Select
+                      name="lectureId"
+                      value={activityForm.lectureId}
+                      onValueChange={(value) =>
+                        handleActivityChange("lectureId", value)
+                      }
+                    >
+                      <SelectTrigger id="lecture-select">
+                        <SelectValue placeholder="Select Lecture" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lectures.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No lectures available
+                          </SelectItem>
+                        ) : (
+                          lectures.map((lecture) => (
+                            <SelectItem key={lecture._id} value={lecture._id}>
+                              {lecture.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="studentGroup">Student Group</Label>
-                <Select
-                  name="studentGroup"
-                  value={activityForm.studentGroup}
-                  onValueChange={(value) =>
-                    handleActivityChange("studentGroup", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Student Group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {studentGroups.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No student groups available
-                      </SelectItem>
+                  <div className="space-y-2">
+                    <Label htmlFor="total-duration">
+                      Total Duration (hours/week)
+                    </Label>
+                    <Input
+                      id="total-duration"
+                      type="number"
+                      name="totalDuration"
+                      value={activityForm.totalDuration}
+                      onChange={(e) =>
+                        handleActivityChange("totalDuration", e.target.value)
+                      }
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="split-input">Hour of Split</Label>
+                    <Input
+                      id="split-input"
+                      type="number"
+                      name="split"
+                      value={activityForm.split}
+                      onChange={(e) =>
+                        handleActivityChange("split", e.target.value)
+                      }
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="student-group-select">Student Group</Label>
+                    <Select
+                      name="studentGroup"
+                      value={activityForm.studentGroup}
+                      onValueChange={(value) =>
+                        handleActivityChange("studentGroup", value)
+                      }
+                    >
+                      <SelectTrigger id="student-group-select">
+                        <SelectValue placeholder="Select Student Group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {studentGroups.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No student groups available
+                          </SelectItem>
+                        ) : (
+                          studentGroups.map((group) => (
+                            <SelectItem key={group._id} value={group._id}>
+                              {`${group.department} Year ${group.year} Section ${group.section}`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="room-type-select">Room Requirement</Label>
+                    <Select
+                      name="roomRequirement"
+                      value={activityForm.roomRequirement}
+                      onValueChange={(value) =>
+                        handleActivityChange("roomRequirement", value)
+                      }
+                    >
+                      <SelectTrigger id="room-type-select">
+                        <SelectValue placeholder="Select Room Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roomTypes.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No room types available
+                          </SelectItem>
+                        ) : (
+                          roomTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <Button
+                    type="submit"
+                    className="w-full md:w-auto"
+                    disabled={formLoading}
+                  >
+                    {formLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      studentGroups.map((group) => (
-                        <SelectItem key={group._id} value={group._id}>
-                          {`${group.department} Year ${group.year} Section ${group.section}`}
-                        </SelectItem>
-                      ))
+                      "Add Activity"
                     )}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="roomRequirement">Room Requirement</Label>
-                <Select
-                  name="roomRequirement"
-                  value={activityForm.roomRequirement}
-                  onValueChange={(value) =>
-                    handleActivityChange("roomRequirement", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Room Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roomTypes.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No room types available
-                      </SelectItem>
-                    ) : (
-                      roomTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex space-x-4">
-              <Button
-                type="submit"
-                className="w-full md:w-auto"
-                disabled={formLoading}
-              >
-                {formLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Add Activity"
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Activity List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Added Activities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ActivityList
-            activities={activities}
-            semester={semester}
-            courses={courses}
-            lectures={lectures}
-            studentGroups={studentGroups}
-            onDeleteActivity={handleDeleteActivity}
-            loading={loadingActivities}
-          />
-        </CardContent>
-      </Card>
+          {/* Activity List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Added Activities</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ActivityList
+                activities={activities}
+                semester={semester}
+                courses={courses}
+                lectures={lectures}
+                studentGroups={studentGroups}
+                onDeleteActivity={handleDeleteActivity}
+                loading={loadingActivities}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };

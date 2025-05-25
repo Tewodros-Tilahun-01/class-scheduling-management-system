@@ -18,7 +18,6 @@ const ScheduleSchema = new mongoose.Schema({
   },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   semester: { type: String, required: true },
-  isDeleted: { type: Boolean, default: false, index: true },
 });
 
 module.exports = mongoose.model("Schedule", ScheduleSchema);

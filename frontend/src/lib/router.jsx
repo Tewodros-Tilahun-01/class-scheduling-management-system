@@ -1,18 +1,21 @@
-// router.jsx or wherever you're defining routes
 import { createBrowserRouter } from "react-router-dom";
 import DashBoard from "../pages/DashBoard";
 import Lectures from "../pages/Lectures";
 import Course from "../pages/Course";
 import Activity from "../pages/Activity";
+import RescheduleActivities from "../components/custom/RescheduleActivities";
 import Room from "../pages/Room";
 import { StudentGroup } from "../pages/StudentGroup";
 import ScheduleTable from "../pages/ScheduleTable";
+import LectureSchedule from "../pages/LectureSchedule";
+import FreeRooms from "../pages/FreeRooms";
 import Login from "../pages/Login";
 import AppLayout from "@/layouts/AppLayout";
 import ManagerRips from "@/pages/ManagerRips";
 import Users from "@/pages/Users";
 import TimeslotManager from "@/pages/TimeslotManager";
 import ProfilePage from "@/pages/Profile";
+import ActivityStats from "@/pages/ActivityStats";
 
 const router = createBrowserRouter([
   {
@@ -72,13 +75,30 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "login",
+    path: "schedules/:semester/lectures",
     element: (
       <AppLayout>
-        <Login />
+        <LectureSchedule />
       </AppLayout>
     ),
   },
+  {
+    path: "schedules/:semester/free-rooms",
+    element: (
+      <AppLayout>
+        <FreeRooms />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "schedules/:semesterid/regenerateSchedule",
+    element: (
+      <AppLayout>
+        <RescheduleActivities />
+      </AppLayout>
+    ),
+  },
+
   {
     path: "manage-rips",
     element: (
@@ -108,6 +128,22 @@ const router = createBrowserRouter([
     element: (
       <AppLayout>
         <ProfilePage />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "activity/schedule-stats/:semester",
+    element: (
+      <AppLayout>
+        <ActivityStats />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "login",
+    element: (
+      <AppLayout>
+        <Login />
       </AppLayout>
     ),
   },
