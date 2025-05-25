@@ -1,10 +1,8 @@
-// router.jsx or wherever you're defining routes
 import { createBrowserRouter } from "react-router-dom";
 import DashBoard from "../pages/DashBoard";
 import Lectures from "../pages/Lectures";
 import Course from "../pages/Course";
 import Activity from "../pages/Activity";
-import ActivityScheduler from "../components/custom/ActivityScheduler";
 import RescheduleActivities from "../components/custom/RescheduleActivities";
 import Room from "../pages/Room";
 import { StudentGroup } from "../pages/StudentGroup";
@@ -17,6 +15,8 @@ import ManagerRips from "@/pages/ManagerRips";
 import Users from "@/pages/Users";
 import TimeslotManager from "@/pages/TimeslotManager";
 import ProfilePage from "@/pages/Profile";
+import ActivityStats from "@/pages/ActivityStats";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 const router = createBrowserRouter([
   {
@@ -99,14 +99,7 @@ const router = createBrowserRouter([
       </AppLayout>
     ),
   },
-  {
-    path: "login",
-    element: (
-      <AppLayout>
-        <Login />
-      </AppLayout>
-    ),
-  },
+
   {
     path: "manage-rips",
     element: (
@@ -136,6 +129,22 @@ const router = createBrowserRouter([
     element: (
       <AppLayout>
         <ProfilePage />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "activity/schedule-stats/:semester",
+    element: (
+      <AppLayout>
+        <ActivityStats />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "login",
+    element: (
+      <AppLayout>
+        <Login />
       </AppLayout>
     ),
   },

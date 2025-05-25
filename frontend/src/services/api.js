@@ -273,4 +273,18 @@ export const deleteSchedule = async (semester) => {
   }
 };
 
+export const fetchActivityStats = async (semester) => {
+  try {
+    const response = await api.get(
+      `/activities/${encodeURIComponent(semester)}/stats`
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
+};
+
 export default api;
