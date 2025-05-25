@@ -12,10 +12,12 @@ const scheduleRoutes = require("./schedule");
 const authRoutes = require("./auth");
 const userRoutes = require("./user");
 const adminRoutes = require("./admin");
+const representativeRoutes = require("./representative");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Public auth routes
 router.use("/auth", authRoutes);
+router.use("/representatives", representativeRoutes);
 
 // All routes below require authentication
 router.use(authMiddleware);
