@@ -111,12 +111,16 @@ router.get("/generateLinkForReps/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const representative = await Representative.findById(id);
+    console.log("representative", representative);
     if (!representative) {
       return res.status(404).json({ message: "Representative not found" });
     }
 
     const key_token = jwt.sign(
-      representative.toJSON(),
+      {
+        id: representative._id,
+      },
+
       process.env.JWT_SECRET,
       {
         expiresIn: "1d",
@@ -125,6 +129,7 @@ router.get("/generateLinkForReps/:id", async (req, res) => {
     const representativeSession = await RepresentativeSession.findOne({
       rep_id: representative._id,
     });
+    console.log(representativeSession);
     if (representativeSession) {
       await RepresentativeSession.findByIdAndUpdate(
         representativeSession._id,

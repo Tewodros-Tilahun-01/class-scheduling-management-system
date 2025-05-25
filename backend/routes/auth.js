@@ -88,8 +88,10 @@ router.post("/verify", async (req, res) => {
   }
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
+      console.log(err.message);
       return res.status(401).json({ message: "Unauthorized" });
     }
+    console.log("decoded", decoded);
     res.status(200).json({ user: decoded });
   });
 });
