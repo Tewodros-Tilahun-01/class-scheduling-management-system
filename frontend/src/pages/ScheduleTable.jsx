@@ -315,15 +315,6 @@ const ScheduleTable = () => {
               <span className="font-medium">Reschedule Activities</span>
             </Link>
             <div className="h-8 w-px bg-border/50" />
-            <Link
-              to={`/schedules/${encodeURIComponent(semester)}/stats`}
-              className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
-                <BarChart2 className="h-4 w-4" />
-              </div>
-              <span className="font-medium">Schedule Statistics</span>
-            </Link>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ import {
   Group,
   User,
   Clock2Icon,
+  Calendar,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";

@@ -16,7 +16,6 @@ import Users from "@/pages/Users";
 import TimeslotManager from "@/pages/TimeslotManager";
 import ProfilePage from "@/pages/Profile";
 import ActivityStats from "@/pages/ActivityStats";
-import DashboardLayout from "@/layouts/DashboardLayout";
 
 const router = createBrowserRouter([
   {
