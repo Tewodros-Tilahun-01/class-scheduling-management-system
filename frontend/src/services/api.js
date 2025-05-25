@@ -261,9 +261,9 @@ export const fetchDashboardStats = async () => {
   }
 };
 
-export const deleteSchedule = async (scheduleId) => {
+export const deleteSchedule = async (semester) => {
   try {
-    const response = await api.delete(`/schedules/${scheduleId}`);
+    const response = await api.delete(`/schedules/${semester}`);
     return response.data;
   } catch (error) {
     if (error.response?.data?.error) {

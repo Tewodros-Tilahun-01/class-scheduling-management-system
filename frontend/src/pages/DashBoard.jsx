@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
 import StateCard from "@/components/custom/StateCard";
-import {
-  Users,
-  BookOpen,
-  GraduationCap,
-  User,
-  House,
-  Loader2,
-} from "lucide-react";
+import { Users, BookOpen, User, House, Loader2 } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import SemesterList from "../components/custom/SemesterList";
 import { fetchDashboardStats } from "@/services/api";
@@ -27,21 +20,25 @@ function DashBoard() {
             icon: <User className="text-green-500" size={30} />,
             label: "Lectures",
             value: data.lectures,
+            link: "/lectures",
           },
           {
             icon: <Users className="text-green-500" size={30} />,
             label: "Student Groups",
             value: data.studentGroups,
+            link: "/student-group",
           },
           {
             icon: <BookOpen className="text-green-500" size={30} />,
             label: "Courses",
             value: data.courses,
+            link: "/course",
           },
           {
             icon: <House className="text-green-500" size={30} />,
             label: "Rooms",
             value: data.rooms,
+            link: "/rooms",
           },
         ]);
         toast.success("Statistics loaded successfully");
@@ -54,21 +51,25 @@ function DashBoard() {
             icon: <User className="text-green-500" size={30} />,
             label: "Lectures",
             value: 0,
+            link: "/lectures",
           },
           {
             icon: <Users className="text-green-500" size={30} />,
             label: "Student Groups",
             value: 0,
+            link: "/student-group",
           },
           {
             icon: <BookOpen className="text-green-500" size={30} />,
             label: "Courses",
             value: 0,
+            link: "/course",
           },
           {
             icon: <House className="text-green-500" size={30} />,
             label: "Rooms",
             value: 0,
+            link: "/rooms",
           },
         ]);
       } finally {

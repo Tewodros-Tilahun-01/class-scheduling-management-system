@@ -235,26 +235,6 @@ router.get("/group/:studentGroupId", async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid schedule ID" });
-    }
-
-    const schedule = await Schedule.findById(id);
-    if (!schedule) {
-      return res.status(404).json({ error: "Schedule not found" });
-    }
-
-    await Schedule.findByIdAndDelete(id);
-    res.json({ message: "Schedule deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting schedule:", err);
-    res.status(500).json({ error: err.message || "Failed to delete schedule" });
-  }
-});
-
 router.get("/:semester/export", async (req, res) => {
   try {
     const { semester } = req.params;
@@ -715,7 +695,6 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
     const schedules = await Schedule.find({
       semester: decodedSemester,
       activity: { $in: activityIds },
-      isDeleted: false,
     })
       .populate({
         path: "activity",
@@ -728,7 +707,7 @@ router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
       .populate("room", "name")
       .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
-    console.log("schedules", schedules.length);
+
     if (!schedules.length) {
       return res.status(404).json({
         error: `No schedules found for lecture in ${decodedSemester}`,
@@ -922,7 +901,7 @@ router.get("/:semester/lectures/search", async (req, res) => {
       return res.status(400).json({ error: "Name parameter is required" });
     }
 
-    const trimmedName = name.trim(); // Remove leading/trailing whitespace
+    const trimmedName = name.trim();
 
     const lectures = await Lecture.find({
       name: { $regex: trimmedName, $options: "i" },
@@ -935,7 +914,6 @@ router.get("/:semester/lectures/search", async (req, res) => {
         .json({ error: "No lectures found matching the name" });
     }
 
-    // Find activities for these lectures
     const activities = await Activity.find({
       lecture: { $in: lectures.map((l) => l._id) },
       isDeleted: false,
@@ -947,11 +925,9 @@ router.get("/:semester/lectures/search", async (req, res) => {
         .json({ error: "No activities found for these lectures" });
     }
 
-    // Find schedules with case-insensitive semester matching
     const schedules = await Schedule.find({
-      semester: { $regex: `^${decodedSemester}$`, $options: "i" }, // Case-insensitive semester match
+      semester: { $regex: `^${decodedSemester}$`, $options: "i" },
       activity: { $in: activities.map((a) => a._id) },
-      isDeleted: false,
     })
       .populate({
         path: "activity",
@@ -965,7 +941,6 @@ router.get("/:semester/lectures/search", async (req, res) => {
       .populate("reservedTimeslots", "day startTime endTime duration")
       .lean();
 
-    // Group schedules by lecture
     const lectureSchedules = schedules.reduce((acc, schedule) => {
       const lectureId = schedule.activity?.lecture?._id?.toString();
       const lecture = schedule.activity?.lecture;
@@ -1001,16 +976,12 @@ router.get("/:semester/scheduled-activities", async (req, res) => {
     const { semester } = req.params;
     const decodedSemester = decodeURIComponent(semester);
 
-    // First get all schedules for the semester
     const schedules = await Schedule.find({
       semester: decodedSemester,
-      isDeleted: false,
     }).select("activity");
 
-    // Get the activity IDs from the schedules
     const scheduledActivityIds = schedules.map((schedule) => schedule.activity);
 
-    // Then fetch only those activities that are scheduled
     const activities = await Activity.find({
       _id: { $in: scheduledActivityIds },
       isDeleted: false,
@@ -1039,19 +1010,15 @@ function parseTime(timeStr) {
   return hours * 60 + (minutes || 0);
 }
 
-function getScheduleTimeRange(schedule) {
-  if (!schedule.reservedTimeslots || schedule.reservedTimeslots.length === 0) {
-    return "No time slots";
+router.delete("/:semester", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const decodedSemester = decodeURIComponent(semester);
+
+    await Schedule.deleteMany({ semester: decodedSemester });
+    res.json({ message: "All schedules deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  const sortedSlots = [...schedule.reservedTimeslots].sort(
-    (a, b) => parseTime(a.startTime) - parseTime(b.startTime)
-  );
-
-  const firstSlot = sortedSlots[0];
-  const lastSlot = sortedSlots[sortedSlots.length - 1];
-
-  return `${firstSlot.day} ${firstSlot.startTime}-${lastSlot.endTime}`;
-}
-
+});
 module.exports = router;

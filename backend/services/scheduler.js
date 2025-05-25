@@ -733,7 +733,7 @@ async function generateSchedule(semester, userId) {
         });
 
       try {
-        // IMPORTANT: Deletes all existing schedules for the semester, preventing conflicts but risking data loss if not intended.
+        // Delete existing schedules for the semester
         await Schedule.deleteMany({ semester });
         await Schedule.insertMany(schedulesToSave, { ordered: false });
         console.log("Schedule generated and saved successfully");
@@ -826,7 +826,7 @@ async function regenerateSchedule(semester, activityIds, userId) {
     })
     .lean();
 
-  // Fetch activities to be rescheduled with proper population
+  // Fetch activities to be rescheduled
   const activitiesToReschedule = await Activity.find({
     _id: { $in: activityIds },
     semester,

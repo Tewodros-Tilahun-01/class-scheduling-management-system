@@ -1,4 +1,4 @@
-import { useContext, useRef, useState, useEffect } from "react";
+import { useContext } from "react";
 import SideBarCard from "./SideBarCard";
 import {
   Bolt,
@@ -9,20 +9,16 @@ import {
   SquareChevronDown,
   Group,
   User,
-  ChevronDown,
   Clock2Icon,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";
-import ProfilePanel from "./ProfilePanel";
 import { useAuth } from "@/context/AuthContext";
 
 function SideBar({ className }) {
   const { toggleMenu, isOpen } = useContext(MenuContext);
   const { user } = useAuth();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const profileRef = useRef(null);
-  const panelRef = useRef(null);
+
   const menus = [
     {
       link: "/",
@@ -85,7 +81,6 @@ function SideBar({ className }) {
 
     return true;
   });
- 
 
   return (
     <div className={clsx(className, "flex flex-col min-h-screen px-6")}>
