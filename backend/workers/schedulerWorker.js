@@ -49,8 +49,19 @@ function sortTimeslots(timeslots, schedule, daysOrder) {
     const dayB = daysOrder.indexOf(b.day);
     const usageA = dayUsage[a.day] || 0;
     const usageB = dayUsage[b.day] || 0;
+
+    // First consider day usage
     if (usageA !== usageB) return usageA - usageB;
+
+    // Then consider day order
     if (dayA !== dayB) return dayA - dayB;
+
+    // Then consider preference score (higher score = higher priority)
+    if (a.preferenceScore !== b.preferenceScore) {
+      return b.preferenceScore - a.preferenceScore; // Higher score comes first
+    }
+
+    // Finally consider start time
     return parseTime(a.startTime) - parseTime(b.startTime);
   });
 }

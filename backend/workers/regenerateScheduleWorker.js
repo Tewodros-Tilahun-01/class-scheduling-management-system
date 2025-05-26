@@ -50,8 +50,19 @@ function sortTimeslots(timeslots, schedule, daysOrder) {
     const dayB = daysOrder.indexOf(b.day);
     const usageA = dayUsage[a.day] || 0;
     const usageB = dayUsage[b.day] || 0;
+
+    // First consider day usage
     if (usageA !== usageB) return usageA - usageB;
+
+    // Then consider day order
     if (dayA !== dayB) return dayA - dayB;
+
+    // Then consider preference score (higher score = higher priority)
+    if (a.preferenceScore !== b.preferenceScore) {
+      return b.preferenceScore - a.preferenceScore; // Higher score comes first
+    }
+
+    // Finally consider start time
     return parseTime(a.startTime) - parseTime(b.startTime);
   });
 }
@@ -589,6 +600,13 @@ parentPort.on("message", async (data) => {
     const timeslots = await Timeslot.find({ isDeleted: false }).lean();
     const daysOrder = await getDynamicDays();
 
+    // Sort timeslots for balanced day usage
+    const sortedTimeslots = sortTimeslots(
+      timeslots,
+      existingSchedules,
+      daysOrder
+    );
+
     // Create initial schedule state from existing schedules
     const initialSchedule = existingSchedules.map((schedule) => ({
       activityData: schedule.activity,
@@ -619,7 +637,7 @@ parentPort.on("message", async (data) => {
       const sortedActivities = await sortActivities(
         expandedActivities,
         rooms,
-        timeslots,
+        sortedTimeslots,
         attempt > 0
       );
 
@@ -651,7 +669,7 @@ parentPort.on("message", async (data) => {
       const domains = await buildDomains(
         sortedActivities,
         rooms,
-        timeslots,
+        sortedTimeslots,
         schedule,
         lectureLoad,
         usedTimeslots,
@@ -661,7 +679,7 @@ parentPort.on("message", async (data) => {
       const found = await backtrackForwardChecking(
         sortedActivities,
         rooms,
-        timeslots,
+        sortedTimeslots,
         schedule,
         lectureLoad,
         usedTimeslots,
