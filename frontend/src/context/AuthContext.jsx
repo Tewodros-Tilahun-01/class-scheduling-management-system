@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
   // Sign in function
   const signIn = async (credentials) => {
     const res = await loginUser(credentials);
+    setUser(res.user);
     setLoading(false);
     navigate("/");
   };

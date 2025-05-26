@@ -4,7 +4,6 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 function authMiddleware(req, res, next) {
   if (!req.cookies || !req.cookies.token) {
-    console.log("No token found");
     return res.status(401).json({ message: "Unauthorized" });
   }
   const token = req.cookies.token;

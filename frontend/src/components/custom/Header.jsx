@@ -10,7 +10,6 @@ function Header({ className }) {
 
   const dropdownRef = useRef(null);
 
-  // Handle outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {

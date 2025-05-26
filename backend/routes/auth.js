@@ -38,8 +38,15 @@ router.post("/login", async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
     });
-
-    res.status(200).json({ token });
+    res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server error" });
