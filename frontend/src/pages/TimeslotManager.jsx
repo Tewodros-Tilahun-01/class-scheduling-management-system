@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Pencil, Trash2 } from "lucide-react";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
 const TimeslotManager = () => {
   const [timeslots, setTimeslots] = useState([]);
@@ -193,7 +194,8 @@ const TimeslotManager = () => {
   };
 
   return (
-    <div className="container mx-auto py-10">
+    <DashboardLayout>
+    <div className="container  p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Timeslot Manager</h1>
         <Button onClick={handleOpenDialog} disabled={loading}>
@@ -202,50 +204,84 @@ const TimeslotManager = () => {
       </div>
 
       <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Day</TableHead>
-              <TableHead>Start Time</TableHead>
-              <TableHead>End Time</TableHead>
-              <TableHead>Preference Score</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {timeslots.map((timeslot) => (
-              <TableRow key={timeslot._id}>
-                <TableCell>{timeslot.day}</TableCell>
-                <TableCell>{formatTime(timeslot.startTime)}</TableCell>
-                <TableCell>{formatTime(timeslot.endTime)}</TableCell>
-                <TableCell>{timeslot.preferenceScore}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(timeslot)}
-                      disabled={loading}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(timeslot._id)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
+        {loading ? (
+          <div className="flex justify-center items-center h-24">
+            <svg className="animate-spin h-8 w-8 text-gray-500" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+              />
+            </svg>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Day</TableHead>
+                <TableHead>Start Time</TableHead>
+                <TableHead>End Time</TableHead>
+                <TableHead>Preference Score</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {timeslots.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No timeslots found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                timeslots.map((timeslot) => (
+                  <TableRow key={timeslot._id}>
+                    <TableCell>{timeslot.day}</TableCell>
+                    <TableCell>{formatTime(timeslot.startTime)}</TableCell>
+                    <TableCell>{formatTime(timeslot.endTime)}</TableCell>
+                    <TableCell>{timeslot.preferenceScore}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(timeslot)}
+                          disabled={loading}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(timeslot._id)}
+                          disabled={loading}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+      <Dialog 
+        open={openDialog} 
+        onOpenChange={setOpenDialog}
+        onPointerDownOutside={(e) => {
+          e.preventDefault();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -262,6 +298,7 @@ const TimeslotManager = () => {
                 <Select
                   value={formData.day}
                   onValueChange={(value) => handleInputChange("day", value)}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a day" />
@@ -287,6 +324,7 @@ const TimeslotManager = () => {
                     }
                     required
                     step="1800"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -297,6 +335,7 @@ const TimeslotManager = () => {
                     onChange={(e) => handleInputChange("endTime", e.target.value)}
                     required
                     step="1800"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -311,6 +350,7 @@ const TimeslotManager = () => {
                   }
                   min="0"
                   max="10"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -332,6 +372,7 @@ const TimeslotManager = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </DashboardLayout>
   );
 };
 

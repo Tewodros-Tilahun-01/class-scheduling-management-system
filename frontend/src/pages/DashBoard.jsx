@@ -1,41 +1,100 @@
+import React, { useState, useEffect } from "react";
 import StateCard from "@/components/custom/StateCard";
-import { Users, BookOpen, GraduationCap, User } from "lucide-react";
+import { Users, BookOpen, User, House, Loader2 } from "lucide-react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import SemesterList from "../components/custom/SemesterList";
+import { fetchDashboardStats } from "@/services/api";
+import { toast } from "@/components/ui/sonner";
 
 function DashBoard() {
-  const stats = [
-    {
-      icon: <User className="text-green-500" size={30} />,
-      label: "Total Professors",
-      value: 5423,
-    },
-    {
-      icon: <Users className="text-green-500" size={30} />,
-      label: "Members",
-      value: 1893,
-    },
-    {
-      icon: <BookOpen className="text-green-500" size={30} />,
-      label: "Courses",
-      value: 189,
-    },
-    {
-      icon: <GraduationCap className="text-green-500" size={30} />,
-      label: "Classes",
-      value: 32,
-    },
-  ];
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchDashboardStats();
+        setStats([
+          {
+            icon: <User className="text-green-500" size={30} />,
+            label: "Lectures",
+            value: data.lectures,
+            link: "/lectures",
+          },
+          {
+            icon: <Users className="text-green-500" size={30} />,
+            label: "Student Groups",
+            value: data.studentGroups,
+            link: "/student-group",
+          },
+          {
+            icon: <BookOpen className="text-green-500" size={30} />,
+            label: "Courses",
+            value: data.courses,
+            link: "/course",
+          },
+          {
+            icon: <House className="text-green-500" size={30} />,
+            label: "Rooms",
+            value: data.rooms,
+            link: "/rooms",
+          },
+        ]);
+        toast.success("Statistics loaded successfully");
+      } catch (error) {
+        toast.error("Failed to load statistics", {
+          description: error.message,
+        });
+        setStats([
+          {
+            icon: <User className="text-green-500" size={30} />,
+            label: "Lectures",
+            value: 0,
+            link: "/lectures",
+          },
+          {
+            icon: <Users className="text-green-500" size={30} />,
+            label: "Student Groups",
+            value: 0,
+            link: "/student-group",
+          },
+          {
+            icon: <BookOpen className="text-green-500" size={30} />,
+            label: "Courses",
+            value: 0,
+            link: "/course",
+          },
+          {
+            icon: <House className="text-green-500" size={30} />,
+            label: "Rooms",
+            value: 0,
+            link: "/rooms",
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, []);
 
   return (
     <DashboardLayout>
-      <div className="px-14">
+      <div className="p-8 w-full">
         <ul className="w-full bg-white flex gap-6 px-4 py-6 rounded-md shadow-sm">
-          {stats.map((state) => (
-            <li key={state.label} className="flex-1">
-              <StateCard state={state} />
-            </li>
-          ))}
+          {loading ? (
+            <div className="flex justify-center items-center w-full py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            stats.map((state) => (
+              <li key={state.label} className="flex-1">
+                <StateCard state={state} />
+              </li>
+            ))
+          )}
         </ul>
       </div>
       <SemesterList />

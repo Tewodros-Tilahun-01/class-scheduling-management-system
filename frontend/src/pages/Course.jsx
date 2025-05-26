@@ -5,7 +5,7 @@ import React from "react";
 function Course() {
   return (
     <DashboardLayout>
-      <div className="px-14">
+      <div className="w-full p-8">
         <CourseTable />
       </div>
     </DashboardLayout>

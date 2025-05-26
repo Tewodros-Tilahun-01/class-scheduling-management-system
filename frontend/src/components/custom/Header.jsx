@@ -29,7 +29,7 @@ function Header({ className }) {
   }, []);
 
   return (
-    <nav className="">
+    <nav className={className}>
       <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
@@ -53,8 +53,8 @@ function Header({ className }) {
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
                 stroke="currentColor"
-                aria-hidden="true"
-                data-slot="icon"
+                ariahidden="true"
+                dataslot="icon"
               >
                 <path
                   strokeLinecap="round"
@@ -140,11 +140,11 @@ function Header({ className }) {
                   aria-labelledby="user-menu-button"
                   tabIndex="-1"
                 >
-                  <div class="px-4 py-3">
-                    <span class="block text-sm text-gray-900 dark:text-white">
+                  <div className="px-4 py-3">
+                    <span className="block text-sm text-gray-900 dark:text-white">
                       {user.name}
                     </span>
-                    <span class="block text-sm  text-gray-500 truncate dark:text-gray-400">
+                    <span className="block text-sm  text-gray-500 truncate dark:text-gray-400">
                       {user.username}
                     </span>
                   </div>

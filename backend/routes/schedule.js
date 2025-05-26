@@ -2,10 +2,12 @@ const express = require("express");
 const router = express.Router();
 const {
   generateSchedule,
-  rescheduleSelectedActivities,
+  regenerateSchedule,
 } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
-const Timeslot = require("../models/Timeslot"); // Add this import at the top if not present
+const Timeslot = require("../models/Timeslot");
+const Lecture = require("../models/Lectures");
+const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
 const {
   Document,
@@ -24,7 +26,7 @@ router.post("/generate", async (req, res) => {
     if (!semester) {
       return res.status(400).json({ error: "Semester is required" });
     }
-    console.log("user", req.user);
+
     if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
@@ -230,33 +232,6 @@ router.get("/group/:studentGroupId", async (req, res) => {
   } catch (err) {
     console.error("Error fetching schedule for student group:", err);
     res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid schedule ID" });
-    }
-
-    const schedule = await Schedule.findById(id);
-    if (!schedule) {
-      return res.status(404).json({ error: "Schedule not found" });
-    }
-
-    await mongoose
-      .model("Timeslot")
-      .updateMany(
-        { _id: { $in: schedule.reservedTimeslots } },
-        { isReserved: false }
-      );
-
-    await Schedule.findByIdAndDelete(id);
-    res.json({ message: "Schedule deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting schedule:", err);
-    res.status(500).json({ error: err.message || "Failed to delete schedule" });
   }
 });
 
@@ -576,10 +551,10 @@ router.get("/:semester/export", async (req, res) => {
   }
 });
 
-router.post("/reschedule", async (req, res) => {
+router.post("/regenerateSchedule", async (req, res) => {
   try {
     const { semester, activityIds } = req.body;
-  
+
     if (!semester || !Array.isArray(activityIds) || activityIds.length === 0) {
       return res.status(400).json({
         error: "Semester and non-empty array of activity IDs are required",
@@ -600,7 +575,7 @@ router.post("/reschedule", async (req, res) => {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
 
-    const schedules = await rescheduleSelectedActivities(
+    const schedules = await regenerateSchedule(
       semester,
       activityIds,
       req.user.id.toString()
@@ -622,9 +597,428 @@ router.post("/reschedule", async (req, res) => {
   }
 });
 
+//  for free rooms
+router.get("/:semester/free-rooms", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { day, timeslot } = req.query;
+
+    // Get all rooms
+    const rooms = await mongoose.model("Room").find().lean();
+
+    // Get occupied rooms for the given day and timeslot
+    const occupiedRooms = await Schedule.find({
+      semester: decodeURIComponent(semester),
+      reservedTimeslots: timeslot,
+    }).distinct("room");
+
+    // Filter out occupied rooms
+    const freeRooms = rooms.filter(
+      (room) => !occupiedRooms.includes(room._id.toString())
+    );
+
+    res.json(freeRooms);
+  } catch (err) {
+    console.error("Error fetching free rooms:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add endpoint for all lectures' schedules
+router.get("/:semester/lectures/all", async (req, res) => {
+  try {
+    const { semester } = req.params;
+
+    const schedules = await Schedule.find({
+      semester: decodeURIComponent(semester),
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad isDeleted" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name capacity type department")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    if (schedules.length === 0) {
+      return res.status(404).json({
+        error: `No schedules found for semester: ${semester}`,
+      });
+    }
+
+    // Group schedules by lecture
+    const lectureSchedules = schedules.reduce((acc, schedule) => {
+      const lectureId = schedule.activity?.lecture?._id?.toString();
+      const lecture = schedule.activity?.lecture;
+      if (lectureId && lecture && !lecture.isDeleted) {
+        if (!acc[lectureId]) {
+          acc[lectureId] = {
+            name: lecture.name,
+            maxLoad: lecture.maxLoad,
+            schedules: [],
+          };
+        }
+        acc[lectureId].schedules.push(schedule);
+      }
+      return acc;
+    }, {});
+
+    res.json(lectureSchedules);
+  } catch (err) {
+    console.error("Error fetching all lecture schedules:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/:semester/lecture/:lectureId/export", async (req, res) => {
+  try {
+    const { semester, lectureId } = req.params;
+    if (!semester || !lectureId) {
+      return res
+        .status(400)
+        .json({ error: "Semester and lecture ID are required" });
+    }
+
+    const decodedSemester = decodeURIComponent(semester);
+
+    const activities = await Activity.find({
+      lecture: lectureId,
+      semester: decodedSemester,
+    }).select("_id");
+
+    const activityIds = activities.map((activity) => activity._id);
+
+    const schedules = await Schedule.find({
+      semester: decodedSemester,
+      activity: { $in: activityIds },
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad isDeleted" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    if (!schedules.length) {
+      return res.status(404).json({
+        error: `No schedules found for lecture in ${decodedSemester}`,
+      });
+    }
+
+    // Sort schedules by day and time
+    const dayOrder = {
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+      Sunday: 7,
+    };
+
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const getEarliestTime = (schedule) => {
+      if (
+        !schedule.reservedTimeslots ||
+        schedule.reservedTimeslots.length === 0
+      ) {
+        return Infinity;
+      }
+      return Math.min(
+        ...schedule.reservedTimeslots.map((ts) => timeToMinutes(ts.startTime))
+      );
+    };
+
+    const getTimeRange = (schedule) => {
+      if (
+        !schedule.reservedTimeslots ||
+        schedule.reservedTimeslots.length === 0
+      ) {
+        return "No time slots";
+      }
+
+      const sortedSlots = [...schedule.reservedTimeslots].sort(
+        (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      );
+
+      const firstSlot = sortedSlots[0];
+      const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+      return `${firstSlot.day} ${firstSlot.startTime}-${lastSlot.endTime}`;
+    };
+
+    const sortedSchedules = [...schedules].sort((a, b) => {
+      // First sort by day
+      const dayA = a.reservedTimeslots[0]?.day;
+      const dayB = b.reservedTimeslots[0]?.day;
+      const dayDiff = (dayOrder[dayA] || 0) - (dayOrder[dayB] || 0);
+
+      if (dayDiff !== 0) return dayDiff;
+
+      // Then sort by time
+      return getEarliestTime(a) - getEarliestTime(b);
+    });
+
+    // Build the Word document
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Schedule for ${decodedSemester}`,
+                  bold: true,
+                  size: 28,
+                }),
+              ],
+              spacing: { after: 400 },
+            }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: "single", size: 1, color: "000000" },
+                bottom: { style: "single", size: 1, color: "000000" },
+                left: { style: "single", size: 1, color: "000000" },
+                right: { style: "single", size: 1, color: "000000" },
+                insideHorizontal: { style: "single", size: 1, color: "000000" },
+                insideVertical: { style: "single", size: 1, color: "000000" },
+              },
+              rows: [
+                // Header row
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [new Paragraph("Course")],
+                      width: { size: 25, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Lecture")],
+                      width: { size: 15, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Student Group")],
+                      width: { size: 25, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Room")],
+                      width: { size: 15, type: WidthType.PERCENTAGE },
+                    }),
+                    new TableCell({
+                      children: [new Paragraph("Time")],
+                      width: { size: 20, type: WidthType.PERCENTAGE },
+                    }),
+                  ],
+                }),
+                // Data rows
+                ...sortedSchedules.map(
+                  (schedule) =>
+                    new TableRow({
+                      children: [
+                        new TableCell({
+                          children: [
+                            new Paragraph(
+                              `${schedule.activity.course.courseCode} - ${schedule.activity.course.name}`
+                            ),
+                          ],
+                        }),
+                        new TableCell({
+                          children: [
+                            new Paragraph(schedule.activity.lecture.name),
+                          ],
+                        }),
+                        new TableCell({
+                          children: [
+                            new Paragraph(
+                              `${schedule.activity.studentGroup.department} Year ${schedule.activity.studentGroup.year} Section ${schedule.activity.studentGroup.section}`
+                            ),
+                          ],
+                        }),
+                        new TableCell({
+                          children: [new Paragraph(schedule.room.name)],
+                        }),
+                        new TableCell({
+                          children: [new Paragraph(getTimeRange(schedule))],
+                        }),
+                      ],
+                    })
+                ),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+
+    // Set proper headers for the Word document
+    res.set({
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename=Schedule_${decodedSemester.replace(
+        /\s/g,
+        "_"
+      )}_${sortedSchedules[0].activity.lecture.name.replace(/\s/g, "_")}.docx`,
+      "Content-Length": buffer.length,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      Expires: "0",
+    });
+
+    return res.send(buffer);
+  } catch (error) {
+    console.error("Error exporting lecture schedule:", error);
+    return res.status(500).json({
+      error: `Failed to export lecture schedule: ${error.message}`,
+      details: error.stack,
+    });
+  }
+});
+
+// Add this new endpoint before the export endpoint
+router.get("/:semester/lectures/search", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const { name } = req.query;
+    const decodedSemester = decodeURIComponent(semester);
+
+    if (!name) {
+      return res.status(400).json({ error: "Name parameter is required" });
+    }
+
+    const trimmedName = name.trim();
+
+    const lectures = await Lecture.find({
+      name: { $regex: trimmedName, $options: "i" },
+      isDeleted: false,
+    }).lean();
+
+    if (!lectures || lectures.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No lectures found matching the name" });
+    }
+
+    const activities = await Activity.find({
+      lecture: { $in: lectures.map((l) => l._id) },
+      isDeleted: false,
+    }).lean();
+
+    if (!activities || activities.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No activities found for these lectures" });
+    }
+
+    const schedules = await Schedule.find({
+      semester: { $regex: `^${decodedSemester}$`, $options: "i" },
+      activity: { $in: activities.map((a) => a._id) },
+    })
+      .populate({
+        path: "activity",
+        populate: [
+          { path: "course", select: "courseCode name" },
+          { path: "lecture", select: "name maxLoad" },
+          { path: "studentGroup", select: "department year section" },
+        ],
+      })
+      .populate("room", "name")
+      .populate("reservedTimeslots", "day startTime endTime duration")
+      .lean();
+
+    const lectureSchedules = schedules.reduce((acc, schedule) => {
+      const lectureId = schedule.activity?.lecture?._id?.toString();
+      const lecture = schedule.activity?.lecture;
+
+      if (lectureId && lecture && !lecture.isDeleted) {
+        if (!acc[lectureId]) {
+          acc[lectureId] = {
+            name: lecture.name,
+            maxLoad: lecture.maxLoad,
+            schedules: [],
+          };
+        }
+        acc[lectureId].schedules.push(schedule);
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(lectureSchedules).length === 0) {
+      return res.status(404).json({
+        error: `No schedules found for matching lectures in ${decodedSemester}`,
+      });
+    }
+
+    res.json(lectureSchedules);
+  } catch (err) {
+    console.error("Error searching lectures:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/:semester/scheduled-activities", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const decodedSemester = decodeURIComponent(semester);
+
+    const schedules = await Schedule.find({
+      semester: decodedSemester,
+    }).select("activity");
+
+    const scheduledActivityIds = schedules.map((schedule) => schedule.activity);
+
+    const activities = await Activity.find({
+      _id: { $in: scheduledActivityIds },
+      isDeleted: false,
+    })
+      .populate("course", "courseCode name")
+      .populate("lecture", "name maxLoad")
+      .populate("studentGroup", "department year section expectedEnrollment")
+      .populate("createdBy", "username name")
+      .lean();
+
+    if (!activities || activities.length === 0) {
+      return res.status(404).json({
+        error: `No scheduled activities found for semester: ${decodedSemester}`,
+      });
+    }
+
+    res.json(activities);
+  } catch (err) {
+    console.error("Error fetching scheduled activities for semester:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function parseTime(timeStr) {
   const [hours, minutes] = timeStr.split(":").map(Number);
   return hours * 60 + (minutes || 0);
 }
 
+router.delete("/:semester", async (req, res) => {
+  try {
+    const { semester } = req.params;
+    const decodedSemester = decodeURIComponent(semester);
+
+    await Schedule.deleteMany({ semester: decodedSemester });
+    res.json({ message: "All schedules deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;

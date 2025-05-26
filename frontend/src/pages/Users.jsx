@@ -369,7 +369,7 @@ export default function Users() {
   });
   return (
     <DashboardLayout>
-      <div className="w-full p-4">
+      <div className="w-full p-8">
         {/* Error Message */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

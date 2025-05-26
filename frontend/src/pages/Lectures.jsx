@@ -65,7 +65,6 @@ export default function Lectures() {
       try {
         const lectures = await fetchLectures();
         setTableData(lectures);
-        toast.success("Lectures loaded successfully");
       } catch (err) {
         toast.error(err.response?.data?.error || "Failed to load lectures", {
           description: "Unable to fetch lectures from the server",
@@ -320,7 +319,7 @@ export default function Lectures() {
 
   return (
     <DashboardLayout>
-      <div className="w-full p-4">
+      <div className="w-full p-8">
         {/* Add/Edit Modal */}
         <Dialog open={isModalOpen} onClose={handleModalClose}>
           <div className="fixed inset-0 bg-black/30" />

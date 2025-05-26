@@ -1,4 +1,4 @@
-import { useContext, useRef, useState, useEffect } from "react";
+import { useContext } from "react";
 import SideBarCard from "./SideBarCard";
 import {
   Bolt,
@@ -9,20 +9,17 @@ import {
   SquareChevronDown,
   Group,
   User,
-  ChevronDown,
   Clock2Icon,
+  Calendar,
 } from "lucide-react";
 import clsx from "clsx";
 import { MenuContext } from "@/hooks/MenuProvider";
-import ProfilePanel from "./ProfilePanel";
 import { useAuth } from "@/context/AuthContext";
 
 function SideBar({ className }) {
   const { toggleMenu, isOpen } = useContext(MenuContext);
   const { user } = useAuth();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const profileRef = useRef(null);
-  const panelRef = useRef(null);
+
   const menus = [
     {
       link: "/",
@@ -61,8 +58,8 @@ function SideBar({ className }) {
       icon: <SquareChevronDown size={24} />,
     },
     {
-      link: "/timeslot-manager",
-      text: "Timeslot Manager",
+      link: "/timeslotmanager",
+      text: "Timeslot",
       icon: <Clock2Icon size={24} />,
     },
   ];
@@ -85,13 +82,10 @@ function SideBar({ className }) {
 
     return true;
   });
-  const toggleProfilePanel = () => {
-    setIsProfileOpen(!isProfileOpen);
-  };
 
   return (
     <div className={clsx(className, "flex flex-col min-h-screen px-6")}>
-      <div className="">
+      <div className="sticky top-8">
         <h2 className="flex flex-row items-center justify-between gap-3 text-3xl px-2 py-2">
           <Bolt size={30} onClick={() => toggleMenu(!isOpen)} />
           <span

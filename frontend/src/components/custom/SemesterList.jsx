@@ -2,14 +2,41 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { fetchSemesters } from "@/services/api";
+import { fetchSemesters, deleteSchedule } from "@/services/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Users,
+  BookOpen,
+  RefreshCw,
+  DoorOpen,
+  Trash2,
+  Loader2,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const SemesterList = () => {
   const [semesters, setSemesters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSemester, setSelectedSemester] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,27 +71,176 @@ const SemesterList = () => {
     fetchData();
   }, []);
 
+  const handleDeleteSchedule = async (semester) => {
+    try {
+      setDeleteLoading(true);
+      await deleteSchedule(semester);
+      // Refresh the semesters list
+      const updatedSemesters = semesters.filter((sem) => sem !== semester);
+      setSemesters(updatedSemesters);
+      toast.success("Schedule deleted successfully", {
+        description: `Schedule for ${semester} has been deleted`,
+      });
+      setDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete schedule", {
+        description: "Unable to delete the schedule",
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-6">
+    <div className="container px-8">
       <Card>
         <CardHeader>
           <CardTitle>Available Semesters</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="flex justify-center items-center h-24">
+              <svg
+                className="animate-spin h-8 w-8 text-gray-500"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+                />
+              </svg>
             </div>
           ) : semesters.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {semesters.map((semester) => (
-                <Button key={semester} asChild className="w-full">
-                  <Link to={`/schedules/${encodeURIComponent(semester)}`}>
-                    {semester}
-                  </Link>
-                </Button>
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Semester</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {semesters.map((semester) => (
+                  <TableRow key={semester}>
+                    <TableCell className="font-medium">{semester}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3 justify-end">
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
+                          <Link
+                            to={`/schedules/${encodeURIComponent(semester)}`}
+                          >
+                            <Users className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                            Student Groups
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/lectures`}
+                          >
+                            <BookOpen className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                            Lectures
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/regenerateSchedule`}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                            Reschedule
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                        >
+                          <Link
+                            to={`/schedules/${encodeURIComponent(
+                              semester
+                            )}/free-rooms`}
+                          >
+                            <DoorOpen className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                            Free Rooms
+                          </Link>
+                        </Button>
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setSelectedSemester(semester)}
+                              className="group"
+                            >
+                              <Trash2 className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete Schedule</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete the schedule for{" "}
+                                {selectedSemester}? This action cannot be
+                                undone.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setDialogOpen(false)}
+                                disabled={deleteLoading}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() =>
+                                  handleDeleteSchedule(selectedSemester)
+                                }
+                                disabled={deleteLoading}
+                              >
+                                {deleteLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Delete"
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <p className="text-muted-foreground">No semesters available.</p>
           )}
