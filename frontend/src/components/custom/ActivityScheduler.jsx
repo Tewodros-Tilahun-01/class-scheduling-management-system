@@ -8,6 +8,7 @@ import {
   fetchStudentGroups,
   generateSchedule,
   deleteActivity,
+  checkScheduleStatus,
 } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +41,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 
 // ActivityList Component
 const ActivityList = ({
@@ -188,6 +190,9 @@ const ActivityScheduler = () => {
   const [loadingData, setLoadingData] = useState(true); // Loading state for initial data
   const [loadingActivities, setLoadingActivities] = useState(false); // Loading state for activities
   const [formLoading, setFormLoading] = useState(false);
+  const [generatingSchedule, setGeneratingSchedule] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [workerId, setWorkerId] = useState(null);
 
   // Predefined list of semesters from 2017 to 2027
   const semesters = [];
@@ -257,6 +262,55 @@ const ActivityScheduler = () => {
 
     fetchSemesterActivities();
   }, [semester]);
+
+  // Add polling effect for schedule generation
+  useEffect(() => {
+    let pollInterval;
+
+    const pollStatus = async () => {
+      if (!workerId) return;
+
+      try {
+        const status = await checkScheduleStatus(workerId);
+        setGenerationProgress(status.progress);
+
+        if (status.status === "completed") {
+          setGeneratingSchedule(false);
+          setWorkerId(null);
+          setGenerationProgress(0);
+          toast.success("Schedule generation completed", {
+            description: `Generated schedule for ${semester}`,
+          });
+          navigate(`/schedules/${semester}`);
+        } else if (status.status === "failed") {
+          setGeneratingSchedule(false);
+          setWorkerId(null);
+          setGenerationProgress(0);
+          toast.error("Schedule generation failed", {
+            description: status.error,
+          });
+        }
+      } catch (error) {
+        console.error("Error checking schedule status:", error);
+        setGeneratingSchedule(false);
+        setWorkerId(null);
+        setGenerationProgress(0);
+        toast.error("Error checking schedule status", {
+          description: error.message,
+        });
+      }
+    };
+
+    if (workerId) {
+      pollInterval = setInterval(pollStatus, 2000);
+    }
+
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [workerId, semester, navigate]);
 
   const handleActivityChange = (name, value) => {
     setActivityForm({ ...activityForm, [name]: value });
@@ -377,24 +431,19 @@ const ActivityScheduler = () => {
       });
       return;
     }
+
     try {
-      setFormLoading(true);
-      await generateSchedule(semester);
-      toast.success("Schedule generated successfully", {
-        description: `Generated schedule for ${semester}`,
+      setGeneratingSchedule(true);
+      const { workerId: newWorkerId } = await generateSchedule(semester);
+      setWorkerId(newWorkerId);
+      toast.info("Schedule generation started", {
+        description: "This may take a few minutes",
       });
-      navigate(`/schedules/${semester}`);
-    } catch (err) {
-      toast.error(
-        err.response?.data?.error ||
-          err.message ||
-          "Failed to generate schedule",
-        {
-          description: "Unable to generate the schedule",
-        }
-      );
-    } finally {
-      setFormLoading(false);
+    } catch (error) {
+      setGeneratingSchedule(false);
+      toast.error("Failed to start schedule generation", {
+        description: error.message,
+      });
     }
   };
 
@@ -443,7 +492,7 @@ const ActivityScheduler = () => {
                   <Select
                     value={semester}
                     onValueChange={(value) => setSemester(value)}
-                    disabled={loadingData}
+                    disabled={loadingData || generatingSchedule}
                   >
                     <SelectTrigger id="semester-select">
                       <SelectValue placeholder="Select Semester" />
@@ -461,10 +510,13 @@ const ActivityScheduler = () => {
                   <Button
                     onClick={handleGenerateSchedule}
                     className="bg-green-500 hover:bg-green-600 w-full md:w-auto"
-                    disabled={formLoading || loadingData}
+                    disabled={formLoading || loadingData || generatingSchedule}
                   >
-                    {formLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    {generatingSchedule ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Generating...
+                      </>
                     ) : (
                       "Generate Schedule"
                     )}
@@ -482,6 +534,21 @@ const ActivityScheduler = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Progress Bar */}
+          {generatingSchedule && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Generating Schedule...</span>
+                    <span>{generationProgress}%</span>
+                  </div>
+                  <Progress value={generationProgress} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activity Creation Form */}
           <Card>

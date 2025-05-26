@@ -21,8 +21,15 @@ export const fetchSemesters = async () => {
 };
 
 export const generateSchedule = async (semester) => {
-  const response = await api.post("/schedules/generate", { semester });
-  return response.data;
+  try {
+    const response = await api.post("/schedules/generate", { semester });
+    return response.data; // Returns { message, workerId }
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
 };
 
 export const fetchCourses = async () => {
@@ -279,6 +286,18 @@ export const fetchActivityStats = async (semester) => {
       `/activities/${encodeURIComponent(semester)}/stats`
     );
     return response.data;
+  } catch (error) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw error;
+  }
+};
+
+export const checkScheduleStatus = async (workerId) => {
+  try {
+    const response = await api.get(`/schedules/status/${workerId}`);
+    return response.data; // Returns { status, progress, result, error }
   } catch (error) {
     if (error.response?.data?.error) {
       throw new Error(error.response.data.error);
