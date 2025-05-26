@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   generateSchedule,
   regenerateSchedule,
+  checkWorkerStatus,
 } = require("../services/scheduler");
 const Schedule = require("../models/Schedule");
 const Timeslot = require("../models/Timeslot");
@@ -31,19 +32,14 @@ router.post("/generate", async (req, res) => {
       return res.status(401).json({ error: "Valid user ID is required" });
     }
 
-    const schedules = await generateSchedule(semester, req.user.id.toString());
-    if (!schedules || Object.keys(schedules).length === 0) {
-      return res.status(404).json({
-        error:
-          "No schedules generated. Ensure activities exist for the semester.",
-      });
-    }
-    res.json(schedules);
+    const { workerId } = await generateSchedule(
+      semester,
+      req.user.id.toString()
+    );
+    res.json({ workerId });
   } catch (err) {
-    console.error("Error generating schedule:", err);
-    res
-      .status(500)
-      .json({ error: err.message || "Failed to generate schedule" });
+    console.error("Error starting schedule generation:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1021,4 +1017,17 @@ router.delete("/:semester", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Add new route for checking worker status
+router.get("/status/:workerId", async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const status = await checkWorkerStatus(workerId);
+    res.json(status);
+  } catch (err) {
+    console.error("Error checking worker status:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

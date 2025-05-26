@@ -1,8 +1,27 @@
+const { Worker } = require("worker_threads");
+const path = require("path");
 const Activity = require("../models/Activity");
 const Room = require("../models/Room");
 const Timeslot = require("../models/Timeslot");
 const Schedule = require("../models/Schedule");
 require("../models/User");
+
+// Store active workers
+const activeWorkers = new Map();
+
+// Cleanup completed workers periodically
+setInterval(() => {
+  for (const [workerId, worker] of activeWorkers.entries()) {
+    if (worker.status === "completed" || worker.status === "failed") {
+      try {
+        worker.worker.terminate();
+        activeWorkers.delete(workerId);
+      } catch (error) {
+        console.error(`Error cleaning up worker ${workerId}:`, error);
+      }
+    }
+  }
+}, 600000); // Cleanup every 10 minutes
 
 /*
  * Utility function to shuffle an array in place using Fisher-Yates algorithm.
@@ -33,28 +52,6 @@ async function getDynamicDays() {
   const timeslots = await Timeslot.find({ isDeleted: false }).lean();
   const days = [...new Set(timeslots.map((ts) => ts.day))].sort();
   return days;
-}
-
-/**
- * Sorts timeslots to balance usage across days and prioritize earlier times.
- * Uses day usage count and day order to minimize overbooking on specific days.
- */
-function sortTimeslots(timeslots, schedule, daysOrder) {
-  const dayUsage = daysOrder.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
-  schedule.forEach((entry) => {
-    if (entry.timeslot && entry.timeslot.day) {
-      dayUsage[entry.timeslot.day] = (dayUsage[entry.timeslot.day] || 0) + 1;
-    }
-  });
-  return [...timeslots].sort((a, b) => {
-    const dayA = daysOrder.indexOf(a.day);
-    const dayB = daysOrder.indexOf(b.day);
-    const usageA = dayUsage[a.day] || 0;
-    const usageB = dayUsage[b.day] || 0;
-    if (usageA !== usageB) return usageA - usageB;
-    if (dayA !== dayB) return dayA - dayB;
-    return parseTime(a.startTime) - parseTime(b.startTime);
-  });
 }
 
 /*
@@ -538,262 +535,105 @@ async function backtrackForwardChecking(
  * IMPORTANT: No checks against existing schedules; ensure no concurrent runs to avoid overwrites.
  */
 async function generateSchedule(semester, userId) {
-  const MAX_RETRIES = 30;
-
   if (!semester) {
     throw new Error("Semester is required");
   }
 
-  // Fetch activities for the semester and user
-  const activities = await Activity.find({
-    semester,
-    createdBy: userId,
-    isDeleted: false,
-  })
-    .populate("course lecture studentGroup")
-    .lean();
-  if (activities.length === 0) {
-    throw new Error("No activities found for the specified semester and user");
-  }
+  // Create a new worker
+  const worker = new Worker(
+    path.join(__dirname, "../workers/schedulerWorker.js")
+  );
+  const workerId = Date.now().toString();
 
-  // Expand activities into sessions based on totalDuration and split
-  const expandedActivities = [];
-  activities.forEach((activity) => {
-    if (!activity._id) {
-      throw new Error(`Missing _id for activity`);
+  // Store worker info
+  activeWorkers.set(workerId, {
+    worker,
+    status: "running",
+    progress: 0,
+    result: null,
+    error: null,
+    startTime: Date.now(),
+  });
+
+  // Handle worker messages
+  worker.on("message", (message) => {
+    const workerInfo = activeWorkers.get(workerId);
+    if (workerInfo) {
+      workerInfo.status = message.status;
+      workerInfo.progress = message.progress;
+      if (message.result) workerInfo.result = message.result;
+      if (message.error) workerInfo.error = message.error;
     }
-    const sessions = Math.ceil(activity.totalDuration / activity.split);
-    for (let i = 0; i < sessions; i++) {
-      const remainingDuration = activity.totalDuration - i * activity.split;
-      if (remainingDuration <= 0) break;
-      let currentSessionDuration = Math.min(activity.split, remainingDuration);
-      if (
-        currentSessionDuration < activity.split &&
-        expandedActivities.length > 0
-      ) {
-        expandedActivities[expandedActivities.length - 1].sessionDuration =
-          expandedActivities[expandedActivities.length - 1].sessionDuration +
-          currentSessionDuration;
-        break;
-      }
-      if (currentSessionDuration > 0) {
-        expandedActivities.push({
-          ...activity,
-          _id: `${activity._id}_${i}`,
-          originalId: activity._id,
-          originalActivity: activity,
-          sessionDuration: currentSessionDuration,
-        });
+  });
+
+  // Handle worker errors
+  worker.on("error", (error) => {
+    console.error(`Worker ${workerId} error:`, error);
+    const workerInfo = activeWorkers.get(workerId);
+    if (workerInfo) {
+      workerInfo.status = "failed";
+      workerInfo.error = error.message || "Worker error occurred";
+    }
+  });
+
+  // Handle worker exit
+  worker.on("exit", (code) => {
+    console.log(`Worker ${workerId} exited with code ${code}`);
+    const workerInfo = activeWorkers.get(workerId);
+    if (workerInfo) {
+      if (code !== 0) {
+        workerInfo.status = "failed";
+        workerInfo.error = `Worker stopped with exit code ${code}`;
+      } else if (workerInfo.status === "running") {
+        workerInfo.status = "completed";
       }
     }
   });
 
-  if (expandedActivities.length === 0) {
-    throw new Error("No valid activities to expand");
+  // Start the worker
+  try {
+    worker.postMessage({ semester, userId });
+  } catch (error) {
+    console.error(`Error starting worker ${workerId}:`, error);
+    worker.terminate();
+    activeWorkers.delete(workerId);
+    throw new Error("Failed to start schedule generation worker");
   }
 
-  // Validate total duration of expanded sessions
-  expandedActivities.forEach((activity) => {
-    const total = expandedActivities
-      .filter((a) => a.originalId === activity.originalId)
-      .reduce((sum, a) => sum + a.sessionDuration, 0);
-    const originalActivity = activities.find(
-      (a) => a._id.toString() === activity.originalId.toString()
-    );
-    if (!originalActivity) {
-      throw new Error(`Original activity not found for ${activity.originalId}`);
-    }
-    if (Math.abs(total - originalActivity.totalDuration) > 0.01) {
-      throw new Error(
-        `Total duration mismatch for activity ${activity.originalId}: expected ${originalActivity.totalDuration}, got ${total}`
+  return { workerId };
+}
+
+// Add function to check worker status
+async function checkWorkerStatus(workerId) {
+  const workerInfo = activeWorkers.get(workerId);
+  if (!workerInfo) {
+    throw new Error("Worker not found");
+  }
+
+  // Check if worker has been running too long (e.g., 30 minutes)
+  const MAX_RUNTIME = 30 * 60 * 1000; // 30 minutes in milliseconds
+  if (
+    workerInfo.status === "running" &&
+    Date.now() - workerInfo.startTime > MAX_RUNTIME
+  ) {
+    workerInfo.status = "failed";
+    workerInfo.error = "Worker exceeded maximum runtime";
+    try {
+      workerInfo.worker.terminate();
+    } catch (error) {
+      console.error(
+        `Error terminating long-running worker ${workerId}:`,
+        error
       );
     }
-  });
-
-  // Fetch rooms and timeslots
-  const rooms = await Room.find({ active: true }).lean();
-  const timeslots = await Timeslot.find({ isDeleted: false }).lean();
-
-  // Validate timeslot IDs
-  timeslots.forEach((ts) => {
-    if (!ts._id) {
-      throw new Error(`Timeslot ${ts.day} ${ts.startTime} missing _id`);
-    }
-  });
-
-  // --- INTEGRATION OF SORTING FUNCTIONS ---
-  // Get dynamic days for consistent ordering
-  const daysOrder = await getDynamicDays();
-
-  // Sort timeslots for balanced day usage and earlier times
-  const sortedTimeslots = sortTimeslots(timeslots, [], daysOrder);
-
-  let attempt = 0;
-  let conflicts = [];
-  let schedule = [];
-
-  // Retry scheduling up to MAX_RETRIES times
-  while (attempt < MAX_RETRIES) {
-    console.log(`Scheduling attempt ${attempt + 1} of ${MAX_RETRIES}`);
-
-    // For each activity, sort rooms for that activity and use sortedTimeslots
-    // Optionally, you can pass sortedRooms and sortedTimeslots to sortActivities/buildDomains if needed
-
-    const sortedActivities = await sortActivities(
-      expandedActivities,
-      rooms,
-      sortedTimeslots,
-      attempt > 0
-    );
-
-    schedule = [];
-    const lectureLoad = new Map();
-    const usedTimeslots = new Map();
-    const usedActivityTimeslots = new Map();
-    const scheduledSessions = new Map();
-
-    // Build domains using sortedTimeslots and sorted rooms for each activity
-    const domains = await buildDomains(
-      sortedActivities,
-      rooms,
-      sortedTimeslots,
-      schedule,
-      lectureLoad,
-      usedTimeslots,
-      usedActivityTimeslots
-    );
-
-    const found = await backtrackForwardChecking(
-      sortedActivities,
-      rooms,
-      sortedTimeslots,
-      schedule,
-      lectureLoad,
-      usedTimeslots,
-      usedActivityTimeslots,
-      scheduledSessions,
-      0,
-      userId,
-      domains
-    );
-
-    if (!found) {
-      console.log(`Attempt ${attempt + 1} failed: No valid schedule found`);
-      attempt++;
-      continue;
-    }
-
-    // Check for student group conflicts in the schedule
-    const timeslotGroups = {};
-    schedule.forEach((entry) => {
-      entry.reservedTimeslots.forEach((tsId) => {
-        const key = `${entry.studentGroup?._id || "N/A"}-${tsId}`;
-        if (!timeslotGroups[key]) timeslotGroups[key] = [];
-        timeslotGroups[key].push({
-          activityId: entry.activityId,
-          timeslot: entry.timeslot,
-          reservedTimeslots: entry.reservedTimeslots,
-          room: entry.room,
-          studentGroup: entry.studentGroup?._id,
-        });
-      });
-    });
-    conflicts = Object.values(timeslotGroups)
-      .filter((group) => group.length > 1)
-      .map((group) => group);
-
-    if (conflicts.length === 0) {
-      const schedulesToSave = schedule
-        .filter(
-          (entry) =>
-            entry.activityId &&
-            entry.room &&
-            entry.reservedTimeslots &&
-            entry.reservedTimeslots.length > 0
-        )
-        .map((entry) => {
-          // Populate and sort reservedTimeslots by start time
-          const populatedTimeslots = entry.reservedTimeslots
-            .map((tsId) =>
-              timeslots.find((ts) => ts._id.toString() === tsId.toString())
-            )
-            .filter(Boolean)
-            .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime))
-            .map((ts) => ts._id);
-
-          return {
-            activity: entry.activityId,
-            reservedTimeslots: populatedTimeslots,
-            totalDuration: entry.totalDuration,
-            room: entry.room,
-            studentGroup: entry.studentGroup?._id,
-            createdBy: userId,
-            semester,
-          };
-        });
-
-      try {
-        // Delete existing schedules for the semester
-        await Schedule.deleteMany({ semester });
-        await Schedule.insertMany(schedulesToSave, { ordered: false });
-        console.log("Schedule generated and saved successfully");
-      } catch (error) {
-        console.error("Error saving schedules:", error.stack);
-        throw new Error(`Failed to save schedules: ${error.message}`);
-      }
-
-      // Fetch and group the saved schedules for return
-      const schedules = await Schedule.find({ semester })
-        .populate({
-          path: "activity",
-          populate: [
-            { path: "course", select: "courseCode name" },
-            { path: "lecture", select: "name maxLoad" },
-            {
-              path: "studentGroup",
-              select: "department year section expectedEnrollment",
-            },
-            { path: "createdBy", select: "username name" },
-          ],
-        })
-        .populate("room", "name capacity type building")
-        .populate("reservedTimeslots", "day startTime endTime duration")
-        .populate("studentGroup", "department year section expectedEnrollment")
-        .populate("createdBy", "username name")
-        .lean();
-
-      const groupedSchedules = schedules.reduce((acc, entry) => {
-        const groupId = entry.studentGroup?._id?.toString() || "unknown";
-        if (!acc[groupId]) {
-          acc[groupId] = {
-            studentGroup: entry.studentGroup || {
-              department: "Unknown",
-              year: 0,
-              section: "N/A",
-              expectedEnrollment: 0,
-            },
-            entries: [],
-          };
-        }
-        acc[groupId].entries.push({
-          ...entry,
-          activity: {
-            ...entry.activity,
-            semester: entry.semester || "Unknown",
-          },
-        });
-        return acc;
-      }, {});
-
-      return groupedSchedules;
-    }
-
-    attempt++;
   }
 
-  throw new Error(
-    `Failed to generate schedule after ${MAX_RETRIES} attempts. Conflicts detected.`
-  );
+  return {
+    status: workerInfo.status,
+    progress: workerInfo.progress,
+    result: workerInfo.result,
+    error: workerInfo.error,
+  };
 }
 
 /*
@@ -1087,4 +927,4 @@ async function regenerateSchedule(semester, activityIds, userId) {
   );
 }
 
-module.exports = { generateSchedule, regenerateSchedule };
+module.exports = { generateSchedule, regenerateSchedule, checkWorkerStatus };
