@@ -1,7 +1,7 @@
 import React from "react";
 import Avatar from "../../ui/Avatar";
 import Button from "../../ui/Button2";
-import Badge from "../../ui/Badge";
+import { Badge } from "../../ui/badge";
 import { Camera, Mail, MapPin, Calendar } from "lucide-react";
 
 const ProfileHeader = ({

@@ -16,6 +16,7 @@ import Users from "@/pages/Users";
 import TimeslotManager from "@/pages/TimeslotManager";
 import ProfilePage from "@/pages/Profile";
 import ActivityStats from "@/pages/ActivityStats";
+import NotificationPage from "@/pages/Notification";
 
 const router = createBrowserRouter([
   {
@@ -144,6 +145,14 @@ const router = createBrowserRouter([
     element: (
       <AppLayout>
         <Login />
+      </AppLayout>
+    ),
+  },
+  {
+    path: "notification",
+    element: (
+      <AppLayout>
+        <NotificationPage />
       </AppLayout>
     ),
   },
