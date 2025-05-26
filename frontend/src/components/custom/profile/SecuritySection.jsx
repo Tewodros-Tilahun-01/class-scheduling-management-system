@@ -8,7 +8,7 @@ import {
 } from "../../ui/Card2";
 import Button from "../../ui/Button2";
 import Input from "../../ui/Input2";
-import Badge from "../../ui/Badge";
+import { Badge } from "../../ui/badge";
 import { Eye, EyeOff, Lock, Key, Shield } from "lucide-react";
 import { changeUserPassword } from "@/services/UserService";
 import ErrorMessage from "@/components/ui/auth/ErrorMessage";

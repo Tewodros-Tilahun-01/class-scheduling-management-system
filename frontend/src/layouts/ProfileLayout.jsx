@@ -1,10 +1,15 @@
 import React from "react";
-import { Tabs, TabList, TabTrigger, TabContent } from "../components/ui/Tabs";
-import PageHeader from "./PageHeader";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "../components/ui/tabs";
+import PageHeader from "@/layouts/PageHeader";
 
 const ProfileLayout = ({ children }) => {
   return (
-    <div className="bg-gray-50 min-h-screen w-full p-8 ">
+    <div className="bg-gray-50 min-h-screen w-full ">
       <div className="max-w-5xl  px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
           title="Your Profile"
@@ -13,10 +18,10 @@ const ProfileLayout = ({ children }) => {
 
         <div className="mt-6">
           <Tabs defaultValue="personal-info">
-            <TabList className="bg-white rounded-t-lg shadow-sm px-4">
-              <TabTrigger value="personal-info">Personal Info</TabTrigger>
-              <TabTrigger value="security">Security</TabTrigger>
-            </TabList>
+            <TabsList className="bg-white rounded-t-lg shadow-sm px-4">
+              <TabsTrigger value="personal-info">Personal Info</TabsTrigger>
+              <TabsTrigger value="security">Security</TabsTrigger>
+            </TabsList>
 
             <div className="bg-white rounded-b-lg shadow-sm p-6">
               {children}
