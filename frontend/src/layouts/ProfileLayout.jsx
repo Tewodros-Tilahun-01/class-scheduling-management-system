@@ -16,7 +16,6 @@ const ProfileLayout = ({ children }) => {
             <TabList className="bg-white rounded-t-lg shadow-sm px-4">
               <TabTrigger value="personal-info">Personal Info</TabTrigger>
               <TabTrigger value="security">Security</TabTrigger>
-              <TabTrigger value="notification">Notification</TabTrigger>
             </TabList>
 
             <div className="bg-white rounded-b-lg shadow-sm p-6">

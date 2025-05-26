@@ -133,11 +133,6 @@ const ProfilePage = () => {
           <TabContent value="security">
             <SecuritySection />
           </TabContent>
-
-          <TabContent value="notification">
-            {/* <ActivitySection activities={recentActivities} /> */}
-            <NotificationsSection />
-          </TabContent>
         </div>
       </ProfileLayout>
     </DashboardLayout>
