@@ -9,6 +9,10 @@ const Schedule = require("../models/Schedule");
 const Timeslot = require("../models/Timeslot");
 const Lecture = require("../models/Lectures");
 const Activity = require("../models/Activity");
+require("../models/User");
+require("../models/Course");
+require("../models/StudentGroup");
+
 const mongoose = require("mongoose");
 const {
   Document,

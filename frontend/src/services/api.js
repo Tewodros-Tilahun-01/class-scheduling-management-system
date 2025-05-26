@@ -233,7 +233,7 @@ export const regenerateSchedule = async (semester, activityIds) => {
       activityIds,
       semester,
     });
-    return response.data;
+    return response.data; // Returns { workerId }
   } catch (error) {
     if (error.response?.data?.error) {
       throw new Error(error.response.data.error);

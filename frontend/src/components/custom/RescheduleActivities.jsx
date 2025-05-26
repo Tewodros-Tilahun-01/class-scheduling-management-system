@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { fetchScheduledActivities, regenerateSchedule } from "@/services/api";
+import {
+  fetchScheduledActivities,
+  regenerateSchedule,
+  checkScheduleStatus,
+} from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -37,6 +41,7 @@ import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 const RescheduleActivities = () => {
@@ -47,6 +52,9 @@ const RescheduleActivities = () => {
   const [selectedActivities, setSelectedActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [regenerating, setRegenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [workerId, setWorkerId] = useState(null);
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -65,6 +73,46 @@ const RescheduleActivities = () => {
       fetchActivities();
     }
   }, [semesterid]);
+
+  useEffect(() => {
+    let intervalId;
+
+    const checkProgress = async () => {
+      if (!workerId) return;
+
+      try {
+        const status = await checkScheduleStatus(workerId);
+        setProgress(status.progress);
+
+        if (status.status === "completed") {
+          clearInterval(intervalId);
+          setRegenerating(false);
+          setProgress(0);
+          setWorkerId(null);
+          toast.success("Schedule regenerated successfully");
+          navigate(`/schedules/${semesterid}`);
+        } else if (status.status === "failed") {
+          clearInterval(intervalId);
+          setRegenerating(false);
+          setProgress(0);
+          setWorkerId(null);
+          toast.error(status.error || "Failed to regenerate schedule");
+        }
+      } catch (error) {
+        console.error("Error checking progress:", error);
+      }
+    };
+
+    if (workerId) {
+      intervalId = setInterval(checkProgress, 1000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [workerId, semesterid, navigate]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -133,14 +181,16 @@ const RescheduleActivities = () => {
     }
 
     try {
-      setLoading(true);
-      await regenerateSchedule(semesterid, selectedActivities);
-      toast.success("Schedule regenerated successfully");
-      navigate(`/schedules/${semesterid}`);
+      setRegenerating(true);
+      setProgress(0);
+      const { workerId: newWorkerId } = await regenerateSchedule(
+        semesterid,
+        selectedActivities
+      );
+      setWorkerId(newWorkerId);
     } catch (err) {
+      setRegenerating(false);
       toast.error(err.message || "Failed to regenerate schedule");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -211,20 +261,32 @@ const RescheduleActivities = () => {
               </div>
               <Button
                 onClick={handleRegenerateSchedule}
-                disabled={selectedActivities.length === 0}
+                disabled={selectedActivities.length === 0 || regenerating}
                 className="bg-primary hover:bg-primary/90 text-white shadow-md transition-all duration-200 hover:shadow-lg bg-green-500"
               >
-                {loading ? (
+                {regenerating ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <RefreshCw className="h-4 w-4 mr-2" />
                 )}
-                Regenerate Selected ({selectedActivities.length})
+                {regenerating
+                  ? "Regenerating..."
+                  : `Regenerate Selected (${selectedActivities.length})`}
               </Button>
             </div>
           </CardHeader>
 
           <CardContent>
+            {regenerating && (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Regenerating schedule...</span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
                 <div className="relative flex-1">
