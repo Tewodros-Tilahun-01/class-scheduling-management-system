@@ -186,11 +186,11 @@ router.get("/:semester/free-rooms", async (req, res) => {
     })
       .distinct("room")
       .lean();
-    console.log("timeslot", timeslot);
+
     const occupiedRoomsIds = occupiedRooms.map((room) => {
       return room.toString();
     });
-    console.log("occupiedRoomsIds", occupiedRoomsIds);
+
     // Filter out occupied rooms and format the response
     const freeRooms = rooms
       .filter((room) => {
