@@ -495,8 +495,8 @@ parentPort.on("message", async (data) => {
   try {
     const { semester, userId, activityIds } = data;
 
-    // Update progress to 10% - Initial setup
-    parentPort.postMessage({ status: "running", progress: 10 });
+    // Update progress to 5% - Initial setup
+    parentPort.postMessage({ status: "running", progress: 5 });
 
     // Fetch existing schedules that should remain unchanged
     const existingSchedules = await Schedule.find({
@@ -514,8 +514,8 @@ parentPort.on("message", async (data) => {
       })
       .lean();
 
-    // Update progress to 20% - Existing schedules fetched
-    parentPort.postMessage({ status: "running", progress: 20 });
+    // Update progress to 10% - Existing schedules fetched
+    parentPort.postMessage({ status: "running", progress: 10 });
 
     // Fetch activities to be rescheduled
     const activitiesToReschedule = await Activity.find({
@@ -546,8 +546,8 @@ parentPort.on("message", async (data) => {
       }
     }
 
-    // Update progress to 30% - Activities validated
-    parentPort.postMessage({ status: "running", progress: 30 });
+    // Update progress to 20% - Activities validated
+    parentPort.postMessage({ status: "running", progress: 20 });
 
     // Expand activities into sessions
     const expandedActivities = [];
@@ -581,8 +581,8 @@ parentPort.on("message", async (data) => {
       }
     });
 
-    // Update progress to 40% - Activities expanded
-    parentPort.postMessage({ status: "running", progress: 40 });
+    // Update progress to 30% - Activities expanded
+    parentPort.postMessage({ status: "running", progress: 30 });
 
     // Fetch rooms and timeslots
     const rooms = await Room.find({ active: true }).lean();
@@ -602,9 +602,9 @@ parentPort.on("message", async (data) => {
     }));
 
     let attempt = 0;
-    const MAX_RETRIES = 30;
+    const MAX_RETRIES = 100;
     let schedule = [...initialSchedule];
-    let pr = 45;
+    let pr = 30;
 
     // Retry scheduling up to MAX_RETRIES times
     while (attempt < MAX_RETRIES) {
