@@ -30,7 +30,7 @@ const NotificationItem = ({ notification }) => {
               notification.isRead ? "bg-gray-100" : "bg-blue-100"
             }`}
           >
-            <NotificationIcon type={notification.type} />
+            <NotificationIcon type={notification.severity} />
           </div>
         </div>
 

@@ -4,6 +4,7 @@ const Representative = require("../models/Representative");
 const Schedule = require("../models/Schedule");
 const Lectures = require("../models/Lectures");
 const Course = require("../models/Course");
+const Notification = require("../models/Notification");
 const router = express.Router();
 
 router.get("/attendance", async (req, res) => {
@@ -105,5 +106,30 @@ router.post("/attendance", async (req, res) => {
     res.status(500).json({ message: "Something went wrong" });
   }
 });
-
+router.post("/askReschedule", async (req, res) => {
+  const { reschedule } = req.body;
+  console.log("schedule", reschedule);
+  try {
+    // const scheduleData = await Schedule.findById(reschedule._id);
+    // if (!scheduleData) {
+    //   return res.status(404).json({ message: "Schedule not found" });
+    // }
+    const notification = await Notification.create({
+      title: "Reschedule Request",
+      message: "Please reschedule the schedule",
+      type: "warning",
+      isRead: false,
+      recipientId: reschedule.createdBy._id,
+      recipientRole: "apo",
+      actionUrl: `/schedule/${reschedule._id}`,
+      actionLabel: "View Schedule",
+      severity: "info",
+    });
+    await notification.save();
+    res.status(201).json({ message: "Reschedule request sent successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+});
 module.exports = router;

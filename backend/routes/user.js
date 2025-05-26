@@ -4,6 +4,7 @@ const PersonalInformation = require("../models/PersonalInformation");
 const Representative = require("../models/Representative");
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
+const Notification = require("../models/Notification");
 
 router.get("/", async (req, res) => {
   try {
@@ -158,6 +159,26 @@ router.put("/personalinfo/:id", async (req, res) => {
     res
       .status(200)
       .json({ message: "Updated successfully", data: updatedInfo });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+router.get("/notifications/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const notifications = await Notification.find({
+      $or: [
+        { recipientId: id },
+        { recipientRole: user.role, recipientId: null },
+      ],
+    }).sort({
+      timestamp: -1,
+    });
+    res.status(200).json(notifications);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
