@@ -2,6 +2,7 @@ import LoadingOverlay from "../components/ui/LoadingOverlay";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { MenuProvider } from "../hooks/MenuProvider";
 import ThemeLayout from "./ThemeLayout";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 const AppLayoutContent = ({ children }) => {
   const { loading } = useAuth();
@@ -15,11 +16,13 @@ const AppLayoutContent = ({ children }) => {
 
 const AppLayout = ({ children }) => (
   <AuthProvider>
-    <ThemeLayout>
-      <MenuProvider>
-        <AppLayoutContent>{children}</AppLayoutContent>
-      </MenuProvider>
-    </ThemeLayout>
+    <NotificationProvider>
+      <ThemeLayout>
+        <MenuProvider>
+          <AppLayoutContent>{children}</AppLayoutContent>
+        </MenuProvider>
+      </ThemeLayout>
+    </NotificationProvider>
   </AuthProvider>
 );
 

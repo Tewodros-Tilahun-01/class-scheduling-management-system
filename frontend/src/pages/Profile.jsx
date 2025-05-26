@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { TabContent } from "../components/ui/Tabs";
+import { TabsContent } from "../components/ui/tabs";
 import ProfileLayout from "../layouts/ProfileLayout";
 import ProfileHeader from "../components/custom/profile/ProfileHeader";
 import UserInfoSection from "../components/custom/profile/UserInfoSection";
@@ -118,7 +118,7 @@ const ProfilePage = () => {
         />
 
         <div className="mt-8">
-          <TabContent value="personal-info">
+          <TabsContent value="personal-info">
             <UserInfoSection
               contactInfo={contactInfo}
               personalInfo={personalInfo}
@@ -128,11 +128,11 @@ const ProfilePage = () => {
               info={info}
               hanldeEditSubmit={hanldeEditSubmit}
             />
-          </TabContent>
+          </TabsContent>
 
-          <TabContent value="security">
+          <TabsContent value="security">
             <SecuritySection />
-          </TabContent>
+          </TabsContent>
         </div>
       </ProfileLayout>
     </DashboardLayout>
