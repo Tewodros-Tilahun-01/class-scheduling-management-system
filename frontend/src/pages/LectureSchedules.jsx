@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchSchedules, fetchTimeslots, exportSchedule } from "@/services/api";
+import { fetchSchedules, fetchTimeslots } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -11,17 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Loader2,
-  Users,
-  Home,
-  RefreshCw,
-  ArrowLeft,
-  BarChart2,
-  Search,
-} from "lucide-react";
+import { Loader2, Users, Home, RefreshCw, Search } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { saveAs } from "file-saver";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const ScheduleTable = () => {
+const LectureSchedules = () => {
   const { semester } = useParams();
   const decodedSemester = decodeURIComponent(semester);
   const [allSchedules, setAllSchedules] = useState(null);
@@ -41,7 +32,6 @@ const ScheduleTable = () => {
   const [timeslotsLoading, setTimeslotsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [timeslotsError, setTimeslotsError] = useState(null);
-  const [exportLoading, setExportLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
@@ -62,17 +52,52 @@ const ScheduleTable = () => {
     return map;
   }, [timeslots]);
 
-  // Helper: get sorted reserved timeslots for an entry
-  const getSortedReservedTimeslots = (entry) => {
-    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
-      return [];
-    return [...entry.reservedTimeslots]
-      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
-      .filter(Boolean)
-      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-  };
+  // Get unique departments and years for filters
+  const departments = React.useMemo(() => {
+    if (!allSchedules) return [];
+    return [
+      ...new Set(
+        Object.values(allSchedules)
+          .filter((groupData) => groupData?.studentGroup?.department)
+          .map((groupData) => groupData.studentGroup.department)
+      ),
+    ].sort();
+  }, [allSchedules]);
 
-  // Find activities that overlap with a timeslot cell
+  const years = React.useMemo(() => {
+    if (!allSchedules) return [];
+    return [
+      ...new Set(
+        Object.values(allSchedules)
+          .filter((groupData) => groupData?.studentGroup?.year)
+          .map((groupData) => groupData.studentGroup.year)
+      ),
+    ].sort();
+  }, [allSchedules]);
+
+  // Filter schedules based on search and filters
+  const filteredSchedules = React.useMemo(() => {
+    if (!allSchedules) return {};
+
+    return Object.entries(allSchedules).reduce((acc, [key, groupData]) => {
+      const studentGroup = groupData.studentGroup || {};
+      const groupString =
+        `${studentGroup.department} ${studentGroup.year} ${studentGroup.section}`.toLowerCase();
+
+      const matchesSearch =
+        searchQuery === "" || groupString.includes(searchQuery.toLowerCase());
+      const matchesDepartment =
+        departmentFilter === "all" ||
+        studentGroup.department === departmentFilter;
+      const matchesYear =
+        yearFilter === "all" || studentGroup.year === yearFilter;
+
+      if (matchesSearch && matchesDepartment && matchesYear) {
+        acc[key] = groupData;
+      }
+      return acc;
+    }, {});
+  }, [allSchedules, searchQuery, departmentFilter, yearFilter]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,24 +157,14 @@ const ScheduleTable = () => {
     fetchTimeslotsData();
   }, [decodedSemester]);
 
-  const handleExport = async () => {
-    try {
-      setExportLoading(true);
-      const data = await exportSchedule(decodedSemester);
-      const blob = new Blob([data], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-      saveAs(blob, `Schedule_${decodedSemester.replace(/\s/g, "_")}.docx`);
-      toast.success("Schedule exported successfully", {
-        description: `Downloaded schedule for ${decodedSemester}`,
-      });
-    } catch (err) {
-      toast.error("Failed to export schedule", {
-        description: err.message,
-      });
-    } finally {
-      setExportLoading(false);
-    }
+  // Helper: get sorted reserved timeslots for an entry
+  const getSortedReservedTimeslots = (entry) => {
+    if (!entry.reservedTimeslots || entry.reservedTimeslots.length === 0)
+      return [];
+    return [...entry.reservedTimeslots]
+      .map((ts) => (typeof ts === "object" ? ts : timeslotMap[ts]))
+      .filter(Boolean)
+      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
   };
 
   // Build a 2D array: rows = timeslots for the day, columns = days
@@ -192,31 +207,28 @@ const ScheduleTable = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <Table className="border border-black ">
+          <Table className="border border-black">
             <TableHeader>
-              <TableRow className="border border-black  ">
-                <TableHead className="border border-black ">Time</TableHead>
+              <TableRow className="border border-black">
+                <TableHead className="border border-black">Time</TableHead>
                 {uniqueDays.map((day) => (
-                  <TableHead key={day} className="border border-black ">
+                  <TableHead key={day} className="border border-black">
                     {day}
                   </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* For each row (timeslot index) */}
               {(() => {
-                // Find the max number of timeslots in any day
                 const maxRows = Math.max(
                   ...uniqueDays.map((day) => dayTimeslots[day].length)
                 );
                 return Array.from({ length: maxRows }).map((_, rowIdx) => (
                   <TableRow
                     key={`row-${rowIdx}`}
-                    className="border border-black "
+                    className="border border-black"
                   >
-                    {/* Time column: show the time for the first day that has this row */}
-                    <TableCell className="border border-black ">
+                    <TableCell className="border border-black">
                       {(() => {
                         for (const day of uniqueDays) {
                           if (dayTimeslots[day][rowIdx]) {
@@ -227,14 +239,13 @@ const ScheduleTable = () => {
                         return "";
                       })()}
                     </TableCell>
-                    {/* For each day, render the cell */}
                     {uniqueDays.map((day) => {
                       const ts = dayTimeslots[day][rowIdx];
                       if (!ts)
                         return (
                           <TableCell
                             key={day}
-                            className="border border-black "
+                            className="border border-black"
                           />
                         );
                       const cellKey = `${day}-${ts._id.toString()}`;
@@ -246,7 +257,7 @@ const ScheduleTable = () => {
                           <TableCell
                             key={day}
                             rowSpan={cellInfo.span}
-                            className="border border-black "
+                            className="border border-black"
                           >
                             <div>
                               {entry.activity?.course
@@ -272,10 +283,9 @@ const ScheduleTable = () => {
                           </TableCell>
                         );
                       }
-                      // No activity starts here
                       return (
-                        <TableCell key={day} className="border border-black ">
-                          <span className=" flex justify-center">-</span>
+                        <TableCell key={day} className="border border-black">
+                          <span className="flex justify-center">-</span>
                         </TableCell>
                       );
                     })}
@@ -289,53 +299,6 @@ const ScheduleTable = () => {
     );
   };
 
-  // Get unique departments and years for filters
-  const departments = React.useMemo(() => {
-    if (!allSchedules) return [];
-    return [
-      ...new Set(
-        Object.values(allSchedules)
-          .filter((groupData) => groupData?.studentGroup?.department)
-          .map((groupData) => groupData.studentGroup.department)
-      ),
-    ].sort();
-  }, [allSchedules]);
-
-  const years = React.useMemo(() => {
-    if (!allSchedules) return [];
-    return [
-      ...new Set(
-        Object.values(allSchedules)
-          .filter((groupData) => groupData?.studentGroup?.year)
-          .map((groupData) => groupData.studentGroup.year)
-      ),
-    ].sort();
-  }, [allSchedules]);
-
-  // Filter schedules based on search and filters
-  const filteredSchedules = React.useMemo(() => {
-    if (!allSchedules) return {};
-
-    return Object.entries(allSchedules).reduce((acc, [key, groupData]) => {
-      const studentGroup = groupData.studentGroup || {};
-      const groupString =
-        `${studentGroup.department} ${studentGroup.year} ${studentGroup.section}`.toLowerCase();
-
-      const matchesSearch =
-        searchQuery === "" || groupString.includes(searchQuery.toLowerCase());
-      const matchesDepartment =
-        departmentFilter === "all" ||
-        studentGroup.department === departmentFilter;
-      const matchesYear =
-        yearFilter === "all" || studentGroup.year === yearFilter;
-
-      if (matchesSearch && matchesDepartment && matchesYear) {
-        acc[key] = groupData;
-      }
-      return acc;
-    }, {});
-  }, [allSchedules, searchQuery, departmentFilter, yearFilter]);
-
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6 space-y-8">
@@ -343,13 +306,13 @@ const ScheduleTable = () => {
         <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50">
           <div className="flex items-center gap-6">
             <Link
-              to={`/schedules/${encodeURIComponent(semester)}/lectures`}
+              to={`/schedules/${encodeURIComponent(semester)}`}
               className="flex items-center px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all duration-200"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-primary/10 mr-2">
                 <Users className="h-4 w-4" />
               </div>
-              <span className="font-medium">Lecture Schedules</span>
+              <span className="font-medium">All Schedules</span>
             </Link>
             <div className="h-8 w-px bg-border/50" />
             <Link
@@ -379,25 +342,8 @@ const ScheduleTable = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Schedules for {decodedSemester}</CardTitle>
+            <CardTitle>Lecture Schedules for {decodedSemester}</CardTitle>
           </CardHeader>
-          <CardContent className="flex space-x-4 justify-between">
-            <Button
-              onClick={handleExport}
-              disabled={
-                exportLoading || !allSchedules || loading || timeslotsLoading
-              }
-            >
-              {exportLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                "Export Schedule"
-              )}
-            </Button>
-          </CardContent>
         </Card>
 
         {loading || timeslotsLoading ? (
@@ -528,4 +474,4 @@ const ScheduleTable = () => {
   );
 };
 
-export default ScheduleTable;
+export default LectureSchedules;
