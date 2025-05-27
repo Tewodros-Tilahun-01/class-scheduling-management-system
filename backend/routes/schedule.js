@@ -260,13 +260,14 @@ router.get("/:semester/export", async (req, res) => {
     }
 
     const groupedSchedules = schedules.reduce((acc, entry) => {
-      const groupId = entry.studentGroup?._id?.toString() || "unknown";
+      const groupId =
+        entry.activity?.studentGroup?._id?.toString() || "unknown";
       if (!acc[groupId]) {
         acc[groupId] = {
-          studentGroup: entry.studentGroup || {
-            department: "Unknown",
-            year: 0,
-            section: "N/A",
+          studentGroup: entry.activity?.studentGroup || {
+            department: entry.activity?.studentGroup?.department || "Unknown",
+            year: entry.activity?.studentGroup?.year || 0,
+            section: entry.activity?.studentGroup?.section || "N/A",
           },
           entries: [],
         };
