@@ -623,7 +623,7 @@ parentPort.on("message", async (data) => {
     }));
 
     let attempt = 0;
-    const MAX_RETRIES = 1;
+    const MAX_RETRIES = 300;
     let schedule = [...initialSchedule];
     let pr = 30;
 
