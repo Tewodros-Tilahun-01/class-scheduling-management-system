@@ -7,6 +7,9 @@ const Schedule = require("../models/Schedule");
 const Course = require("../models/Course");
 const Lecture = require("../models/Lectures");
 const StudentGroup = require("../models/StudentGroup");
+const {
+  createScheduleGenerationNotification,
+} = require("../services/notificationService");
 require("../models/User");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -502,9 +505,9 @@ async function backtrackForwardChecking(
 
 // Handle worker messages
 parentPort.on("message", async (data) => {
-  try {
-    const { semester, userId } = data;
+  const { semester, userId } = data;
 
+  try {
     // Update progress to 10% - Initial setup
     parentPort.postMessage({ status: "running", progress: 10 });
 
@@ -561,7 +564,7 @@ parentPort.on("message", async (data) => {
       }
     });
 
-    // Update progress to 30% - Activities expanded
+    // Update progress to 15% - Activities expanded
     parentPort.postMessage({ status: "running", progress: 15 });
 
     // Fetch rooms and timeslots
@@ -569,14 +572,14 @@ parentPort.on("message", async (data) => {
     const timeslots = await Timeslot.find({ isDeleted: false }).lean();
     const daysOrder = await getDynamicDays();
 
-    // Update progress to 40% - Resources loaded
-    parentPort.postMessage({ status: "running", progress: 20 });
+    // Update progress to 25% - Resources loaded
+    parentPort.postMessage({ status: "running", progress: 25 });
 
     // Sort timeslots for balanced day usage
     const sortedTimeslots = sortTimeslots(timeslots, [], daysOrder);
 
     let attempt = 0;
-    const MAX_RETRIES = 300;
+    const MAX_RETRIES = 10;
     let conflicts = [];
     let schedule = [];
     let pr = 17;
@@ -589,7 +592,7 @@ parentPort.on("message", async (data) => {
         status: "running",
         progress: Math.min(95, pr),
       });
-      pr += 2;
+      pr += 1;
 
       const sortedActivities = await sortActivities(
         expandedActivities,
@@ -730,6 +733,9 @@ parentPort.on("message", async (data) => {
             result: groupedSchedules,
           });
 
+          // Create success notification
+          await createScheduleGenerationNotification(userId, "success");
+
           // Close MongoDB connection and exit gracefully
           try {
             await mongoose.connection.close();
@@ -752,10 +758,29 @@ parentPort.on("message", async (data) => {
     );
   } catch (error) {
     console.error("Worker error:", error);
+
+    // Create failure notification
+    try {
+      if (userId) {
+        await createScheduleGenerationNotification(
+          userId,
+          "failed",
+          error.message
+        );
+      } else {
+        console.error(
+          "Cannot create failure notification: userId is undefined"
+        );
+      }
+    } catch (notifError) {
+      console.error("Error creating failure notification:", notifError);
+    }
+
     parentPort.postMessage({
       status: "failed",
       error: error.message || "Unknown error occurred",
     });
+
     // Close MongoDB connection and exit with error code
     try {
       await mongoose.connection.close();

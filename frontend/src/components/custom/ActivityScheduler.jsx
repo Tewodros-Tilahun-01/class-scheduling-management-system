@@ -42,6 +42,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { useNotifications } from "@/context/NotificationContext";
 
 // ActivityList Component
 const ActivityList = ({
@@ -193,6 +194,7 @@ const ActivityScheduler = () => {
   const [generatingSchedule, setGeneratingSchedule] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [workerId, setWorkerId] = useState(null);
+  const { refreshNotifications } = useNotifications();
 
   // Predefined list of semesters from 2017 to 2027
   const semesters = [];
@@ -281,6 +283,8 @@ const ActivityScheduler = () => {
           toast.success("Schedule generation completed", {
             description: `Generated schedule for ${semester}`,
           });
+          // Only refresh notifications on successful completion
+          refreshNotifications();
           navigate(`/schedules/${semester}`);
         } else if (status.status === "failed") {
           setGeneratingSchedule(false);
@@ -302,7 +306,7 @@ const ActivityScheduler = () => {
     };
 
     if (workerId) {
-      pollInterval = setInterval(pollStatus, 2000);
+      pollInterval = setInterval(pollStatus, 1000);
     }
 
     return () => {
@@ -310,7 +314,7 @@ const ActivityScheduler = () => {
         clearInterval(pollInterval);
       }
     };
-  }, [workerId, semester, navigate]);
+  }, [workerId, semester, navigate, refreshNotifications]);
 
   const handleActivityChange = (name, value) => {
     setActivityForm({ ...activityForm, [name]: value });

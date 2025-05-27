@@ -3,24 +3,40 @@ import NotificationIcon from "./NotificationIcon";
 import { CheckCircle2, Trash2, ExternalLink } from "lucide-react";
 import { useNotifications } from "@/context/NotificationContext";
 import { formatNotificationTime } from "@/util/dateUtils";
+import { useNavigate } from "react-router-dom";
 
 const NotificationItem = ({ notification }) => {
   const { markAsRead, deleteNotification } = useNotifications();
+  const navigate = useNavigate();
 
   const handleMarkAsRead = (e) => {
     e.stopPropagation();
-    markAsRead(notification.id);
+    markAsRead(notification._id);
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    deleteNotification(notification.id);
+    deleteNotification(notification._id);
+  };
+
+  const handleClick = () => {
+    if (!notification.isRead) {
+      markAsRead(notification._id);
+    }
+    if (notification.metadata?.status === "failed") {
+      navigate("/activity");
+    }
+    // Handle action based on metadata
+    if (notification.metadata?.action === "view_schedule") {
+      navigate("/");
+    }
   };
 
   return (
     <div
-      className={`group px-6 py-4 border-b border-gray-100 transition-all duration-200 hover:bg-gray-50 ${
-        notification.isRead ? "bg-white" : "bg-green-100"
+      onClick={handleClick}
+      className={`group px-6 py-4 border-b border-gray-100 transition-all duration-200 hover:bg-gray-50 cursor-pointer ${
+        notification.isRead ? "bg-white" : "bg-green-50"
       }`}
     >
       <div className="flex items-start gap-4">
@@ -44,7 +60,7 @@ const NotificationItem = ({ notification }) => {
               {notification.title}
             </h4>
             <span className="text-xs font-medium text-gray-500 whitespace-nowrap ml-4">
-              {formatNotificationTime(notification.timestamp)}
+              {formatNotificationTime(new Date(notification.timestamp))}
             </span>
           </div>
 
@@ -52,15 +68,20 @@ const NotificationItem = ({ notification }) => {
             {notification.message}
           </p>
 
-          {notification.actionUrl && (
+          {notification.metadata?.action && (
             <div className="mt-2.5">
-              <a
-                href={notification.actionUrl}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClick();
+                }}
                 className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
               >
-                {notification.actionLabel || "View details"}
+                {notification.metadata.action === "view_schedule"
+                  ? "View Schedule"
+                  : "View details"}
                 <ExternalLink className="ml-1 h-3 w-3" />
-              </a>
+              </button>
             </div>
           )}
         </div>

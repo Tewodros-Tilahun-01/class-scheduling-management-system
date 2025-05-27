@@ -8,6 +8,9 @@ const Course = require("../models/Course");
 const Lecture = require("../models/Lectures");
 const StudentGroup = require("../models/StudentGroup");
 const User = require("../models/User");
+const {
+  createScheduleRegenerationNotification,
+} = require("../services/notificationService");
 require("../models/User");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -503,9 +506,9 @@ async function backtrackForwardChecking(
 
 // Handle worker messages
 parentPort.on("message", async (data) => {
-  try {
-    const { semester, userId, activityIds } = data;
+  const { semester, userId, activityIds } = data;
 
+  try {
     // Update progress to 5% - Initial setup
     parentPort.postMessage({ status: "running", progress: 5 });
 
@@ -620,7 +623,7 @@ parentPort.on("message", async (data) => {
     }));
 
     let attempt = 0;
-    const MAX_RETRIES = 100;
+    const MAX_RETRIES = 1;
     let schedule = [...initialSchedule];
     let pr = 30;
 
@@ -806,13 +809,16 @@ parentPort.on("message", async (data) => {
             result: groupedSchedules,
           });
 
+          // Create success notification
+          await createScheduleRegenerationNotification(userId, "success");
+
           // Close MongoDB connection and exit gracefully
           try {
             await mongoose.connection.close();
           } catch (err) {
             console.error("Error closing MongoDB connection:", err);
           }
-          process.exit(0);
+          process.exit(0); // Exit with success code
           return;
         } catch (error) {
           console.error("Error saving rescheduled activities:", error.stack);
@@ -830,10 +836,29 @@ parentPort.on("message", async (data) => {
     );
   } catch (error) {
     console.error("Worker error:", error);
+
+    // Create failure notification
+    try {
+      if (userId) {
+        await createScheduleRegenerationNotification(
+          userId,
+          "failed",
+          error.message
+        );
+      } else {
+        console.error(
+          "Cannot create failure notification: userId is undefined"
+        );
+      }
+    } catch (notifError) {
+      console.error("Error creating failure notification:", notifError);
+    }
+
     parentPort.postMessage({
       status: "failed",
       error: error.message || "Unknown error occurred",
     });
+
     // Close MongoDB connection and exit with error code
     try {
       await mongoose.connection.close();

@@ -2,11 +2,20 @@ import { useNotifications } from "@/context/NotificationContext";
 import NotificationItem from "./NotificationItem";
 import EmptyState from "@/components/ui/EmptyState";
 import { groupNotificationsByDate } from "@/util/dateUtils";
+import { Loader2 } from "lucide-react";
 
 const NotificationList = () => {
-  const { getFilteredNotifications } = useNotifications();
+  const { getFilteredNotifications, loading } = useNotifications();
   const filteredNotifications = getFilteredNotifications();
   const groupedNotifications = groupNotificationsByDate(filteredNotifications);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   if (filteredNotifications.length === 0) {
     return (
@@ -30,7 +39,7 @@ const NotificationList = () => {
           <div>
             {group.notifications.map((notification) => (
               <NotificationItem
-                key={notification.id}
+                key={notification._id}
                 notification={notification}
               />
             ))}

@@ -1,33 +1,97 @@
-export const formatNotificationTime = (date) => {
+/**
+ * Formats a date into a relative time string (e.g., "2 hours ago")
+ * @param {Date|string} date - The date to format
+ * @returns {string} The formatted date string
+ */
+export function formatNotificationTime(date) {
+  if (!date) return "";
+
+  // Convert string to Date if needed
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+
+  if (isNaN(dateObj.getTime())) {
+    console.error("Invalid date:", date);
+    return "";
+  }
+
   const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInSeconds = Math.floor((now - dateObj) / 1000);
 
   if (diffInSeconds < 60) {
-    return "Just now";
+    return "just now";
   }
 
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) {
-    return `${diffInMinutes}m ago`;
+    return `${diffInMinutes} ${diffInMinutes === 1 ? "minute" : "minutes"} ago`;
   }
 
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) {
-    return `${diffInHours}h ago`;
+    return `${diffInHours} ${diffInHours === 1 ? "hour" : "hours"} ago`;
   }
 
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 7) {
-    return diffInDays === 1 ? "Yesterday" : `${diffInDays}d ago`;
+    return `${diffInDays} ${diffInDays === 1 ? "day" : "days"} ago`;
   }
 
-  // If more than a week ago, show the date
-  return date.toLocaleDateString("en-US", {
+  // If more than a week ago, return the actual date
+  return dateObj.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    year: "numeric",
   });
-};
+}
+
+/**
+ * Groups notifications by date
+ * @param {Array} notifications - Array of notification objects
+ * @returns {Array} Array of grouped notifications
+ */
+export function groupNotificationsByDate(notifications) {
+  if (!notifications || !Array.isArray(notifications)) {
+    return [];
+  }
+
+  const groups = {};
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  notifications.forEach((notification) => {
+    if (!notification.timestamp) return;
+
+    const date = new Date(notification.timestamp);
+    if (isNaN(date.getTime())) {
+      console.error("Invalid notification timestamp:", notification.timestamp);
+      return;
+    }
+
+    let label;
+    if (date.toDateString() === today.toDateString()) {
+      label = "Today";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      label = "Yesterday";
+    } else {
+      label = date.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+
+    if (!groups[label]) {
+      groups[label] = [];
+    }
+    groups[label].push(notification);
+  });
+
+  return Object.entries(groups).map(([label, notifications]) => ({
+    label,
+    notifications,
+  }));
+}
 
 export const isToday = (date) => {
   const today = new Date();
@@ -46,46 +110,4 @@ export const isYesterday = (date) => {
     date.getMonth() === yesterday.getMonth() &&
     date.getFullYear() === yesterday.getFullYear()
   );
-};
-
-export const groupNotificationsByDate = (notifications) => {
-  // Sort notifications by date (newest first)
-  const sortedNotifications = [...notifications].sort(
-    (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-  );
-
-  // Group into "Today", "Yesterday", and "Earlier"
-  const groups = [];
-
-  const todayNotifications = sortedNotifications.filter((n) =>
-    isToday(n.timestamp)
-  );
-  if (todayNotifications.length > 0) {
-    groups.push({
-      label: "Today",
-      notifications: todayNotifications,
-    });
-  }
-
-  const yesterdayNotifications = sortedNotifications.filter((n) =>
-    isYesterday(n.timestamp)
-  );
-  if (yesterdayNotifications.length > 0) {
-    groups.push({
-      label: "Yesterday",
-      notifications: yesterdayNotifications,
-    });
-  }
-
-  const earlierNotifications = sortedNotifications.filter(
-    (n) => !isToday(n.timestamp) && !isYesterday(n.timestamp)
-  );
-  if (earlierNotifications.length > 0) {
-    groups.push({
-      label: "Earlier",
-      notifications: earlierNotifications,
-    });
-  }
-
-  return groups;
 };

@@ -43,6 +43,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import { useNotifications } from "@/context/NotificationContext";
 
 const RescheduleActivities = () => {
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ const RescheduleActivities = () => {
   const [regenerating, setRegenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [workerId, setWorkerId] = useState(null);
+  const { refreshNotifications } = useNotifications();
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -90,6 +92,7 @@ const RescheduleActivities = () => {
           setProgress(0);
           setWorkerId(null);
           toast.success("Schedule regenerated successfully");
+          refreshNotifications();
           navigate(`/schedules/${semesterid}`);
         } else if (status.status === "failed") {
           clearInterval(intervalId);
@@ -112,7 +115,7 @@ const RescheduleActivities = () => {
         clearInterval(intervalId);
       }
     };
-  }, [workerId, semesterid, navigate]);
+  }, [workerId, semesterid, navigate, refreshNotifications]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
