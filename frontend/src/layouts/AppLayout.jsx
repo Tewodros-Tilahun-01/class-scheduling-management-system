@@ -16,13 +16,13 @@ const AppLayoutContent = ({ children }) => {
 
 const AppLayout = ({ children }) => (
   <AuthProvider>
-    <NotificationProvider>
-      <ThemeLayout>
+    <ThemeLayout>
+      <NotificationProvider>
         <MenuProvider>
           <AppLayoutContent>{children}</AppLayoutContent>
         </MenuProvider>
-      </ThemeLayout>
-    </NotificationProvider>
+      </NotificationProvider>
+    </ThemeLayout>
   </AuthProvider>
 );
 

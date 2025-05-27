@@ -2,6 +2,7 @@ const { Router } = require("express");
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Representative = require("../models/Representative");
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -87,19 +88,25 @@ router.get("/me", (req, res) => {
       });
   });
 });
-router.post("/verify", async (req, res) => {
+router.post("/verify", async (req, res, next) => {
   const { token } = req.body;
-  console.log("Iam here!");
   if (!token) {
     return res.status(400).json({ message: "Token is required" });
   }
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       console.log(err.message);
       return res.status(401).json({ message: "Unauthorized" });
     }
-    console.log("decoded", decoded);
-    res.status(200).json({ user: decoded });
+    try {
+      const representative = await Representative.findOne({
+        _id: decoded.id,
+      }).populate("studentGroup");
+      console.log("representative", representative);
+      res.status(200).json({ user: representative });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
   });
 });
 module.exports = router;

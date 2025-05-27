@@ -32,6 +32,20 @@ const notificationSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // Additional fields for schedule operations
+    actionUrl: {
+      type: String,
+      default: null,
+    },
+    actionLabel: {
+      type: String,
+      default: null,
+    },
+    severity: {
+      type: String,
+      enum: ["info", "error", "success", "warning"],
+      default: "info",
+    },
   },
   {
     timestamps: true,

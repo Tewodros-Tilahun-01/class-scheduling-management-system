@@ -7,6 +7,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext({
   notifications: [],
@@ -29,9 +30,12 @@ export const NotificationProvider = ({ children }) => {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   // Simple fetch notifications function
   const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
       setLoading(true);
       const response = await api.get("/notifications");
@@ -42,12 +46,14 @@ export const NotificationProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
-  // Initial fetch
+  // Initial fetch when user is available
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [user?.id, fetchNotifications]);
 
   // Update unread count whenever notifications change
   useEffect(() => {
