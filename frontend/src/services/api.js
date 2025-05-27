@@ -77,8 +77,10 @@ export const fetchRooms = async () => {
   return response.data;
 };
 
-export const fetchRoomTypes = async () => {
-  const response = await api.get("/rooms/room-types");
+export const fetchRoomTypes = async ({ active } = {}) => {
+  const response = await api.get("/rooms/room-types", {
+    params: { active },
+  });
   return response.data;
 };
 

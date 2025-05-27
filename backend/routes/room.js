@@ -17,11 +17,20 @@ router.get("/", async (req, res) => {
 
 // GET /api/rooms/room-types - Retrieve distinct room types
 router.get("/room-types", async (req, res) => {
-  try {
-    const roomTypes = await Room.distinct("type", {
+  const { active } = req.query;
+  let qurey = null;
+  if (active) {
+    qurey = {
       isDeleted: false,
       active: true,
-    });
+    };
+  } else {
+    qurey = {
+      isDeleted: false,
+    };
+  }
+  try {
+    const roomTypes = await Room.distinct("type", qurey);
     res.json(roomTypes);
   } catch (err) {
     console.error("Error fetching room types:", err);

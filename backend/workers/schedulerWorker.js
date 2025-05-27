@@ -110,20 +110,24 @@ async function isValidAssignmentSingleTimeslot(
     return false;
   }
 
+  // Check if room is occupied for all reserved timeslots
   for (const entry of schedule) {
     if (!entry.room || !entry.activityData) {
       console.error("Invalid schedule entry:", entry);
       return false;
     }
-    if (
-      entry.room.toString() === room._id.toString() &&
+
+    // Check if room is occupied in any of the reserved timeslots
+    const isRoomOccupied =
       entry.reservedTimeslots.some(
         (tsId) => tsId.toString() === timeslot._id.toString()
-      )
-    ) {
+      ) && entry.room.toString() === room._id.toString();
+
+    if (isRoomOccupied) {
       return false;
     }
 
+    // Check for lecture conflicts
     const entryLectureId = entry.activityData.lecture?._id?.toString();
     const activityLectureId = activity.lecture?._id?.toString();
     if (
@@ -137,6 +141,7 @@ async function isValidAssignmentSingleTimeslot(
       return false;
     }
 
+    // Check for student group conflicts
     if (
       activity.studentGroup?._id &&
       entry.activityData.studentGroup?._id &&
@@ -148,6 +153,8 @@ async function isValidAssignmentSingleTimeslot(
     ) {
       return false;
     }
+
+    // Check for activity conflicts
     if (
       (entry.activityData.originalId || entry.activityData._id).toString() ===
         (activity.originalId || activity._id).toString() &&
@@ -159,16 +166,20 @@ async function isValidAssignmentSingleTimeslot(
     }
   }
 
+  // Check if timeslot-room combination is already used
   const timeslotRoomKey = `${timeslot._id}-${room._id}`;
   if (usedTimeslots.has(timeslotRoomKey)) {
     return false;
   }
+
+  // Check if activity-timeslot combination is already used
   const activityTimeslotKey = `${activity.originalId || activity._id}-${
     timeslot._id
   }-${activity.studentGroup?._id || "N/A"}`;
   if (usedActivityTimeslots.has(activityTimeslotKey)) {
     return false;
   }
+
   return true;
 }
 

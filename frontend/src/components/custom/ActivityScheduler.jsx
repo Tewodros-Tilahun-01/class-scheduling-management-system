@@ -211,7 +211,7 @@ const ActivityScheduler = () => {
           await Promise.all([
             fetchCourses(),
             fetchLectures(),
-            fetchRoomTypes(),
+            fetchRoomTypes({ active: true }),
             fetchStudentGroups(),
           ]);
 
