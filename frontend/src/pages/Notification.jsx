@@ -5,7 +5,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 const NotificationPage = () => {
   return (
     <DashboardLayout>
-      <div className="h-screen p-0">
+      <div className="h-screen px-4">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
           <div className="border-b border-gray-200 bg-white px-6 py-5">
             <h2 className="text-2xl font-semibold text-gray-800 flex items-center">

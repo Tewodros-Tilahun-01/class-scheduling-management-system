@@ -576,7 +576,7 @@ parentPort.on("message", async (data) => {
     const sortedTimeslots = sortTimeslots(timeslots, [], daysOrder);
 
     let attempt = 0;
-    const MAX_RETRIES = 30;
+    const MAX_RETRIES = 300;
     let conflicts = [];
     let schedule = [];
     let pr = 17;
