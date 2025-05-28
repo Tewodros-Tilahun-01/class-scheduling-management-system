@@ -18,12 +18,13 @@ const representativeRoutes = require("./representative");
 const generalRoutes = require("./general");
 const authMiddleware = require("../middleware/authMiddleware");
 const notificationRoutes = require("./notification");
-
+const application = require("./application");
 // Routes
 
 // Public auth routes
 router.use("/auth", authRoutes);
 router.use("/representatives", representativeRoutes);
+router.use("/schedules", application);
 
 // All routes below require authentication
 router.use(authMiddleware);

@@ -13,10 +13,6 @@ const NotificationItem = ({ notification }) => {
     if (!notification.isRead) {
       markAsRead(notification._id);
     }
-
-    if (notification.metadata?.scheduleId) {
-      navigate(`/schedules/${notification.metadata.scheduleId}`);
-    }
   };
 
   const handleDelete = (e) => {

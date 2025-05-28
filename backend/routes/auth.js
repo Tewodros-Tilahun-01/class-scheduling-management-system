@@ -100,7 +100,7 @@ router.get("/me", (req, res) => {
 });
 router.post("/verify", async (req, res, next) => {
   const { token } = req.body;
-  console.log("Token received for verification:", token);
+  // console.log("Token received for verification:", token);
   if (!token) {
     return res.status(400).json({ message: "Token is required" });
   }

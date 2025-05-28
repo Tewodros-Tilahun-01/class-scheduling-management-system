@@ -54,15 +54,12 @@ const LoginForm = () => {
       <h1 className="text-3xl font-bold text-center mb-4 font-underdog">
         Login to Your Account
       </h1>
-      <p className="text-gray-600 text-center mb-8 font-quicksand">
-        Vorem ipsum dolor sit amet, consectetur adipiscing elit. Vorem ipsum
-        dolor sit amet, consectetur adipiscing elit.
-      </p>
+      <p className="text-gray-600 text-center mb-8 font-quicksand">welcome</p>
       {error && <ErrorMessage message={error} />}
 
       <InputField
         type="email"
-        placeholder="Email/User name"
+        placeholder="Email"
         value={credentials.username}
         onChange={(e) =>
           setCredentials({ ...credentials, username: e.target.value })
@@ -80,14 +77,7 @@ const LoginForm = () => {
           })
         }
       />
-
-      <p className="text-sm text-gray-500 font-quicksand font-medium mb-4 text-center">
-        Don't have an account yet?{" "}
-        <a href="#" className="text-blue-600 hover:underline">
-          Register here
-        </a>
-      </p>
-
+      <br />
       <Button>Login to Your Account</Button>
     </form>
   );

@@ -58,7 +58,6 @@ router.post("/attendance", async (req, res) => {
         $lt: new Date(new Date(date).setHours(23, 59, 59)),
       },
     });
-    console.log(existingAttendance);
 
     if (existingAttendance) {
       return res.status(400).json({
@@ -68,22 +67,21 @@ router.post("/attendance", async (req, res) => {
     }
 
     const representative = await Representative.findById(markedBy);
-    console.log(representative, markedBy);
     if (!representative) {
       return res.status(404).json({ message: "Representative not found" });
     }
-    // const existingSchedule = await Schedule.findById(schedule);
-    // if (!existingSchedule) {
-    //   return res.status(404).json({ message: "Schedule not found" });
-    // }
-    // const existingTeacher = await Lecture.findById(teacher);
-    // if (!existingTeacher) {
-    //   return res.status(404).json({ message: "Teacher not found" });
-    // }
-    // const existingCourse = await Course.findById(course);
-    // if (!existingCourse) {
-    //   return res.status(404).json({ message: "Course not found" });
-    // }
+    const existingSchedule = await Schedule.findById(schedule);
+    if (!existingSchedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+    const existingTeacher = await Lectures.findById(teacher);
+    if (!existingTeacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+    const existingCourse = await Course.findById(course);
+    if (!existingCourse) {
+      return res.status(404).json({ message: "Course not found" });
+    }
 
     const attendance = await Attendance.create({
       schedule: schedule,
@@ -96,10 +94,8 @@ router.post("/attendance", async (req, res) => {
       arrivalTime,
       departureTime,
     });
-    console.log(attendance);
 
     const newAttendance = await attendance.save();
-    console.log(newAttendance);
     res.status(201).json({ message: "Attendance marked successfully" });
   } catch (error) {
     console.log(error);
@@ -108,23 +104,33 @@ router.post("/attendance", async (req, res) => {
 });
 router.post("/askReschedule", async (req, res) => {
   const { reschedule } = req.body;
-  console.log("schedule", reschedule);
+
   try {
-    // const scheduleData = await Schedule.findById(reschedule._id);
-    // if (!scheduleData) {
-    //   return res.status(404).json({ message: "Schedule not found" });
-    // }
+    const scheduleData = await Schedule.findById(reschedule._id);
+    if (!scheduleData) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+
     const notification = await Notification.create({
+      user: reschedule.createdBy._id, // Required field
       title: "Reschedule Request",
-      message: "Please reschedule the schedule",
+      message: `Reschedule requested for:\n
+• Course: ${reschedule.course.name}
+\n• Teacher: ${reschedule.teacher.name}
+\n • Group: ${reschedule.classGroup.department}
+\n• Room: ${reschedule.room}
+`,
       type: "warning",
       isRead: false,
-      recipientId: reschedule.createdBy._id,
-      recipientRole: "apo",
-      actionUrl: `/schedule/${reschedule._id}`,
-      actionLabel: "View Schedule",
-      severity: "info",
+      metadata: {
+        scheduleId: reschedule._id,
+        requestedBy: reschedule.createdBy._id,
+      },
+      actionUrl: `/activity`,
+      actionLabel: `view activity`,
+      severity: "warning",
     });
+
     await notification.save();
     res.status(201).json({ message: "Reschedule request sent successfully" });
   } catch (error) {
