@@ -8,7 +8,11 @@ const app = express();
 // Connect to the database
 connectDB();
 
-const allowedOrigins = ["http://localhost:8081", "http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:8081",
+  "http://localhost:5173",
+  "http://192.168.0.124:8081",
+];
 app.use(
   cors({
     origin: function (origin, callback) {

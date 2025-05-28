@@ -3,9 +3,10 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Representative = require("../models/Representative");
+const e = require("express");
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -55,7 +56,16 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  res.clearCookie("token");
+  res.cookie(
+    "token",
+    "logout",
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    },
+    { expires: new Date(0) }
+  ); // Set cookie to expire immediately
   res.status(200).json({ message: "Logged out" });
 });
 
@@ -90,6 +100,7 @@ router.get("/me", (req, res) => {
 });
 router.post("/verify", async (req, res, next) => {
   const { token } = req.body;
+  console.log("Token received for verification:", token);
   if (!token) {
     return res.status(400).json({ message: "Token is required" });
   }

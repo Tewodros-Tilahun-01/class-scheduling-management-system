@@ -24,19 +24,17 @@ router.get("/room-types", async (req, res) => {
       isDeleted: false,
       active: true,
     };
+    try {
+      const roomTypes = await Room.distinct("type", qurey);
+      res.json(roomTypes);
+    } catch (err) {
+      console.error("Error fetching room types:", err);
+      res
+        .status(500)
+        .json({ error: err.message || "Failed to fetch room types" });
+    }
   } else {
-    qurey = {
-      isDeleted: false,
-    };
-  }
-  try {
-    const roomTypes = await Room.distinct("type", qurey);
-    res.json(roomTypes);
-  } catch (err) {
-    console.error("Error fetching room types:", err);
-    res
-      .status(500)
-      .json({ error: err.message || "Failed to fetch room types" });
+    res.status(200).json(["lecture", "lab", "seminar", "other"]);
   }
 });
 
@@ -163,23 +161,18 @@ router.get("/:semester/free-rooms", async (req, res) => {
   try {
     const { semester } = req.params;
     const { day, timeslot } = req.query;
+    const timeslotId = timeslot;
 
-    if (!day || !timeslot) {
+    if (!day || !timeslotId) {
       return res.status(400).json({
-        error: "Both day and timeslot are required parameters",
+        error: "Both day and timeslotId are required parameters",
       });
     }
 
-    // Get all active rooms
-    const rooms = await Room.find({
-      isDeleted: false,
-      active: true,
-    }).lean();
-
-    // First get the timeslot details
+    // First get the timeslotId details
     const timeslotDetails = await mongoose
       .model("Timeslot")
-      .findById(timeslot)
+      .findById(timeslotId)
       .lean();
 
     if (!timeslotDetails) {
@@ -188,33 +181,27 @@ router.get("/:semester/free-rooms", async (req, res) => {
       });
     }
 
-    // Get occupied rooms for the given day and timeslot
-    const occupiedRooms = await Schedule.find({
-      semester: decodeURIComponent(semester),
-      reservedTimeslots: timeslot,
-    })
-      .distinct("room")
-      .lean();
+    // Get all active rooms
+    const allRooms = await Room.find({
+      active: true,
+      isDeleted: false,
+    }).lean();
 
-    const occupiedRoomsIds = occupiedRooms.map((room) => {
-      return room.toString();
-    });
+    // Get all schedules for the semester that use this timeslot
+    const occupiedSchedules = await Schedule.find({
+      semester,
+      reservedTimeslots: { $in: [timeslotId] },
+    }).lean();
 
-    // Filter out occupied rooms and format the response
-    const freeRooms = rooms
-      .filter((room) => {
-        return !occupiedRoomsIds.includes(room._id.toString());
-      })
-      .map((room) => ({
-        _id: room._id,
-        name: room.name,
-        capacity: room.capacity,
-        type: room.type,
-        building: room.building,
-      }));
+    // Create a set of occupied room IDs
+    const occupiedRoomIds = new Set(
+      occupiedSchedules.map((schedule) => schedule.room.toString())
+    );
 
-    // Sort rooms by name for consistency
-    freeRooms.sort((a, b) => a.name.localeCompare(b.name));
+    // Filter out occupied rooms
+    const freeRooms = allRooms.filter(
+      (room) => !occupiedRoomIds.has(room._id.toString())
+    );
 
     res.json({
       day,

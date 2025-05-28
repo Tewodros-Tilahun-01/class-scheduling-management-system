@@ -180,19 +180,16 @@ router.get("/:semester", async (req, res) => {
 router.get("/group/:studentGroupId", async (req, res) => {
   try {
     const { studentGroupId } = req.params;
-    const { semester, own } = req.query;
+    const { semester } = req.query;
+
     if (!mongoose.Types.ObjectId.isValid(studentGroupId)) {
       return res.status(400).json({ error: "Invalid studentGroupId" });
     }
 
-    const query = { studentGroup: studentGroupId };
+    const query = {
+      studentGroup: studentGroupId,
+    };
     if (semester) query.semester = semester;
-    if (own === "true") {
-      if (!req.user?.id || !mongoose.Types.ObjectId.isValid(req.user.id)) {
-        return res.status(401).json({ error: "Valid user ID is required" });
-      }
-      query.createdBy = req.user.id;
-    }
 
     const schedules = await Schedule.find(query)
       .populate({
