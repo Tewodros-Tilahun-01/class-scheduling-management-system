@@ -12,7 +12,7 @@ const scheduleRoutes = require("./schedule");
 const authRoutes = require("./auth");
 const userRoutes = require("./user");
 const adminRoutes = require("./admin");
-
+const buildingRoutes = require("./building");
 const representativeRoutes = require("./representative");
 const generalRoutes = require("./general");
 const authMiddleware = require("../middleware/authMiddleware");
@@ -28,6 +28,7 @@ router.use("/activities", activityRoutes);
 router.use("/courses", courseRoutes);
 router.use("/lectures", lectureRoutes);
 router.use("/rooms", roomRoutes);
+router.use("/buildings", buildingRoutes);
 router.use("/schedules", scheduleRoutes);
 router.use("/studentGroups", studentGroupRoutes);
 router.use("/timeslots", timeslotRoutes);

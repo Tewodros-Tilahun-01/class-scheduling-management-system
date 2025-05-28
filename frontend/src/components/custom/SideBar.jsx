@@ -67,7 +67,9 @@ function SideBar({ className }) {
     if (!user) return true;
 
     if (
-      (menu.text === "Users" || menu.text === "Manage Rips") &&
+      (menu.text === "Users" ||
+        menu.text === "Manage Rips" ||
+        menu.text === "Rooms") &&
       (user.role === "apo" || user.role === "user")
     ) {
       return false;

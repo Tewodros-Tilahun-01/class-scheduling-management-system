@@ -46,11 +46,13 @@ import {
   addRoom,
   updateRoom,
   deleteRoom,
+  fetchBuildings,
 } from "@/services/api";
 
 export default function Room() {
   const [tableData, setTableData] = React.useState([]);
   const [roomTypes, setRoomTypes] = React.useState([]);
+  const [buildings, setBuildings] = React.useState([]);
   const [sorting, setSorting] = React.useState([]);
   const [columnFilters, setColumnFilters] = React.useState([]);
   const [columnVisibility, setColumnVisibility] = React.useState({});
@@ -70,24 +72,23 @@ export default function Room() {
   });
   const [formErrors, setFormErrors] = React.useState({});
 
-  // Fetch rooms and room types on mount
+  // Fetch rooms, room types, and buildings on mount
   React.useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [rooms, types] = await Promise.all([
+        const [rooms, types, buildingsData] = await Promise.all([
           fetchRooms(),
           fetchRoomTypes(),
+          fetchBuildings(),
         ]);
         setTableData(rooms);
         setRoomTypes(types);
+        setBuildings(buildingsData);
       } catch (err) {
-        toast.error(
-          err.response?.data?.error || "Failed to load rooms or room types",
-          {
-            description: "Unable to fetch data from the server",
-          }
-        );
+        toast.error(err.response?.data?.error || "Failed to load data", {
+          description: "Unable to fetch data from the server",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -104,7 +105,7 @@ export default function Room() {
       errors.capacity = "Capacity must be a positive number";
     }
     if (!newRow.type) errors.type = "Room type is required";
-    if (!newRow.building.trim()) errors.building = "Building is required";
+    if (!newRow.building) errors.building = "Building is required";
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) {
       toast.error("Please fill all required fields", {
@@ -478,16 +479,26 @@ export default function Room() {
                   <label htmlFor="building" className="text-sm font-medium">
                     Building
                   </label>
-                  <Input
-                    id="building"
+                  <Select
                     value={newRow.building}
-                    onChange={(e) =>
-                      setNewRow({ ...newRow, building: e.target.value })
+                    onValueChange={(value) =>
+                      setNewRow({ ...newRow, building: value })
                     }
-                    placeholder="Building"
-                    className={formErrors.building ? "border-red-500" : ""}
                     disabled={isSubmitting}
-                  />
+                  >
+                    <SelectTrigger
+                      className={formErrors.building ? "border-red-500" : ""}
+                    >
+                      <SelectValue placeholder="Select building" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {buildings.map((building) => (
+                        <SelectItem key={building._id} value={building._id}>
+                          {building.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {formErrors.building && (
                     <p className="text-red-500 text-sm">
                       {formErrors.building}

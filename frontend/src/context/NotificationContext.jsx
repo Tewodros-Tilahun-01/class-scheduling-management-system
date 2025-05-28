@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { generateMockNotifications } from "../util/mockData";
 import { getNotifications } from "../services/NotificationService";
 import { useAuth } from "./AuthContext";
 
@@ -55,7 +54,7 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = async (id) => {
     setNotifications((prev) =>
       prev.map((notification) =>
-        notification.id === id
+        notification._id === id
           ? { ...notification, isRead: true }
           : notification
       )
@@ -70,7 +69,7 @@ export const NotificationProvider = ({ children }) => {
 
   const deleteNotification = (id) => {
     setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id)
+      prev.filter((notification) => notification._id !== id)
     );
   };
 

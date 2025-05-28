@@ -287,4 +287,14 @@ export const fetchActivityStats = async (semester) => {
   }
 };
 
+export const fetchBuildings = async () => {
+  const response = await api.get("/buildings");
+  return response.data;
+};
+
+export const fetchBuildingById = async (id) => {
+  const response = await api.get(`/buildings/${id}`);
+  return response.data;
+};
+
 export default api;

@@ -95,14 +95,15 @@ router.post("/verify", async (req, res, next) => {
   }
   jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
-      console.log(err.message);
       return res.status(401).json({ message: "Unauthorized" });
     }
     try {
       const representative = await Representative.findOne({
         _id: decoded.id,
       }).populate("studentGroup");
-      console.log("representative", representative);
+      if (!representative) {
+        return res.status(404).json({ message: "Representative not found" });
+      }
       res.status(200).json({ user: representative });
     } catch (error) {
       res.status(500).json({ message: "Server error" });
