@@ -333,4 +333,31 @@ export const deleteBuilding = async (id) => {
   return response.data;
 };
 
+export const exportRoomReport = async (semester) => {
+  try {
+    const response = await api.get(
+      `/rooms/${encodeURIComponent(semester)}/export-report`,
+      {
+        responseType: "blob",
+        headers: {
+          Accept:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.error || "Export failed");
+      } catch (e) {
+        throw new Error("Failed to export room report");
+      }
+    }
+    throw error;
+  }
+};
+
 export default api;

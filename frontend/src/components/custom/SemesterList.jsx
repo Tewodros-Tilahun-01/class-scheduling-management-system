@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { fetchSemesters, deleteSchedule } from "@/services/api";
+import {
+  fetchSemesters,
+  deleteSchedule,
+  exportRoomReport,
+} from "@/services/api";
 import {
   Table,
   TableBody,
@@ -19,6 +23,7 @@ import {
   DoorOpen,
   Trash2,
   Loader2,
+  FileText,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,6 +42,7 @@ const SemesterList = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +94,33 @@ const SemesterList = () => {
       });
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleExportRoomReport = async (semester) => {
+    try {
+      setExportLoading(true);
+      const blob = await exportRoomReport(semester);
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Room_Report_${semester.replace(/\s/g, "_")}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Room report exported successfully", {
+        description: `Report for ${semester} has been downloaded`,
+      });
+    } catch (err) {
+      toast.error(err.message || "Failed to export room report", {
+        description: "Unable to generate the room report",
+      });
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -190,6 +223,20 @@ const SemesterList = () => {
                             <DoorOpen className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                             Free Rooms
                           </Link>
+                        </Button>
+                        <Button
+                          variant="green-link"
+                          size="sm"
+                          className="group"
+                          onClick={() => handleExportRoomReport(semester)}
+                          disabled={exportLoading}
+                        >
+                          {exportLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                          )}
+                          Room Report
                         </Button>
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                           <DialogTrigger asChild>
