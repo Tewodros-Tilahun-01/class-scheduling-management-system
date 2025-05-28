@@ -1,3 +1,6 @@
+import { toast } from "sonner";
+import api from "@/services/api";
+
 import {
   createContext,
   useContext,
@@ -5,8 +8,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
-import { toast } from "sonner";
-import api from "@/services/api";
+
 import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext({
@@ -99,7 +101,6 @@ export const NotificationProvider = ({ children }) => {
       toast.error("Failed to delete notification");
     }
   };
-
   const clearAll = async () => {
     try {
       await api.delete("/notifications");

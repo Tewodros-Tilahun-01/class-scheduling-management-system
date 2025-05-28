@@ -7,7 +7,7 @@ export const loginUser = async (credentials) => {
       `${API_URL}/api/auth/login`,
       credentials,
       {
-        withCredentials: true, // Add this
+        withCredentials: true,
         timeout: 8000,
       }
     );
