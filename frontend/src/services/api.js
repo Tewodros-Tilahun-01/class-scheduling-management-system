@@ -318,4 +318,19 @@ export const fetchBuildingById = async (id) => {
   return response.data;
 };
 
+export const addBuilding = async (buildingData) => {
+  const response = await api.post("/buildings", buildingData);
+  return response.data;
+};
+
+export const updateBuilding = async (id, buildingData) => {
+  const response = await api.put(`/buildings/${id}`, buildingData);
+  return response.data;
+};
+
+export const deleteBuilding = async (id) => {
+  const response = await api.delete(`/buildings/${id}`);
+  return response.data;
+};
+
 export default api;

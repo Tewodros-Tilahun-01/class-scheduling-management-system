@@ -25,7 +25,6 @@ const buildingSchema = new mongoose.Schema(
 );
 
 // Add index for better query performance
-buildingSchema.index({ name: 1, code: 1 });
 
 const Building = mongoose.model("Building", buildingSchema);
 
