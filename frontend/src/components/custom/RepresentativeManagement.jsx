@@ -27,17 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
 import {
   addRepresentative,
   updateRepresentativeInfo,
@@ -46,15 +36,75 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ErrorMessage from "../ui/auth/ErrorMessage";
 import { toast } from "sonner";
 
-// Define departments and years arrays
-const departments = [
-  "Computer Science",
-  "Mathematics",
-  "Physics",
-  "Engineering",
-  "Biology",
+// Student groups data
+const studentGroups = [
+  {
+    _id: "680d46b6ce09d35d77c63bc7",
+    department: "Computer Science",
+    year: 1,
+    section: "B",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bc8",
+    department: "Computer Science",
+    year: 2,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bc9",
+    department: "Computer Science",
+    year: 3,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bca",
+    department: "Software Engineering",
+    year: 1,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bcb",
+    department: "Software Engineering",
+    year: 2,
+    section: "B",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bcc",
+    department: "Software Engineering",
+    year: 3,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bcd",
+    department: "Information Systems",
+    year: 1,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bce",
+    department: "Information Systems",
+    year: 2,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bcf",
+    department: "Information Systems",
+    year: 4,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bd0",
+    department: "Electrical Engineering",
+    year: 1,
+    section: "A",
+  },
+  {
+    _id: "680d46b6ce09d35d77c63bd1",
+    department: "Electrical Engineering",
+    year: 2,
+    section: "B",
+  },
 ];
-const years = [1, 2, 3, 4];
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -72,6 +122,16 @@ export default function RepresentativeManagement() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Get unique departments, years, and sections from student groups
+  const departments = [
+    ...new Set(studentGroups.map((group) => group.department)),
+  ];
+  const years = [...new Set(studentGroups.map((group) => group.year))].sort();
+  const sections = [
+    ...new Set(studentGroups.map((group) => group.section)),
+  ].sort();
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: edit
@@ -109,7 +169,6 @@ export default function RepresentativeManagement() {
       updateRepresentativeInfo(user._id, data)
         .then(() => {
           console.log("successfully updated!");
-
           navigate(`${location.pathname}`);
         })
         .catch((err) => {
@@ -122,7 +181,6 @@ export default function RepresentativeManagement() {
       addRepresentative(data)
         .then(() => {
           toast.success("Representative added successfully");
-          // navigate(`${location.pathname}`);
         })
         .catch((err) => {
           setError(err.response.data.message);
@@ -223,15 +281,30 @@ export default function RepresentativeManagement() {
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
                   name="section"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Section</FormLabel>
-                      <FormControl>
-                        <Input placeholder="section" {...field} />
-                      </FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select section" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {sections.map((section) => (
+                            <SelectItem key={section} value={section}>
+                              Section {section}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -240,8 +313,10 @@ export default function RepresentativeManagement() {
                 <Button
                   className="bg-green-600 hover:bg-green-500 font-bold"
                   type="submit"
+                  disabled={isLoading}
                 >
-                  {edit ? "Edit" : "Add"} Representative
+                  {isLoading ? "Loading..." : edit ? "Update" : "Add"}{" "}
+                  Representative
                 </Button>
               </form>
             </Form>

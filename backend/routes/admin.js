@@ -22,7 +22,7 @@ router.get("/getRepresentatives", async (req, res) => {
         _id: rep._id,
       };
     });
-    console.log(newReps);
+
     res.status(200).json(newReps);
   } catch (err) {
     res.status(500).json(err);
@@ -30,14 +30,13 @@ router.get("/getRepresentatives", async (req, res) => {
 });
 router.post("/addRepresentative", async (req, res) => {
   const { name, department, year, section } = req.body;
-  console.log(name, department, year, section);
 
   try {
     // First check if a student group exists with these details
     const studentGroup = await StudentGroup.findOne({
-      department,
+      department: { $regex: new RegExp(`^${department}$`, "i") },
       year,
-      section,
+      section: { $regex: new RegExp(`^${section}$`, "i") },
     });
 
     if (!studentGroup) {
