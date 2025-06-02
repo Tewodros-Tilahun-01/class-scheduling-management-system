@@ -12,8 +12,7 @@ const NotificationPage = () => {
               Notifications Center
             </h2>
             <p className="mt-1.5 text-sm text-gray-600">
-              Stay informed about important updates, messages, and system
-              notifications
+              Stay informed about important updates, messages
             </p>
           </div>
           <NotificationHeader />
