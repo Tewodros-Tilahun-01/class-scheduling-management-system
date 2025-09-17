@@ -104,9 +104,11 @@ npm run dev
 ---
 
 ## you can found out the moblie app in this repo:
-https://github.com/Yosef64/scheduling-mobile
+[link](https://github.com/Yosef64/scheduling-mobile)
 
 ---
+
+![web preview](/preview/Screencast%20from%202025-09-17%2010-15-14.webm)
 
 ## Customization
 - **Frontend**: Modify components in `frontend/src/` for UI changes.
