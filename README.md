@@ -1,7 +1,8 @@
 # Class Scheduling Management System
 
 A full-stack web application for managing class schedules, lectures, rooms, student groups, and related academic activities. The system provides an intuitive interface for administrators, staff, and users to efficiently organize and manage academic schedules and resources.
-
+you can found out the moblie app in this repo
+[link](https://github.com/Yosef64/scheduling-mobile)
 ---
 
 ## Features
@@ -103,13 +104,9 @@ npm run dev
 
 ---
 
-## you can found out the moblie app in this repo:
-[link](https://github.com/Yosef64/scheduling-mobile)
+<video src="preview/Screencast.webm" controls muted playsinline style="max-width:100%;height:auto;"></video>
 
 ---
-
-<video src="preview/Screencast%20from%202025-09-17%2010-15-14.webm" controls muted playsinline style="max-width:100%;height:auto;"></video>
-
 
 ## Customization
 - **Frontend**: Modify components in `frontend/src/` for UI changes.
