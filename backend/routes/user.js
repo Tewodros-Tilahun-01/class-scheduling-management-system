@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   const { username, password, role, name } = req.body;
-
+  console.log(username,password,role,name)
   try {
     // Check if the user already exists
     const existingUser = await User.find({ $or: [{ username }] });

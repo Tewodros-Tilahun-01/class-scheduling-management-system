@@ -16,16 +16,13 @@ const LoginForm = () => {
   const { signIn } = useAuth();
 
   const validateForm = () => {
+   
     if (!credentials.username) {
-      setError("Please enter your email address");
-      return false;
-    }
-    if (!credentials.username.includes("@")) {
-      setError("Please enter a valid email address");
+      setError("Please enter a valid username");
       return false;
     }
     if (credentials.password.length < 6) {
-      setError("PIN must be greater that 6 digits");
+      setError("Password must be greater that 6 digits");
       return false;
     }
     return true;
@@ -58,8 +55,8 @@ const LoginForm = () => {
       {error && <ErrorMessage message={error} />}
 
       <InputField
-        type="email"
-        placeholder="Email"
+        type="input"
+        placeholder="Username"
         value={credentials.username}
         onChange={(e) =>
           setCredentials({ ...credentials, username: e.target.value })
@@ -68,7 +65,7 @@ const LoginForm = () => {
 
       <InputField
         type="password"
-        placeholder="6 Digit Pin"
+        placeholder="Password"
         value={credentials.password}
         onChange={(e) =>
           setCredentials({
