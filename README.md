@@ -67,26 +67,31 @@ class-scheduling-management-system/
 
 ### 1. Clone the Repository
 ```bash
-git clone <repo-url>
+git clone https://github.com/Tewodros-Tilahun-01/class-scheduling-management-system.git
 cd class-scheduling-management-system
 ```
 
 ### 2. Setup the Backend
 ```bash
 cd backend
-cp .env.example .env   # Create your environment file and set MONGO_URI
+cp .env   # Create your environment file and set MONGO_URI
 npm install
+npm run seed # create the dummy data
 npm start
 ```
 - The backend will start on `http://localhost:5000` by default.
 - Ensure your `.env` file contains the correct `MONGO_URI` for MongoDB.
 
+
 ### 3. Setup the Frontend
 ```bash
 cd ../frontend
+cp .env   # Create your environment file and set `VITE_API_URL = http://localhost:5000`
 npm install
 npm run dev
 ```
+
+- Ensure your `.env` file contains the correct `VITE_API_URL = http://localhost:5000`
 - The frontend will start on `http://localhost:5173` by default.
 
 ---
@@ -98,14 +103,15 @@ npm run dev
 
 ---
 
+## you can found out the moblie app in this repo:
+https://github.com/Yosef64/scheduling-mobile
+
+---
+
 ## Customization
 - **Frontend**: Modify components in `frontend/src/` for UI changes.
 - **Backend**: Add or update API routes and models in `backend/` as needed.
 
----
 
-## License
-This project is licensed under the ISC License.
 
----
 
