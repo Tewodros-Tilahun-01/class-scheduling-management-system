@@ -108,8 +108,7 @@ npm run dev
 
 ---
 
-[▶️ Screencast (MP4)](preview/Screencast.mp4)
-
+[![Watch the video](https://img.youtube.com/vi/snGwK4Vb524/maxresdefault.jpg)](https://youtu.be/snGwK4Vb524)
 ---
 
 ## Customization
