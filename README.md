@@ -108,7 +108,7 @@ npm run dev
 
 ---
 
-<video src="preview/Screencast.mp4" controls muted playsinline style="max-width:100%;height:auto;"></video>
+[▶️ Screencast (MP4)](preview/Screencast.mp4)
 
 ---
 
