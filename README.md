@@ -108,7 +108,8 @@ npm run dev
 
 ---
 
-![web preview](/preview/Screencast%20from%202025-09-17%2010-15-14.webm)
+<video src="preview/Screencast%20from%202025-09-17%2010-15-14.webm" controls muted playsinline style="max-width:100%;height:auto;"></video>
+
 
 ## Customization
 - **Frontend**: Modify components in `frontend/src/` for UI changes.
