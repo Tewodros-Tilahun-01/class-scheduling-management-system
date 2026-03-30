@@ -1,13 +1,13 @@
+
+
+// Connect to the database
+connectDB();
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const routes = require("./routes");
 const cookieParser = require("cookie-parser");
 const app = express();
-
-// Connect to the database
-connectDB();
-
 const allowedOrigins = [
   "http://localhost:8081",
   "http://localhost:5173",
